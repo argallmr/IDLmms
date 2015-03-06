@@ -35,6 +35,10 @@
 ;+
 ;   Create a set of test data for the EDI bestarg process.
 ;
+; :Examples:
+;   View the test data::
+;       IDL> data = mms_edi_test_data(/VIEW)
+;
 ; :Categories:
 ;       MMS, EDI, Bestarg
 ;
@@ -50,34 +54,36 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/25  -   Written by Matthew Argall
+;       2015/03/04  -   Force at least one sun pulse time. - MRA
 ;-
 ;*****************************************************************************************
 ;+
 ;   Create time tags for a data set. All data must be in the despun-ocs coordinate system.
 ;
 ; :Params:
-;       B_MAG:          in, required, type=float, default=40.0
+;       BMAG:           in, required, type=float, default=40.0
 ;                       Magnitude of the magnetic field to create, in nano-Tesla
-;       E_MAG:          in, required, type=float, default=0.5
+;       EMAG:           in, required, type=float, default=0.5
 ;                       Magnitude of the electric field to create, in milli-Volts/meter
-;       GUN1_POS:       in, required, type=3xN float
+;       GUN1_POS_DOCS:  in, required, type=3xN float
 ;                       Position of Gun1 with respect to Detector2, in millimeters.
-;       GUN2_POS:       in, required, type=3xN float
+;       GUN2_POS_DOCS:  in, required, type=3xN float
 ;                       Position of Gun2 with respect to Detector1, in millimeters.
 ;
 ; :KEYWORDS:
 ;       VERBOSE:        in, optional, type=boolean, default=0
 ;                       Print test values.
+;       VIEW:           in, optional, type=boolean, default=0
+;                       If set, a graphic of the test data will be created.
 ;-
-function mms_edi_test_fa, B, d, gun1_pos_docs, gun2_pos_docs, $
-VIEW=view, $
-VERBOSE=verbose
+function mms_edi_test_fa, B_docs, E_docs, gun1_pos_docs, gun2_pos_docs, $
+VIEW=view
 	compile_opt idl2
 	on_error, 2
 
-	;Default magnitudes
-	verbose = keyword_set(verbose)
+	;Defaults
 	view    = keyword_set(view)
+	nPts    = n_elements(B_docs[0,*])
 	
 ;---------------------------------------------------------------------
 ; Rotate into BPP ////////////////////////////////////////////////////
@@ -85,21 +91,11 @@ VERBOSE=verbose
 	;Determine the B-perp plane
 	xyz2bpp = mms_instr_xb2bpp(B_docs)
 	
-	;Magnetic Field
+	;Fields
 	;   - Should be (0, 0, |B|)
 	B_BPP = rotate_vector(xyz2bpp, B_docs)
+	E_BPP = rotate_vector(xyz2bpp, E_docs)
 
-	;Electric field.
-	;   - Rotate into BPP
-	;   - Make it (Ex, Ey, 0), perpendicular to B
-	;   - Transform back to OCS
-	;   - Rescale
-	E_BPP    = rotate_vector(xyz2bpp, E_docs)
-	E_BPP[2] = 0
-	E_docs   = rotate_vector(transpose(xyz2bpp), E_BPP)
-	E_docs   = normalize(E_docs) * E_mag
-	E_BPP    = rotate_vector(xyz2bpp, E_docs)
-	
 	;Gun positions
 	gun1_pos_bpp = rotate_vector(xyz2bpp, gun1_pos_docs)
 	gun2_pos_bpp = rotate_vector(xyz2bpp, gun2_pos_docs)
@@ -117,9 +113,8 @@ VERBOSE=verbose
 	;       - v_D: mV/m-nT --> V/m-T  * 1e6 --> m/s * 1e6 => Must multiply result by 1e6
 	Bmag           = magnitude_vec(B_docs)
 	gyro_period    = 1e9 * constants('m_e', /DOUBLE) / (constants('q', /DOUBLE) * Bmag)
-	drift_vel_bpp  = 1e6 * cross_product(E_BPP, B_BPP) / Bmag^2
-	drift_step_bpp =       drift_vel_bpp * gyro_period
-
+	drift_vel_bpp  = 1e6 * cross_product(E_BPP, B_BPP) / rebin(reform(Bmag^2, 1, nPts), 3, nPts)
+	drift_step_bpp =       drift_vel_bpp * rebin(reform(gyro_period, 1, nPts), 3, nPts)
 
 	;Electric Field from Drift Step
 	;   - Given B = 40 nT and d = 5m
@@ -140,19 +135,13 @@ VERBOSE=verbose
 	;Vector pointing from drift step to guns
 	;   - Should be (vx, vy, 0)
 	;   - One gun fires toward and one away from the drift step.
-	d_to_g1_bpp      = fltarr(size(gun1_pos_bpp, /DIMENSIONS))
-	d_to_g2_bpp      = fltarr(size(gun1_pos_bpp, /DIMENSIONS))
-	d_to_g1_bpp[0,*] =   drift_step_bpp[0] - gun1_pos_bpp[0,*]
-	d_to_g1_bpp[1,*] =   drift_step_bpp[1] - gun1_pos_bpp[1,*]
-	d_to_g1_bpp[2,*] =   drift_step_bpp[2] - gun1_pos_bpp[2,*]
-	d_to_g2_bpp[0,*] = -(drift_step_bpp[0] - gun2_pos_bpp[0,*])
-	d_to_g2_bpp[1,*] = -(drift_step_bpp[1] - gun2_pos_bpp[1,*])
-	d_to_g2_bpp[2,*] = -(drift_step_bpp[2] - gun2_pos_bpp[2,*])
+	d_to_g1_bpp =   drift_step_bpp - gun1_pos_bpp
+	d_to_g2_bpp = -(drift_step_bpp - gun2_pos_bpp)
 
 ;---------------------------------------------------------------------
 ; Rotate Back to DOCS ////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-	bpp2xyz         = transpose(xyz2bpp)
+	bpp2xyz         = transpose(xyz2bpp, [1, 0, 2])
 	gun1_fire_docs  = rotate_vector(bpp2xyz, d_to_g1_bpp)
 	gun2_fire_docs  = rotate_vector(bpp2xyz, d_to_g2_bpp)
 	drift_step_docs = rotate_vector(bpp2xyz, drift_step_bpp)
@@ -171,13 +160,6 @@ VERBOSE=verbose
 	         gun2_fire_docs:  gun2_fire_docs, $
 	         drift_step_docs: drift_step_docs $
 	       }
-
-	;Show results
-	if verbose then begin
-		print, FORMAT='(%"  B_DOCS = [%8.2f, %8.2f, %8.2f]")', B_docs
-		print, FORMAT='(%"  E_DOCS = [%8.2f, %8.2f, %8.2f]")', E_docs
-		print, FORMAT='(%"  d_DOCS = [%8.2f, %8.2f, %8.2f]")', drift_step_docs
-	endif
 
 ;---------------------------------------------------------------------
 ; View ///////////////////////////////////////////////////////////////
@@ -208,6 +190,186 @@ end
 ; :Returns:
 ;       TIME:           Time tags in CDF_TIME_TT2000 format.
 ;-
+function mms_edi_test_fields, test_case, sample_rate, duration, spin_freq
+	compile_opt idl2
+	on_error, 2
+
+	;Default to the first test case
+	if n_elements(test_case) eq 0 then begin
+		cases = [ ['CASE', 'DESCRIPTION'], $
+		          ['  1 ', 'Constant B & E vector, reproducible.'], $
+		          ['  2 ', 'Constant B & E vector, not reproducible.'], $
+		          ['  3 ', '|B| varies as ~8nT per spin, E is constant.'], $
+		          ['  4 ', '|B| is constant, b rotates opposite s/c spin. Constant E field.'] $
+		        ]
+		print, FORMAT='(a4, 4x, a0)', cases
+		return, !Null
+	endif
+	
+	;Number of samples
+	nPts   = sample_rate * duration
+	nSpins = floor(duration * spin_freq / (2.0 * !pi)) > 1
+	n_spin = floor(nPts / nSpins)
+	
+	;Build the test data
+	case test_case of
+	;-----------------------------------------------------
+	; Constant, Reproducible B & E \\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		1: begin
+			;Initial seed to provide reproducability
+			seed = 3
+			Bmag = 40
+			Emag = 0.5
+			
+			;Create a random B unit vector, then multiply by magnitude
+			B_hat = randomu(seed, 3) - 0.5
+			B_hat = B_hat / sqrt(total(B_hat^2))
+			B     = B_hat * Bmag
+			
+			;Create another random unit vector
+			;   - Cross it with B
+			;   - Multiply by E magnitude to get E vector
+			unit   = randomu(seed, 3) - 0.5
+			unit  /= sqrt(total(unit^2))
+			E_hat  = [ unit[1]*B[2] - unit[2]*B[1], $
+			           unit[2]*B[0] - unit[0]*B[2], $
+			           unit[0]*B[1] - unit[1]*B[0] ]
+			E_hat /= sqrt(total(E_hat^2))
+			E      = Emag * E_hat
+			
+			;Produce the correct number of points
+			B = rebin(B, 3, nPts)
+			E = rebin(E, 3, nPts)
+		endcase
+		
+	;-----------------------------------------------------
+	; Constant, Random B & E \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		2: begin
+			;Do not provide seed, so that it is initialized by time stamp.
+			Bmag = 40.0    ;nT
+			Emag =  0.5    ;mV/m
+			
+			;Create a random B unit vector, then multiply by magnitude
+			B_hat = randomu(seed, 3) - 0.5
+			B_hat = B_hat / sqrt(total(B_hat^2))
+			B     = B_hat * Bmag
+			
+			;Create another random unit vector
+			;   - Cross it with B
+			;   - Multiply by E magnitude to get E vector
+			unit   = randomu(seed, 3) - 0.5
+			unit  /= sqrt(total(unit^2))
+			E_hat  = [ unit[1]*B[2] - unit[2]*B[1], $
+			           unit[2]*B[0] - unit[0]*B[2], $
+			           unit[0]*B[1] - unit[1]*B[0] ]
+			E_hat /= sqrt(total(E_hat^2))
+			E      = Emag * E_hat
+			
+			;Produce the correct number of points
+			B = rebin(B, 3, nPts)
+			E = rebin(E, 3, nPts)
+		endcase
+		
+	;-----------------------------------------------------
+	; |B| Varies by ~8nT Per Spin \\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		3: begin
+			;Base magnitudes.
+			seed = 2
+			Bmag = 40    ;nT
+			Emag = 0.5   ;mV/m
+			
+			;|B| increases at a constant rate.
+			;   - Increase 8nT every spin
+			;   - Reach Bmag half way through the sample interval
+			slope = 20 * spin_freq / (sample_rate * 2.0 * !pi)     ;nT / s
+			start = -(slope * nPts/2.0) + Bmag
+			Bmag  = MrMake_Array(nPts, START=start, INCREMENT=slope)
+
+			;Create B
+			;   - Start with a unit vector of constant direction
+			;   - Multiply by |B|
+			B      = fltarr(3, nPts)
+			B_hat  = randomu(seed, 3) - 0.5
+			B_hat  = B_hat / sqrt(total(B_hat^2))
+			B[0,*] = B_hat[0] * Bmag
+			B[1,*] = B_hat[1] * Bmag
+			B[2,*] = B_hat[2] * Bmag
+
+			;Create another random unit vector
+			;   - Cross it with B
+			;   - Multiply by E magnitude to get E vector
+			unit   = randomu(seed, 3) - 0.5
+			unit  /= sqrt(total(unit^2))
+			E_hat  = [ unit[1]*B[2,0] - unit[2]*B[1,0], $
+			           unit[2]*B[0,0] - unit[0]*B[2,0], $
+			           unit[0]*B[1,0] - unit[1]*B[0,0] ]
+			E_hat /= sqrt(total(E_hat^2))
+			E      = E_hat * Emag
+			E      = rebin(E, 3, nPts)
+		endcase
+		
+	;-----------------------------------------------------
+	; |B| Consant, b Rotates, E Constant \\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		4: begin
+			;Base magnitudes
+			Bmag = 40    ;nT
+			Emag = 0.5   ;mV/m
+			
+			;|B| is constant, but B is circularly polarized in Bx and By
+			;   - Frequency is 1/4 spin
+			signal = MrSigGen(sample_rate, duration, $
+			                  AMP_A       = Bmag, $
+			                  DC          = 0, $
+			                  FREQUENCIES = 2.0 * spin_freq / (2.0 * !pi))
+
+			;Store the in-phase and in-quadrature parts as Bx and By
+			B      = fltarr(3, nPts)
+			B[0,*] = real_part(signal[0:-2])
+			B[1,*] = imaginary(temporary(signal[0:-2]))
+			
+			;Create E perpendicular to B
+			E = [0.0, 0.0, Emag]
+			
+			;Rotate into an arbirary direction
+			rotmat = MrEulerMatrix(35.0, 105.0, 0.0, ORDER=[3,2,1], /ANGLES)
+			B      = rotate_vector(rotmat, B)
+			E      = rotate_vector(rotmat, E)
+
+			;Replicate E
+			E = rebin(E, 3, nPts)
+		endcase
+	endcase
+
+;-----------------------------------------------------
+; Return the Fields \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	fields = { B_docs: B, $
+	           E_docs: E }
+
+	return, fields
+end
+
+
+;+
+;   Create time tags in CDF_TIME_TT2000 format.
+;
+; :Params:
+;       TSTART:         in, required, type=string
+;                       Start time, formatted as `YYYY-MM-DDThh:mm:ss.mmmuuunnn', with
+;                           the year, month, day, hour, minute seconds, milli-, micro-
+;                           and nano-seconds.
+;       DURATION:       in, required, type=double
+;                       Length of signal, in seconds.
+;       RATE:           in, required, type=double
+;                       Sampling rate, in samples per second.
+;
+; :Returns:
+;       TIME:           Time tags in CDF_TIME_TT2000 format.
+;-
 function mms_edi_test_times, tstart, duration, rate
 	compile_opt idl2
 	on_error, 2
@@ -216,7 +378,7 @@ function mms_edi_test_times, tstart, duration, rate
 	t_tt2000 = cdf_parse_tt2000(tstart)
 
 	;Number of data points to create
-	nSamples  = duration * rate
+	nSamples  = (duration * rate) > 1
 
 	;Time stamps, in seconds from tstart
 	t_temp = dindgen(nSamples) / nSamples * duration
@@ -244,141 +406,13 @@ end
 ; :Returns:
 ;       VALUE:              A scalar or 3-element vector.
 ;-
-function mms_edi_test_value, magnitude, $
-SCALAR=scalar, $
-SEED=seed
-	compile_opt idl2
-	on_error, 2
-
-	;Defaults
-	scalar = keyword_set(scalar)
-	if n_elements(magnitude) eq 0 then magnitude = 1.0
-	if n_elements(seed)      eq 0 then seed      = 1
-	if n_elements(spin_freq) eq 0 then spin_freq = 0.0
-
-	;Create the data
-	if scalar then begin
-		value = (randomu(seed, 1))[0] - 0.5
-	endif else begin
-		value  = randomu(seed, 3) - 0.5
-		value /= sqrt(total(value^2))
-	endelse
-
-	;Scale the data
-	value *= magnitude
-
-	return, value
-end
-
-
-;+
-;   Create a scalar with random magnitude or unit vector pointing in a random direction.
-;
-; :Params:
-;       MAGNITUDE:          in, optional, type=float, default=1.0
-;                           Scale factor for the random data.
-;
-; :Keywords:
-;       SCALAR:             in, optional, type=boolean, defualt=0
-;                           Create a scalar instead of a vector.
-;       SEED:               in, optional, type=integer, default=1
-;                           The seed used to generate random numbers.
-;
-; :Returns:
-;       VALUE:              A scalar or 3-element vector.
-;-
-function mms_edi_test_signal, sample_rate, duration, $
-AMPLITUDES=amplitudes, $
-FREQUENCIES=frequencies, $
-MAGNITUDE=magnitude, $
-NOISE_LEVEL=noise_level, $
-NOISE_SEED=noise_seed, $
-PHASES=phases, $
-SCALAR=scalar, $
-SLOPE=slope, $
-SEED=seed, $
-T0=t0, $
-TIME=time
-	compile_opt idl2
-	on_error, 2
-
-	;Defaults
-	scalar = keyword_set(scalar)
-	if n_elements(magnitude) eq 0 then magnitude = 0.0
-	if n_elements(slope)     eq 0 then slope     = 0.0
-
-	;Start by creating the C
-	signal = mrsiggen(sample_rate, duration, $
-	                  AMP_A       = amplitudes, $
-	                  DC          = magnitude, $
-	                  NOISE_LEVEL = noise_level, $
-	                  NOISE_SEED  = noise_seed, $
-	                  PHASE_A     = phases, $
-	                  SEED        = seed, $
-	                  TIME        = time)
-	
-	;Create the Y and Z components of the vector
-	if scalar eq 0 then begin
-		nPts   = n_elements(time)
-		signal = rebin(reform(signal, 1, nPts), 3, nPts)
-		
-		;Y-component
-		signal[1,*] = mrsiggen(sample_rate, duration, $
-		                       AMP_A       = amplitudes, $
-		                       DC          = magnitude, $
-		                       NOISE_LEVEL = noise_level, $
-		                       NOISE_SEED  = noise_seed, $
-		                       PHASE_A     = phases, $
-		                       SEED        = seed, $
-		                       TIME        = time)
-		
-		;Z-component
-		signal[2,*] = mrsiggen(sample_rate, duration, $
-		                       AMP_A       = amplitudes, $
-		                       DC          = magnitude, $
-		                       NOISE_LEVEL = noise_level, $
-		                       NOISE_SEED  = noise_seed, $
-		                       PHASE_A     = phases, $
-		                       SEED        = seed, $
-		                       TIME        = time)
-	endif
-
-	;Add a slope
-	if slope ne 0 then begin
-		y = slope * (findgen(npts) - npts/2)
-		signal += y
-	endif
-	
-	;Convert time to CDF_TIME_TT2000 and add T0
-	time = long64(time * 1d9)
-	if n_elements(t0) gt 0 then time += cdf_parse_tt2000(t0)
-
-	return, value
-end
-
-
-;+
-;   Create a scalar with random magnitude or unit vector pointing in a random direction.
-;
-; :Params:
-;       MAGNITUDE:          in, optional, type=float, default=1.0
-;                           Scale factor for the random data.
-;
-; :Keywords:
-;       SCALAR:             in, optional, type=boolean, defualt=0
-;                           Create a scalar instead of a vector.
-;       SEED:               in, optional, type=integer, default=1
-;                           The seed used to generate random numbers.
-;
-; :Returns:
-;       VALUE:              A scalar or 3-element vector.
-;-
 function mms_edi_test_view, B_BPP, E_BPP, D_BPP, xyz2bpp, $
                             gun1_pos_bpp, gun2_pos_bpp, $
                             gun1_fire_bpp, gun2_fire_bpp
 	compile_opt idl2
 	on_error, 2
 
+	nPts   = n_elements(gun1_pos_bpp[0,*])
 ;-----------------------------------------------------
 ; Create S/C \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -390,9 +424,6 @@ function mms_edi_test_view, B_BPP, E_BPP, D_BPP, xyz2bpp, $
 	sc_sphr_ocs[2,*] = sqrt(total(gun1_pos^2))
 	sc_sphr_ocs[0,*] = 2.0 * !pi * findgen(nVerts)/(nVerts-1.0)
 	sc_xyz_ocs       = cv_coord(FROM_SPHERE=sc_sphr_ocs, /TO_RECT)
-	
-	;Rotate the s/c into bpp
-	sc_xyz_bpp  = rotate_vector(xyz2bpp, sc_xyz_ocs)
 
 ;-----------------------------------------------------
 ; Draw S/C \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -402,35 +433,41 @@ function mms_edi_test_view, B_BPP, E_BPP, D_BPP, xyz2bpp, $
 	aspect = dims[0] / dims[1]
 	winx   = 500
 	winy   = fix(winx / aspect)
-	win    = window(DIMENSIONS=[winx, winy])
+	win    = window(DIMENSIONS=[winx, winy], WINDOW_TITLE='Bestarg Test Data')
 	win   -> Refresh, /DISABLE
 	
 	;Draw a set of axes 1.5 times bigger than the s/c, then draw the s/c
-	range = 1.5 * [-sc_sphr_ocs[2,0], sc_sphr_ocs[2,0]]
-	gAxes = plot(range, range, /NODATA, /CURRENT, XRANGE=range, XSTYLE=1, YRANGE=range, YSTYLE=1)
-	gSC   = polygon(reform(sc_xyz_bpp[0,*]), reform(sc_xyz_bpp[1,*]), /DATA, TARGET=gAxes)
+	range = 1.5 * [-sc_sphr_ocs[2,0,0], sc_sphr_ocs[2,0,0]]
+	gAxes = plot(range, range, /NODATA, /CURRENT, $
+	             TITLE  = 'Test Data', $
+	             XRANGE = range, $
+	             XSTYLE = 1, $
+	             XTITLE = 'Distance (m)', $
+	             YRANGE = range, $
+	             YSTYLE = 1, $
+	             YTITLE = 'Distance (m)')
+	gSC   = polygon(reform(sc_xyz_ocs[0,*]), reform(sc_xyz_ocs[1,*]), /DATA, TARGET=gAxes)
 	
 	;Firing directions
 	gFire1 = Polyline(range, range, COLOR='Blue', /DATA, TARGET=gAxes)
 	gFire2 = Polyline(range, range, COLOR='Red',  /DATA, TARGET=gAxes)
 	
 	;Drift Step
-	gDriftStep = Symbol(D_BPP[0], D_BPP[1], 'Star', /DATA, TARGET=gAxes)
-	win -> Refresh
-	win -> Refresh, /DISABLE
+	gDriftStep = Symbol(D_BPP[0,0], D_BPP[1,0], 'Star', /DATA, TARGET=gAxes)
 
 ;-----------------------------------------------------
 ; Draw Each Test Interval \\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	nPts   = n_elements(gun1_pos_bpp[0,*])
 	iStart = 0
-	nStep  = 10
+	nStep  = 80
 	iStop  = iStart + nStep - 1
 	while iStart lt nPts do begin
+		b       = B_BPP[*,iStart:iStop]
 		g1_pos  = gun1_pos_bpp[*,iStart:iStop]
 		g2_pos  = gun2_pos_bpp[*,iStart:iStop]
 		g1_fire = gun1_fire_bpp[*,iStart:iStop]
 		g2_fire = gun2_fire_bpp[*,iStart:iStop]
+		d       = D_bpp[*,iStart:iStop]
 
 	;-----------------------------------------------------
 	; Two Points to Define the Beams \\\\\\\\\\\\\\\\\\\\\
@@ -465,14 +502,23 @@ function mms_edi_test_view, B_BPP, E_BPP, D_BPP, xyz2bpp, $
 	;-----------------------------------------------------
 	; Update Graphics \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
+		;Rotate S/C into average BPP
+		b_avg   = mean(B_BPP[*,iStart:iStop], DIMENSION=2)
+		ocs2bpp = xyz2bpp[*, *, floor( iStart + (iStop - iStart) / 2 )]
+		sc_pos_bpp = rotate_vector(ocs2bpp, sc_xyz_ocs)
+		gSC -> SetData, reform(sc_pos_bpp[0,*]), reform(sc_pos_bpp[1,*])
+	
 		;Update the gun positions
 		gGuns = symbol(reform([[g1_pos[0,*]], [g2_pos[0,*]]]), $
-		               reform([[g1_pos[1,*]], [g2_pos[1,*]]]), 'circle', $
+		               reform([[g1_pos[1,*]], [g2_pos[1,*]]]), 'Circle', $
 		               /DATA, TARGET=gAxes)
 
 		;Draw the beams
 		gFire1 -> SetData, g1x, g1y, CONNECTIVITY=conn1
 		gFire2 -> SetData, g2x, g2y, CONNECTIVITY=conn2
+		
+		;Drift step
+		gDriftStep = symbol(d[0,*], d[1,*], 'Star', /DATA, TARGET=gAxes)
 		
 	;-----------------------------------------------------
 	; Next Iteration\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -484,7 +530,8 @@ function mms_edi_test_view, B_BPP, E_BPP, D_BPP, xyz2bpp, $
 		win -> Refresh, /DISABLE
 		
 		;Delete the guns
-		gGuns -> Delete
+		gGuns      -> Delete
+		gDriftStep -> Delete
 		
 		;Advance
 		iStart = iStop + 1
@@ -498,50 +545,49 @@ end
 ;+
 ;   Create test data.
 ;-
-function mms_edi_test_data, $
+function mms_edi_test_data, test_case, $
 VIEW=view
 	compile_opt idl2
-	on_error, 2
 	
-	;Experimental parameters
-	;   - Firing angles derived for 
-	;       B = ( 0,  0, Bz)
-	;       E = (Ex,  0,  0)
-    ;   - Spin is right-handed (counter-clockwise) about the z-axis.
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		void = cgErrorMSG(/QUIET)
+		return, !Null
+	endif
+	
+	;Show which tests are available?
+	if n_elements(test_case) eq 0 then begin
+		void = mms_edi_test_fields()
+		return, !Null
+	endif
+
+	;Experimental Setup
+	;   - Spin is right-handed (counter-clockwise) about the z-axis.
 	;   - Instrument CS are aligned with the s/c CS, except for a single rotation about z by OFFSET.
+	;   - All datasets are initially sampled at SAMPLE_RATE, then are down sampled
 	tstart          = '2015-03-12T00:00:00.000000000'
-	duration        = 1.0D * 60.0D                              ;minutes * seconds/minute
-	B_sample_rate   = 64.0                                      ;Samples / second
-	E_sample_rate   = 64.0                                      ;Samples / second
-	edi_sample_rate = 16.0                                      ;Samples / second
+	duration        = 20.0                                      ;seconds
+	sample_rate     = 64.0                                      ;Samples / second
 	spin_rate       = 3.0 / 60.0                                ;# rev / sec
 	spin_freq       = 2.0 * !pi * spin_rate                     ;rad / sec
+	
+	;Set instrument-specific sampling rates
+	B_sample_rate   = sample_rate                               ;Samples / second
+	E_sample_rate   = sample_rate                               ;Samples / second
+	edi_sample_rate = 16.0                                      ;Samples / second
 
 	;Create times in tt2000 format
+	;   - Generic time array, then instrument time arrays.
+	;   - Down sampling occurs after data creation.
+	time     = mms_edi_test_times(tstart, duration, sample_rate)
 	srt      = mms_edi_test_times(tstart, duration, spin_rate)
 	B_time   = mms_edi_test_times(tstart, duration, b_sample_rate)
 	E_time   = mms_edi_test_times(tstart, duration, e_sample_rate)
 	edi_time = mms_edi_test_times(tstart, duration, edi_sample_rate)
-
-	;Create magnetic field
-	seed   = 4
-	B_docs      = fltarr(3, B_sample_rate * duration)
-	B_docs[0,*] = mms_edi_test_signal(B_sample_rate, duration, $
-	                                  AMPLITUDES  = 23.0, $
-	                                  FREQUENCIES =  0.0)
-	B_docs[1,*] = mms_edi_test_signal(B_sample_rate, duration, $
-	                                  AMPLITUDES  = -8.0, $
-	                                  FREQUENCIES =  0.0)
-	B_docs[2,*] = mms_edi_test_signal(B_sample_rate, duration, $
-	                                  AMPLITUDES  = -11.0, $
-	                                  FREQUENCIES =   0.0, $
-	                                  T0=tstart, $
-	                                  TIME=time)
 	
-	;Create the drift step
-	d_docs = mms_edi_test_signal(B_sample_rate, duration, $
-	                             AMPLITUDES  =  1.5, $
-	                             FREQUENCIES =  0.0)
+	;Create fields
+	fields = mms_edi_test_fields(test_case, sample_rate, duration, spin_freq)
 	
 	;Create SC positions in despun-ocs
 	;   - For EDI triangulation method, the detectors are at the center of the s/c
@@ -549,20 +595,32 @@ VIEW=view
 	;   - Required to calculate firing directions in BPP
 	gun1_pos_det2_ocs  = mms_instr_origins_instr('EDI1_GUN', 'EDI2_DETECTOR')
 	gun2_pos_det1_ocs  = mms_instr_origins_instr('EDI2_GUN', 'EDI1_DETECTOR')
-	gun1_pos_det2_docs = mms_dss_despin(srt, edi_time, gun1_pos_det2_ocs, OMEGA=spin_freq)
-	gun2_pos_det1_docs = mms_dss_despin(srt, edi_time, gun2_pos_det1_ocs, OMEGA=spin_freq)
+	gun1_pos_det2_docs = mms_dss_despin(srt, time, gun1_pos_det2_ocs, OMEGA=spin_freq)
+	gun2_pos_det1_docs = mms_dss_despin(srt, time, gun2_pos_det1_ocs, OMEGA=spin_freq)
 
 	;Create EDI test data
-	data = mms_edi_test_fa(B_docs, d_docs, gun1_pos_det2_docs, gun2_pos_det1_docs, /VERBOSE, VIEW=view)
+	data  = mms_edi_test_fa(fields.B_docs, fields.E_docs, gun1_pos_det2_docs, gun2_pos_det1_docs, VIEW=view)
+	field = !Null
+	
+	;Down-sample the data
+	gun1_fire_docs  = MrInterpol(data.gun1_fire_docs,  time, edi_time, /SPLINE)
+	gun2_fire_docs  = MrInterpol(data.gun2_fire_docs,  time, edi_time, /SPLINE)
+	drift_step_docs = MrInterpol(data.drift_step_docs, time, edi_time, /SPLINE)
+	if E_sample_rate ne sample_rate $
+		then E_docs = MrInterpol(data.E_docs, time, E_time, /SPLINE) $
+		else E_docs = data.E_docs
+	if B_sample_rate ne sample_rate $
+		then B_docs = MrInterpol(data.B_docs, time, B_time, /SPLINE) $
+		else B_docs = data.B_docs
+	data = !Null
 
 	;Spin up the data
 	;   - In a coordinate system spinning ccw with the s/c, the fields spin cw.
-	;   - Fields need to be offset from DSS toward their native CS.
 	;   - Data will still be in the OCS coordinate system.
-	B_ocs         = mms_dss_despin(srt, B_time,   data.B_docs,         OMEGA=-spin_freq)
-	E_ocs         = mms_dss_despin(srt, E_time,   data.E_docs,         OMEGA=-spin_freq)
-	gun1_fire_ocs = mms_dss_despin(srt, edi_time, data.gun1_fire_docs, OMEGA=-spin_freq)
-	gun2_fire_ocs = mms_dss_despin(srt, edi_time, data.gun2_fire_docs, OMEGA=-spin_freq)
+	B_ocs         = mms_dss_despin(srt, B_time,   temporary(B_docs),         OMEGA=-spin_freq)
+	E_ocs         = mms_dss_despin(srt, E_time,   temporary(E_docs),         OMEGA=-spin_freq)
+	gun1_fire_ocs = mms_dss_despin(srt, edi_time, temporary(gun1_fire_docs), OMEGA=-spin_freq)
+	gun2_fire_ocs = mms_dss_despin(srt, edi_time, temporary(gun2_fire_docs), OMEGA=-spin_freq)
 
 	;Rotation matrices from OCS to native CS
 	dfg2ocs  = mms_instr_xxyz2ocs('DFG_123')
@@ -571,10 +629,10 @@ VIEW=view
 	edi22ocs = mms_instr_xxyz2ocs('EDI2_GUN')
 
 	;Rotate into native CS
-	B_123     = rotate_vector(transpose(dfg2ocs),  B_ocs)
-	E_edp     = rotate_vector(transpose(sdp2ocs),  E_ocs)
-	gun1_fire = rotate_vector(transpose(edi12ocs), gun1_fire_ocs)
-	gun2_fire = rotate_vector(transpose(edi22ocs), gun2_fire_ocs)
+	B_123     = rotate_vector(transpose(dfg2ocs),  temporary(B_ocs))
+	E_edp     = rotate_vector(transpose(sdp2ocs),  temporary(E_ocs))
+	gun1_fire = rotate_vector(transpose(edi12ocs), temporary(gun1_fire_ocs))
+	gun2_fire = rotate_vector(transpose(edi22ocs), temporary(gun2_fire_ocs))
 	
 	;Convert firing angles to analog voltages
 	;   - Convert first to spherical coordinates
@@ -599,7 +657,7 @@ VIEW=view
 	         edi2_avolt:      avolt2, $
 	         edi1_pos_ocs:    gun1_pos_det2_ocs, $
 	         edi2_pos_ocs:    gun2_pos_det1_ocs, $
-	         drift_step_docs: data.drift_step_docs $
+	         drift_step_docs: drift_step_docs $
 	       }
 
 	return, data

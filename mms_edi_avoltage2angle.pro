@@ -122,10 +122,10 @@ CARTESIAN=cartesian
 	;Radius
 	fire_dir[2,*] = sqrt(Vx^2 + Vy^2)
 	
-	;Azimuth angle (Radians)
+	;Polar angle (Radians)
 	fire_dir[0,*] = atan(Vy, Vx)
 	
-	;Polar angle (Radians)
+	;Azimuthal angle (Radians)
 	fire_dir[1,*] = (1.0 / 0.77) * asin(fire_dir[2,*] / 14431.2)
 	
 	;Cartesian

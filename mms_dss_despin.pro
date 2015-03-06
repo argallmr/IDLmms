@@ -71,6 +71,7 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/18  -   Written by Matthew Argall
+;       2015/03/04  -   Value_Locate did not like single SRT values. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -209,7 +210,9 @@ TEST_DATA=test_data
 	if n_elements(offset) eq 0 then offset = 0.0
 	
 	;Find the sun-reference times
-	iSRT = value_locate(srt, time) > 0
+	if n_elements(srt) eq 1 $
+		then iSRT = 0 $
+		else iSRT = value_locate(srt, time) > 0
 
 	;Seconds into each spin. Convert from nano-seconds to seconds
 	dt = (time - srt[iSRT]) * 1.0D-9
