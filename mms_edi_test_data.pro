@@ -567,7 +567,7 @@ VIEW=view
 	;   - Instrument CS are aligned with the s/c CS, except for a single rotation about z by OFFSET.
 	;   - All datasets are initially sampled at SAMPLE_RATE, then are down sampled
 	tstart          = '2015-03-12T00:00:00.000000000'
-	duration        = 20.0                                      ;seconds
+	duration        = 5.0                                      ;seconds
 	sample_rate     = 64.0                                      ;Samples / second
 	spin_rate       = 3.0 / 60.0                                ;# rev / sec
 	spin_freq       = 2.0 * !pi * spin_rate                     ;rad / sec

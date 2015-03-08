@@ -110,8 +110,8 @@ VERSION=version
 	
 	pattern = keyword_set(pattern)
 	if pattern $
-	    then start_time = '%Y%M%d' $
-	    else if n_elements(start_time) eq 0 then start_time = '*'
+		then start_time = '%Y%M%d' $
+		else if n_elements(start_time) eq 0 then start_time = '*'
 	
 	;if no directory was supplied, get the current directory
 	;if no base was chosen, go with the complete base

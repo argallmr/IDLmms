@@ -639,9 +639,11 @@ end
 ;                               `VIEW` is set.
 ;-
 function mms_bestarg_inputs, srt_file, dfg_file, edi_file, $
+BAVG_BPP=Bavg_bpp, $
+FILENAME=filename, $
+SAVE_FILE=save_file, $
 TEST_CASE=test_case, $
-VIEW=view, $
-BAVG_BPP=Bavg_bpp
+VIEW=view
 	compile_opt idl2
 
 	;Error handling
@@ -655,6 +657,8 @@ BAVG_BPP=Bavg_bpp
 	;Defaults
 	view     = keyword_set(view)
 	bavg_bpp = keyword_set(bavg_bpp)
+	if n_elements(filename)  eq 0 then filename  = ''
+	if n_elements(save_file) eq 0 then save_file = ''
 
 ;-----------------------------------------------------
 ; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -768,22 +772,28 @@ BAVG_BPP=Bavg_bpp
 ;-----------------------------------------------------
 ; Form Inputs to Bestarg \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	result = create_struct(gun_info_bpp, $
-	                       't_avg',          t_avg, $
-	                       'B_avg_docs',     b_avg, $
-	                       't_err',          t_err, $
-	                       'b_stdev',        b_stdev, $
-	                       'b_beam1',        b_beam1_docs, $
-	                       'b_beam2',        b_beam2_docs, $
-	                       'edi1_beam_inds', edi1_beam_inds, $
-	                       'edi2_beam_inds', edi2_beam_inds)
+	mms_bestarg_input = create_struct(gun_info_bpp, $
+	                                  't_avg',          t_avg, $
+	                                  'B_avg_docs',     b_avg, $
+	                                  't_err',          t_err, $
+	                                  'b_stdev',        b_stdev, $
+	                                  'b_beam1',        b_beam1_docs, $
+	                                  'b_beam2',        b_beam2_docs, $
+	                                  'edi1_beam_inds', edi1_beam_inds, $
+	                                  'edi2_beam_inds', edi2_beam_inds)
 
 ;-----------------------------------------------------
 ; Write to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;CDF File?
 	if filename ne '' then begin
 		fout = mms_bestarg_inputs_file()
 	endif
+	
+	;IDL save file?
+	if save_file ne '' then save, mms_bestarg_input, FILENAME=save_file, $
+	                              DESCRIPTION='Data structure for input into the Bestarg program.'
 
-	return, result
+	;Return the data
+	return, mms_bestarg_input
 end
