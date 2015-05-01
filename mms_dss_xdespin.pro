@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       MMS_Instr_xXYZ2Instr
+;       mms_dss_xdespin
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -16,7 +16,7 @@
 ;         this list of conditions and the following disclaimer in the documentation      ;
 ;         and/or other materials provided with the distribution.                         ;
 ;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may be used to endorse or promote products derived from this      ;
+;         contributors may  be used to endorse or promote products derived from this     ;
 ;         software without specific prior written permission.                            ;
 ;                                                                                        ;
 ;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
@@ -33,42 +33,29 @@
 ;
 ; PURPOSE:
 ;+
-;   Transform one instrument's coordinate system into the coordinate system of any other
-;   instrument.
+;   Crate an array of matrices that will transform from a spinning to a
+;   not-spinning coordinate system.
 ;
 ; :Categories:
-;       MMS
+;   MMS, DSS
 ;
 ; :Params:
-;       INSTR1:             in, required, type=string
-;                           Name of the instrument for which the coordinate system is to
-;                               be transformed.
-;       INSTR2:             in, required, type=string
-;                           Name of the instrument native to the destination coordinate
-;                               system.
+;       HK:             in, required, type=structure
+;                       Structure of sunpulse data returned by mms_dss_read_sunpulse.
+;       EPOCH:          in, optional, type=int64 (cdf_time_tt2000)
+;                       CDF epoch times at which the spin-phase is desired.
+;
+; :Keywords:
+;       CS:             in, optional, type=string, default='BCS'
+;                       Name of the coordinate system in which the data resides.
+;       SPINUP:         in, optional, type=boolean, default=false
+;                       If set, data will be spun up instead of despun.
 ;
 ; :Returns:
-;       XYZ2INSTR:          The from an instrument's coordinate system into OCS. Note that::
-;
-;                                   v_xyz       = [[vx], [vy], [vz]]
-;                                   A_xyz2instr = [[ Axx,  Axy,  Axz], $
-;                                                  [ Ayx,  Ayy,  Ayz], $
-;                                                  [ Azx,  Azy,  Azz]]
-;
-;                                   | vx' |   | Axx Axy Axz | | vx |
-;                                   | vy' | = | Ayx Ayy Ayz | | vy |
-;                                   | vz' |   | Azx Azy Azz | | vz |
-;
-;                                   v_dss = A_xyz2instr ## v_xyz
-;                                   [1,3] =    [3,3]    ## [1,3]
-;                                               ^             ^
-;
-; :References:
-;   Magnetospheric Multiscale (MMS) Project Alignment and Coordinate System Document,
-;       461-SYS-SPEC-0115, Revision C, Effective Date: July 22, 2014
+;       SPUN2DESPUN:    Transformation matrix to the despun coordinate system.
 ;
 ; :Author:
-;       Matthew Argall::
+;   Matthew Argall::
 ;       University of New Hampshire
 ;       Morse Hall, Room 348
 ;       8 College Rd.
@@ -77,19 +64,43 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/02/19  -   Written by Matthew Argall
-;       2015/03/23  -   Transformation was way wrong. Fixed. - MRA
+;       2015/05/01  -   Written by Matthew Argall.
 ;-
-function mms_instr_xXYZ2Instr, instr1, instr2
+function mms_dss_xdespin, hk, epoch
+CS=cs, $
+SPINUP=spinup
 	compile_opt idl2
 	on_error, 2
 
-	;Get the rotation angles
-	instr12ocs = mms_instr_xXYZ2OCS(instr1)
-	instr22ocs = mms_instr_xXYZ2OCS(instr2)
-	
-	;For an orthogonal matrices, A,  tranpose(A) = inverse(A)
-	xyz2instr = transpose(instr22ocs) ## instr12ocs
+	;Defaults
+	spinup = keyword_set(spinup)
+	if n_elements(cs) eq 0 then sc = 'BCS'
 
-	return, xyz2instr
+	;Calculate phase
+	phase = mms_dss_sunpulse2phase(hk, epoch) * (!dpi / 180.0D)
+	
+	;The spin phase is the angle of rotation away from the s/c-sun
+	;line. To despin, we want to rotate against the phase. To spin-
+	;up, we rotate with the phase.
+	if ~spinup then phase = -phase
+	
+	;The DSS requires a -76 degree rotation about the z-axis to align
+	;with BCS. Aligning BCS with the sun sensor requires a +76 degree
+	;rotation.
+	offset = 76 * pi/180
+	
+	;Sine and Cosine of phase
+	sinPhase = sin(phase + offset)
+	cosPhase = cos(phase + offset)
+	
+	; So that it looks math-like
+	;                 |  cos  sin  0  |
+	;   spin2despun = | -sin  cos  0  |
+	;                 |   0    0   1  |
+	spin2despun        =  dblarr(3, 3, n_elements(phase))
+	spin2despun[0,0,*] =  cosPhase
+	spin2despun[1,0,*] =  sinPhase
+	spin2despun[0,1,*] = -sinPhase
+	spin2despun[1,1,*] =  cosPhase
+	spin2despun[2,2,*] =  1
 end

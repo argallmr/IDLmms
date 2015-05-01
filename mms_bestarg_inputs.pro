@@ -527,7 +527,7 @@ FILENAME=filename
 		xyz2bpp    = mms_instr_xb2bpp(b_avg[*,i])
 		sc_xyz_bpp = rotate_vector(xyz2bpp, sc_xyz_ocs)
 		
-		;Rotate the positions and firing directions into BPP
+		;Rotate the positions and firing directions into average BPP
 		if docs then begin
 			g1_pos  = rotate_vector(xyz2bpp, g1_pos)
 			g2_pos  = rotate_vector(xyz2bpp, g2_pos)
@@ -757,6 +757,11 @@ VIEW=view
 			                              /DOCS, $
 			                              FILENAME = filename)
 		endif else begin
+			;Rotate the drift step into BPP
+			xyz2bpp        = mms_instr_xb2bpp(b_beam1_docs)
+			drift_step_bpp = rotate_vector(xyz2bpp, drift_step)
+		
+			;View
 			win = mms_bestarg_inputs_view(t_dfg, b_dfg_docs, t_avg, b_avg, t_err, b_stdev, $
 			                              gun_info_bpp.gun1_pos_bpp, $
 			                              gun_info_bpp.gun2_pos_bpp, $
@@ -764,7 +769,7 @@ VIEW=view
 			                              gun_info_bpp.gun2_fire_bpp, $
 			                              edi1_beam_inds, $
 			                              edi2_beam_inds, $
-			                              drift_step, $
+			                              drift_step_bpp, $
 			                              FILENAME = filename)
 		endelse
 	endif

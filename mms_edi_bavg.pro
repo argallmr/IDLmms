@@ -208,6 +208,7 @@ T_ERR = t_err
 			;Move to next interval
 			trange_avg    += dt
 			trange_interp += dt
+			continue
 		endif
 		
 		;Extract the time interval for ease

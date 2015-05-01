@@ -82,6 +82,8 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/18  -   Written by Matthew Argall
+;       2015/05/01  -   Fixed signs in origins map. Mag 123 and XYZ systems are now
+;                           oriented with respect to OCS, not the BOOM. - MRA
 ;-
 function mms_instr_origins_ocs, instrument, $
 NAMES=names, $
@@ -96,7 +98,8 @@ SPHERICAL=spherical
 	instr_hash['ADP2']          = [  0.0D,       -0.161925D,   -15.185D      ]
 	instr_hash['AFG_BOOM']      = [ -0.99147D,   -0.99147D,     -0.0771D     ]
 	instr_hash['AFG_MECH']      = [  5.18785D,   -0.0080D,       0.0021262D  ]    ;From AFG_BOOM origin
-	instr_hash['DFG_BOOM']      = [ -0.99147D,    0.99147D,     -0.0771D     ]
+	instr_hash['BCS']           = [  0.0D,        0.0D,          0.0D        ]    ;z translation from OCS to BCS unknown/variable
+	instr_hash['DFG_BOOM']      = [  0.99147D,    0.99147D,     -0.0771D     ]
 	instr_hash['DFG_MECH']      = [  5.18785D,   -0.0080D,       0.0021262D  ]    ;From DFG_BOOM origin
 	instr_hash['EDI1']          = [ -1.332748D,   0.889069D,     1.051D      ]
 	instr_hash['EDI1_GUN']      = [ -1.45598D,    1.11837D,      0.0D        ]
@@ -115,6 +118,15 @@ SPHERICAL=spherical
 	instr_hash['SDP3']          = [ -0.865542D,   1.342598D,     1.050D      ]
 	instr_hash['SDP4']          = [  0.865542D,  -1.342598D,     1.050D      ]
 	
+	;Must convert the *_MECH coordinate systems to be relative to the
+	;OCS origin. This means rotating from AFG_BOOM to OCS.
+	afgboom2ocs = mms_instr_xxyz2ocs('AFG_BOOM')
+	dfgboom2ocs = mms_instr_xxyz2ocs('DFG_BOOM')
+	scmboom2ocs = mms_instr_xxyz2ocs('SCM_BOOM')
+	instr_hash['AFG_MECH'] = mrvector_rotate(afgboom2ocs, instr_hash['AFG_MECH']
+	instr_hash['DFG_MECH'] = mrvector_rotate(dfgboom2ocs, instr_hash['DFG_MECH']
+	instr_hash['SCM_MECH'] = mrvector_rotate(scmboom2ocs, instr_hash['SCM_MECH']
+	
 	;Convert to OCS origin
 	instr_hash['AFG_123'] = instr_hash['AFG_MECH'] + instr_hash['AFG_BOOM']
 	instr_hash['AFG_XYZ'] = instr_hash['AFG_MECH'] + instr_hash['AFG_BOOM']
@@ -124,9 +136,7 @@ SPHERICAL=spherical
 	instr_hash['SCM_123'] = instr_hash['SCM_MECH'] + instr_hash['SCM_BOOM']
 	
 	;Remove non-OCS origins
-	instr_hash -> Remove, 'AFG_MECH'
-	instr_hash -> Remove, 'DFG_MECH'
-	instr_hash -> Remove, 'SCM_MECH'
+	instr_hash -> Remove, ['AFG_MECH', 'DFG_MECH', 'SCM_MECH']
 
 	;Return only the instrument names?
 	if keyword_set(names) then begin

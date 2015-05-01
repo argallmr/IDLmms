@@ -78,6 +78,7 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/21  -   Written by Matthew Argall
+;       2015/03/23  -   Work in cartesian then transform to spherical. - MRA
 ;-
 function mms_instr_origins_instr, instr1, instr2, $
 SPHERICAL=spherical
@@ -90,18 +91,14 @@ SPHERICAL=spherical
 	if n_elements(instr2) ne 1 then message, 'Instr2 must be scalar.'
 
 	;Get the instrument origins
-	instr1_origin = mms_instr_origins_ocs(instr1, SPHERICAL=spherical)
-	instr2_origin = mms_instr_origins_ocs(instr2, SPHERICAL=spherical)
+	instr1_origin = mms_instr_origins_ocs(instr1)
+	instr2_origin = mms_instr_origins_ocs(instr2)
 
 	;Position of Instr1's origin with respect to the origin of Instr2
-	if spherical then begin
-		origin    = dblarr(3)
-		origin[0] = instr1_origin[0] - instr2_origin[0]
-		origin[1] = instr1_origin[1] - instr2_origin[1]
-		origin[2] = instr1_origin[2] + instr2_origin[2]
-	endif else begin
-		origin = instr1_origin - instr2_origin
-	endelse
+	origin = instr1_origin - instr2_origin
+
+	;Convert to spherical coordinates.
+	if spherical then origin = cv_coord(FROM_RECT=origin, /TO_SPHERE)
 	
 	return, origin
 end

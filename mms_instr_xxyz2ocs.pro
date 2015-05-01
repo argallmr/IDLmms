@@ -46,28 +46,16 @@
 ;
 ; :Params:
 ;       INSTRUMENT:         in, required, type=string
-;                           Name of the instrument. Options are::
-;                               "EDI1"
-;                               "EDI2"
-;                               "DSS"
+;                           Name of the instrument.
 ;
 ; :Keywords:
-;       NO_MATRIX:          in, optional, type=boolean, default=0
-;                           If set, do not calculate the rotation matrix. This is useful
-;                               for determining offsets between different instrument
-;                               coordinate systems via the ROT[XYZ]. Since `ROTZ` is
-;                               always performed last, it indicates the angle required
-;                               to rotate the instrument's x-axis into the OCS x-axis,
-;                               with z along the satellite spin axis.
-;       ORDER:              out, optional, type=intarr(3)
-;                           The order in which `ROTX`, `ROTY`, and `ROTZ`, are to be
-;                               performed. [3,2,1] implies ROTZ ## ROTY ## ROTX.
-;       ROTX:               out, optional, type=double
-;                           Euler angle for a rotation about the instrument's x-axis.
-;       ROTY:               out, optional, type=double
-;                           Euler angle for a rotation about the instrument's y-axis.
-;       ROTZ:               out, optional, type=double
-;                           Euler angle for a rotation about the instrument's z-axis.
+;       NAMES:              out, optional, type=strarr
+;                           If set, the names of each coordinate system are returned.
+;       SEQUENCE:           out, optional, type=intarr(3)
+;                           The order in which `ANGLES`, are to be performed.
+;                               ['Z','Y','X'] implies Z ## Y ## X.
+;       ANGLES:             out, optional, type=double
+;                           Euler angles for rotations about the axes specified in `SEQUENCE`.
 ;
 ; :Returns:
 ;       XYZ2OCS:            The rotation matrix that rotates EDI mechanical coordinate
@@ -101,14 +89,15 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/18  -   Written by Matthew Argall
+;       2015-05-01      Magnetometer 123 and XYZ systems are now directly
+;                         related to BCS. Removed OMB, as it is with respect
+;                         to SMPA. Remove NO_MATRIX keyword and use updated
+;                         MrEulerMatrix. - MRA
 ;-
 function mms_instr_xXYZ2OCS, instrument, $
 NAMES=names, $
-NO_MATRIX=no_matrix, $
-ORDER=order, $
-ROTX=rotx, $
-ROTY=roty, $
-ROTZ=rotz
+ANGLES=angles, $
+SEQUENCE=sequence
 	compile_opt idl2
 	on_error, 2
 
@@ -125,39 +114,33 @@ ROTZ=rotz
 	;       the ROTZ keyword provide information about relative angular offsets between
 	;       instrument coordinate systems.
 	;
-	;             INSTRUMENT          ALPHA    BETA    GAMMA   ORDER ([3,2,1] => Gamma ## Beta ## Alpha)
+	;            INSTRUMENT                ALPHA    BETA    GAMMA   ORDER ([3,2,1] => Gamma ## Beta ## Alpha)
 	euler_angles                  = hash()
-	euler_angles['ADP1']          = list(  0.0D,    0.0D,    0.0D, [3,2,1])
-	euler_angles['ADP2']          = list(  0.0D,  180.0D,    0.0D, [3,2,1])
-	euler_angles['AFG_XYZ']       = list(  0.0D,  -90.0D,  -90.0D, [3,2,1])     ;AFG_XYZ To AFG BOOM
-	euler_angles['AFG_123']       = list(  0.0D,    0.0D,    0.0D, [3,2,1])     ;AFG_123 To AFG_BOOM
-	euler_angles['AFG_BOOM']      = list(  0.0D,    0.0D,  135.0D, [3,2,1])
-	euler_angles['BCS']           = list(  0.0D,    0.0D,    0.0D, [3,2,1])
-	euler_angles['DFG_XYZ']       = list(  0.0D,  -90.0D,  -90.0D, [3,2,1])     ;DFG_XYZ To DFG_BOOM
-	euler_angles['DFG_123']       = list(  0.0D,    0.0D,  180.0D, [3,2,1])     ;DFG_123 To DFG_BOOM
-	euler_angles['DFG_BOOM']      = list(  0.0D,    0.0D,  -45.0D, [3,2,1])
-	euler_angles['DSS']           = list(  0.0D,    0.0D,  -76.0D, [3,2,1])
-	euler_angles['EDI1']          = list(  0.0D,  -90.0D,  221.0D, [3,2,1])
-	euler_angles['EDI1_GUN']      = list(  0.0D,  -90.0D,  221.0D, [3,2,1])
-	euler_angles['EDI1_DETECTOR'] = list(  0.0D,  -90.0D,  221.0D, [3,2,1])
-	euler_angles['EDI2']          = list(  0.0D,  -90.0D,   41.0D, [3,2,1])
-	euler_angles['EDI2_GUN']      = list(  0.0D,  -90.0D,   41.0D, [3,2,1])
-	euler_angles['EDI2_DETECTOR'] = list(  0.0D,  -90.0D,   41.0D, [3,2,1])
-	euler_angles['OCS']           = list(  0.0D,    0.0D,    0.0D, [3,2,1])
-	euler_angles['OMB']           = list(  0.0D,    0.0D,  225.0D, [3,2,1])
-	euler_angles['SC']            = list(  0.0D,    0.0D,    0.0D, [3,1,2])
-	euler_angles['SCM_XYZ']       = list( 90.0D,    0.0D,  180.0D, [3,1,2])     ;SCM_XYZ To SCM_BOOM
-	euler_angles['SCM_123']       = list( 90.0D,    0.0D,  180.0D, [3,1,2])     ;SCM_123 To SCM_BOOM
-	euler_angles['SCM_BOOM']      = list(  0.0D,    0.0D,  135.0D, [3,2,1])
-	euler_angles['SDP1']          = list(  0.0D,  180.0D,  -60.0D, [3,2,1])
-	euler_angles['SDP2']          = list(  0.0D,  180.0D,  120.0D, [3,2,1])
-	euler_angles['SDP3']          = list(  0.0D,  180.0D,   30.0D, [3,2,1])
-	euler_angles['SDP4']          = list(  0.0D,  180.0D,  210.0D, [3,2,1])
-
-	;This is how the rotations are given in the instrument manual.
-;	euler_angles['AFG123']     = list(  0.0D,  -90.0D,  -90.0D, [3,2,1])     ;AFG-to-AFG123
-;	euler_angles['DFG123']     = list(  0.0D,  -90.0D,   90.0D, [3,2,1])     ;DFG-to-DFG123
-;	euler_angles['SCM123']     = list( 90.0D,    0.0D,  180.0D, [3,1,2])     ;SCM-to-SCM123
+	euler_angles['ADP1']          = list( [    0.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['ADP2']          = list( [    0.0D,  180.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['AFG_XYZ']       = list( [   45.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['AFG_123']       = list( [  135.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['AFG_BOOM']      = list( [  135.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['BCS']           = list( [    0.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['DFG_XYZ']       = list( [ -135.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['DFG_123']       = list( [  135.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['DFG_BOOM']      = list( [  -45.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['DSS']           = list( [  -76.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI1']          = list( [  221.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI1_GUN']      = list( [  221.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI1_DETECTOR'] = list( [  221.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI2']          = list( [   41.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI2_GUN']      = list( [   41.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['EDI2_DETECTOR'] = list( [   41.0D,  -90.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['OCS']           = list( [    0.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SC']            = list( [    0.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SCM_XYZ']       = list( [  -45.0D,    0.0D, 90.0D], ['Z','Y','X'])
+	euler_angles['SCM_123']       = list( [  135.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SCM_BOOM']      = list( [  135.0D,    0.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SDP1']          = list( [  -60.0D,  180.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SDP2']          = list( [  120.0D,  180.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SDP3']          = list( [   30.0D,  180.0D,  0.0D], ['Z','Y','X'])
+	euler_angles['SDP4']          = list( [  210.0D,  180.0D,  0.0D], ['Z','Y','X'])
 
 ;-------------------------------------------------------
 ; Names ////////////////////////////////////////////////
@@ -178,42 +161,11 @@ ROTZ=rotz
 ; Create Rotation Matrix ///////////////////////////////
 ;-------------------------------------------------------
 	;Collect the data
-	rotx  = euler_angles[instr, 0]
-	roty  = euler_angles[instr, 1]
-	rotz  = euler_angles[instr, 2]
-	order = euler_angles[instr, 3]
+	angles   = euler_angles[instr, 0]
+	sequence = euler_angles[instr, 1]
 	
 	;Get the rotation matrix that rotates XYZ into OCS.
-	if tf_matrix $
-		then xyz2ocs = MrEulerMatrix(rotx, roty, rotz, ORDER=order, /ANGLES, /MATH) $
-		else xyz2ocs = identity(3)
-	
-;-------------------------------------------------------
-; Finish Rotation to OCS ///////////////////////////////
-;-------------------------------------------------------
-
-	;Magnetometer mechanical and sensor frames must be rotated from MAG_BOOM to OCS.
-	;   - e.g. 'AFG_123' and 'AFG_XYZ' must be rotated from 'AFG_BOOM' to 'OCS'
-	;   - The process is the same for all three.
-	if stregex(instr, '(AFG|DFG|SCM)_(XYZ|123)', /BOOLEAN) then begin
-		;Extract the instrument
-		mag_name = stregex(instr, '^(AFG|DFG|SCM)', /SUBEXP, /EXTRACT)
-		mag_name = mag_name[1]
-		
-		;What we really have is the transformation to the MAG_BOOM system
-		mag2mag_boom = xyz2ocs
-		
-		;Now rotate into OCS
-		rotinfo = euler_angles[mag_name + '_BOOM']
-		if tf_matrix then begin
-			mag_boom2ocs = MrEulerMatrix(rotinfo[0], rotinfo[1], rotinfo[2], ORDER=rotinfo[3], /ANGLES, /MATH)
-			xyz2ocs      = mag_boom2ocs ## mag2mag_boom
-		endif
-		
-		;Since the rotation about Z is always last, the final rotation about z is
-		;the sum of the two original rotations.
-		rotz += rotinfo[2]
-	endif
+	xyz2ocs = MrEulerMatrix(angles, sequence, /DEGREES, /MATH)
 
 	;Return
 	return, xyz2ocs
