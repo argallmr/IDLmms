@@ -123,9 +123,9 @@ SPHERICAL=spherical
 	afgboom2ocs = mms_instr_xxyz2ocs('AFG_BOOM')
 	dfgboom2ocs = mms_instr_xxyz2ocs('DFG_BOOM')
 	scmboom2ocs = mms_instr_xxyz2ocs('SCM_BOOM')
-	instr_hash['AFG_MECH'] = mrvector_rotate(afgboom2ocs, instr_hash['AFG_MECH']
-	instr_hash['DFG_MECH'] = mrvector_rotate(dfgboom2ocs, instr_hash['DFG_MECH']
-	instr_hash['SCM_MECH'] = mrvector_rotate(scmboom2ocs, instr_hash['SCM_MECH']
+	instr_hash['AFG_MECH'] = mrvector_rotate(afgboom2ocs, instr_hash['AFG_MECH'])
+	instr_hash['DFG_MECH'] = mrvector_rotate(dfgboom2ocs, instr_hash['DFG_MECH'])
+	instr_hash['SCM_MECH'] = mrvector_rotate(scmboom2ocs, instr_hash['SCM_MECH'])
 	
 	;Convert to OCS origin
 	instr_hash['AFG_123'] = instr_hash['AFG_MECH'] + instr_hash['AFG_BOOM']

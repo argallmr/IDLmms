@@ -79,7 +79,7 @@
 ;                               'l2plus'
 ;
 ; :Keywords:
-;       DESCRIPTOR:         in, optional, type=string, default=''
+;       OPTDESC:            in, optional, type=string, default=''
 ;                           Optional field that may not be needed for all
 ;                               products (e.g. Quicklook and SITL).  Where it is used, 
 ;                               identifiers should be short (e.g. 3-8 character)
@@ -126,13 +126,14 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/06  -   Written by Matthew Argall
+;       2015/05/01  -   Removed instrument validation. - MRA
 ;
 function mms_construct_varname, sc, instrument, param_name, $
-DESCRIPTOR=descriptor
+OPTDESC=optdesc
 	compile_opt strictarr
 	on_error, 2
 	
-	desc = n_elements(descriptor) eq 0 ? '' : '_' + descriptor
+	desc = n_elements(optdesc) eq 0 ? '' : '_' + optdesc
 	
 	;Spacecraft ID
 	if size(sc, /TNAME) eq 'STRING' then begin
@@ -158,20 +159,11 @@ DESCRIPTOR=descriptor
 		endcase
 	endelse
 	
-	;Instrument IDs
-	inst_ids = ['hpca', 'aspoc', 'epd', 'epd-eis', 'epd-feeps', 'fpi', $
-	            'des', 'dis', 'des-dis', 'fields', 'edi', 'adp', 'sdp', 'adp-sdp', $
-	            'afg', 'dfg', 'dsp', 'afg-dfg', 'scm']
-	if max(strlowcase(instrument) eq inst_ids) eq 0 $
-		then message, 'Invalid instrument ID: "' + inst_ids + '".'
-
-	
 	;Create the MMS variable name
 	varname = _sc + '_' + $
 	          instrument  + '_' + $
 	          param_name  +  $
 	          desc
-
 	
 	return, varname
 end

@@ -51,14 +51,14 @@
 ;                               'l2plus'
 ;
 ; :Keywords:
-;       DESCRIPTOR:         in, optional, type=string, default=''
+;       OPTDESC:            in, optional, type=string, default=''
 ;                           Optional field that may not be needed for all
 ;                               products (e.g. Quicklook and SITL).  Where it is used, 
 ;                               identifiers should be short (e.g. 3-8 character)
 ;                               descriptors that are helpful to end-users.  If a descriptor
 ;                               contains multiple components, hyphens are used to separate
 ;                               those components.
-;       PATTERN:            in, optional, type=boolean, default=0
+;       TOKENS:             in, optional, type=boolean, default=0
 ;                           If set, then the default value of `START_TIME` is '%Y%M%d'.
 ;                               This pattern is recognized by MrTokens and can be used
 ;                               to find files with year, month, and day in the file name.
@@ -101,23 +101,23 @@
 ;
 function mms_construct_filename, sc, instrument, mode, level, $
 START_TIME=start_time, $
-DESCRIPTOR=descriptor, $
+OPTDESC=optdesc, $
 DIRECTORY=directory, $
-PATTERN=pattern, $
+TOKENS=tokens, $
 VERSION=version
 	compile_opt strictarr
 	on_error, 2
 	
-	pattern = keyword_set(pattern)
-	if pattern $
+	tokens = keyword_set(tokens)
+	if tokens $
 		then start_time = '%Y%M%d' $
 		else if n_elements(start_time) eq 0 then start_time = '*'
 	
 	;if no directory was supplied, get the current directory
 	;if no base was chosen, go with the complete base
-	if n_elements(directory)  eq 0 then directory = ''
-	if n_elements(version)    eq 0 then version   = '*'
-	desc = n_elements(descriptor) eq 0 ? '' : descriptor + '_'
+	if n_elements(directory)   eq 0 then directory = ''
+	if n_elements(version)     eq 0 then version   = '*'
+	desc = n_elements(optdesc) eq 0 ? '' : optdesc + '_'
 	
 	;Spacecraft ID
 	if size(sc, /TNAME) eq 'STRING' then begin
@@ -144,24 +144,24 @@ VERSION=version
 	endelse
 	
 	;Instrument IDs
-	inst_ids = ['hpca', 'aspoc', 'epd', 'epd-eis', 'epd-feeps', 'fpi', $
-	            'des', 'dis', 'des-dis', 'fields', 'edi', 'adp', 'sdp', 'adp-sdp', $
-	            'afg', 'dfg', 'dsp', 'afg-dfg', 'scm']
-	if max(strlowcase(instrument) eq inst_ids) eq 0 $
-		then message, 'Invalid instrument ID: "' + inst_ids + '".'
-
-	;Level
-	data_modes = ['fast', 'slow', 'brst', 'srvy']
-	if max(strlowcase(mode) eq data_modes) eq 0 $
-		then message, 'Invalid data mode: "' + mode + '".'
-
-	;Mode
-	data_levels = ['l1a', 'l1b', 'ql', 'l2', 'l2pre', 'l2plus']
-	if max(strlowcase(level) eq data_levels) eq 0 $
-		then message, 'Invalid data level: "' + level + '".'
+;	inst_ids = ['hpca', 'aspoc', 'epd', 'epd-eis', 'epd-feeps', 'fpi', $
+;	            'des', 'dis', 'des-dis', 'fields', 'edi', 'adp', 'sdp', 'adp-sdp', $
+;	            'afg', 'dfg', 'dsp', 'afg-dfg', 'scm']
+;	if max(strlowcase(instrument) eq inst_ids) eq 0 $
+;		then message, 'Invalid instrument ID: "' + instrument + '".'
+;
+;	;Level
+;	data_modes = ['fast', 'slow', 'brst', 'srvy']
+;	if max(strlowcase(mode) eq data_modes) eq 0 $
+;		then message, 'Invalid data mode: "' + mode + '".'
+;
+;	;Mode
+;	data_levels = ['l1a', 'l1b', 'ql', 'l2', 'l2pre', 'l2plus']
+;	if max(strlowcase(level) eq data_levels) eq 0 $
+;		then message, 'Invalid data level: "' + level + '".'
 	
 	;Start Time
-	if pattern eq 0 && start_time ne '*' then begin
+	if tokens eq 0 && start_time ne '*' then begin
 		if stregex(start_time, '[0-9]{8}[0-9]*', /BOOLEAN) eq 0 $
 			then message, 'Invalid start time: "' + start_time + '".'
 	endif
@@ -173,7 +173,6 @@ VERSION=version
 	endif
 	
 	;Create the MMS filename
-	;e.g. 'C1_CP_' + team + data_product + '_20050125_144700_20050125_145200_V######.cdf'
 	filename = _sc           + '_' + $
 	           instrument    + '_' + $
 	           mode          + '_' + $
@@ -196,11 +195,11 @@ sc         = 1
 instrument = 'afg'
 mode       = 'srvy'
 level      = 'l2pre'
-descriptor = 'duration-1h1m'
+optdesc    = 'duration-1h1m'
 start_time = '20150313'
 version    = '1.1.2'
 
-filename = mms_construct_filename(sc, instrument, mode, level, DESCRIPTOR=descriptor, $
+filename = mms_construct_filename(sc, instrument, mode, level, OPTDESC=optdesc, $
                                   START_TIME=start_time, VERSION=version)
 print, filename
 end

@@ -109,15 +109,9 @@
 ;       2015/02/15  -   Written by Matthew Argall
 ;       2015/03/06  -   Accepting data instead of file names. Return secondary data via
 ;                           keywords. Removied view and file output capabilities. - MRA
+;       2015/05/03  -   Remove keywords and return data structure instead. - MRA
 ;-
-function mms_edi_bavg, t_dfg, b_dfg_docs, t_edi, t_edi_beam1, t_edi_beam2, $
-B_STDEV = B_stdev, $
-B_BEAM1_DOCS = b_beam1_docs, $
-B_BEAM2_DOCS = b_beam2_docs, $
-EDI1_BEAM_INDS = edi1_beam_inds, $
-EDI2_BEAM_INDS = edi2_beam_inds, $
-T_AVG = t_avg, $
-T_ERR = t_err
+function mms_edi_bavg, t_dfg, b_dfg_docs, t_edi_beam1, t_edi_beam2
 	compile_opt idl2
 
 	;Error handling
@@ -141,7 +135,7 @@ T_ERR = t_err
 	;   - Convert to UT
 	;   - Round down to the nearest 5-second interval 
 	;   - Convert back to CDF_TIME_TT2000
-	t0 = t_dfg[0] < t_edi[0] < t_edi_beam1[0] < t_edi_beam2[0]
+	t0 = t_dfg[0] < t_edi_beam1[0] < t_edi_beam2[0]
 	MrCDF_Epoch, temporary(t0), yr, mo, day, hr, mn, sec, /BREAKDOWN_EPOCH
 	sec -= sec mod 5
 	MrCDF_Epoch, t0, yr, mo, day, hr, mn, sec, /TT2000, /COMPUTE_EPOCH
@@ -149,7 +143,6 @@ T_ERR = t_err
 	;SPLINE accepts only floats or doubles
 	;   - Subtract the initial time from all points and convert from nono-seconds to seconds
 	time_dfg   = double(t_dfg       - t0) * 1d-9
-	time_edi   = double(t_edi       - t0) * 1d-9
 	time_beam1 = double(t_edi_beam1 - t0) * 1d-9
 	time_beam2 = double(t_edi_beam2 - t0) * 1d-9
 	t_stop     = time_dfg[-1] < time_edi[-1] < time_beam1[-1] < time_beam2[-1]
@@ -286,10 +279,15 @@ T_ERR = t_err
 ; Prepare Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Trim data
-	t_avg   = t_avg[0:count-1]
-	b_avg   = b_avg[*, 0:count-1]
-	b_stdev = b_stdev[*, 0:count-1]
-	t_err   = [0.0, 5.0]
+	avg = { t_avg:     t_avg[0:count-1], $
+	        b_avg:     b_avg[*, 0:count-1], $
+	        b_std:     b_stdev[*, 0:count-1], $
+	        t_err:     [0.0, dt], $
+	        b_gd12:    b_dfg_beam1, $
+	        b_gd21:    b_dfg_beam2, $
+	        inds_gd12: edi1_beam_inds, $
+	        inds_gd21: edi2_beam_inds $
+	      }
 
-	return, b_avg
+	return, avg
 end

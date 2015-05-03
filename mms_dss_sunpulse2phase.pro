@@ -102,6 +102,8 @@ FLAG=flag, $
 PERIOD=dPulse, $
 T_FLAG=dPulse_flag, $
 SUNPULSE=sunpulse
+	compile_opt idl2
+	on_error, 2
 	;
 	;-----------------------------
 	; FROM: Ken Bromund          |
@@ -159,7 +161,7 @@ SUNPULSE=sunpulse
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 	;Make editable copies of data
-	hk_epoch = hk.hk_epoch
+	hk_epoch = hk.epoch
 	sunpulse = hk.sunpulse
 	period   = hk.period * 1000LL     ;Convert from micro- to nano-seconds
 	flag     = hk.flag
@@ -178,12 +180,12 @@ SUNPULSE=sunpulse
 
 	;If the first period is a valid value, it can be used to create
 	;an epoch time just prior to the start of the data interval.
-	if valid_iifsunper[0] then begin
+	if valid_period[0] then begin
 		pseudopulse  = sunpulse[0] - period[0]
 		sunpulse     = [ pseudopulse, sunpulse     ]
 		dPulse       = [ period[0],   period       ]
 		dPulse_flag  = [ 0,           dPulse_flag  ]
-		period       = [ 0,           period       ]
+		period       = [ period[0],   period       ]
 		valid_period = [ 0,           valid_period ]
 		flag         = [ 3,           flag         ] 
 	endif
@@ -247,18 +249,18 @@ SUNPULSE=sunpulse
 
 	;There is one more interval than the number of gaps.
 	for i = 0, nGaps do begin
+		;End of smooth interval
+		if i eq nGaps $
+			then istop = n_elements(dPulse) - 1 $
+			else istop = iGaps[1,i]
+		
 		;Extract for ease of use
 		temp_pulse  = sunpulse[istart:istop]
 		temp_dPulse = dPulse[istart:istop]
 		temp_Tvalid = valid_period[istart:istop]
 		temp_period = period[istart:istop]
-		temp_dFlat  = dPulse_flag[istart:isto]
+		temp_dFlag  = dPulse_flag[istart:istop]
 		nPts        = istop - istart + 1
-	
-		;End of smooth interval
-		if i eq nGaps $
-			then istop = n_elements(dPulse) $
-			else istop = iGaps[1,i]
 	
 		;Median smooth if there are enough points
 		if (istop - istart + 1) ge nMedFilt then begin
@@ -267,7 +269,7 @@ SUNPULSE=sunpulse
 			
 			;Correct the first and last half filter window
 			T_filt[0:nHalfFilt]                   = T_filt[nHalfFilt+1]
-			T_filt[n_dpulse-nHalfFilt:n_dPulse-1] = T_filt[n_dPulse-nHalfFilt-1]
+			T_filt[nPts-nHalfFilt-1:nPts-1] = T_filt[nPts-nHalfFilt-2]
 		endif else begin
 			;Take the median value
 			T_filt = replicate( median(temp_dPulse), istop-istart+1)
@@ -419,28 +421,30 @@ SUNPULSE=sunpulse
 ;-----------------------------------------------------
 	;Determine where times are located within the sunpulse array
 	inds = value_locate(sunpulse, epoch) > 0
-	
+
 	;Compute phase
 	;   - degrees * nano-seconds / ( nano-seconds / spin )
-	phase = 360.0 * double(times - pulse(inds)) / double(period(inds))
+	phase = 360.0 * double(epoch - sunpulse[inds]) / double(period[inds])
 	phase = phase mod 360.0
 
 ;-----------------------------------------------------
 ; Did We Extrapolate? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Extrapolate before
-	iBefore = where(times lt sunpulse[0], nBefore)
+	iBefore = where(epoch lt sunpulse[0], nBefore)
 	if nBefore gt 0 then begin
-		nExtrap = MrCDF_epoch2sse(times[0], sunpulse[0]) / T_median
+		nExtrap = MrCDF_epoch2sse(epoch[0], sunpulse[0]) / T_median
 		if nExtrap gt 3 then $
 			message, 'Extrapolating more than 3 spins before first sunpulse.', /INFORMATIONAL
 	endif
 	
 	;Extrapolate after
-	iAfter = where(times gt sunpulse[n_elements(sunpulse)-1], nAfter)
+	iAfter = where(epoch gt sunpulse[n_elements(sunpulse)-1], nAfter)
 	if nAfter gt 0 then begin
-		nExtrap = MrCDF_epoch2sse(times[n_elements(times)-1], sunpulse[n_elements(sunpulse)-1]) / T_median
+		nExtrap = MrCDF_epoch2sse(epoch[n_elements(epoch)-1], sunpulse[n_elements(sunpulse)-1]) / T_median
 		if nExtrap gt 3 then $
 			message, 'Extrapolating more than 3 spins before first sunpulse.', /INFORMATIONAL
 	endif
+	
+	return, phase
 end

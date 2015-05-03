@@ -66,7 +66,7 @@
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall.
 ;-
-function mms_dss_xdespin, hk, epoch
+function mms_dss_xdespin, hk, epoch, $
 CS=cs, $
 SPINUP=spinup
 	compile_opt idl2
@@ -78,7 +78,7 @@ SPINUP=spinup
 
 	;Calculate phase
 	phase = mms_dss_sunpulse2phase(hk, epoch) * (!dpi / 180.0D)
-	
+
 	;The spin phase is the angle of rotation away from the s/c-sun
 	;line. To despin, we want to rotate against the phase. To spin-
 	;up, we rotate with the phase.
@@ -87,12 +87,12 @@ SPINUP=spinup
 	;The DSS requires a -76 degree rotation about the z-axis to align
 	;with BCS. Aligning BCS with the sun sensor requires a +76 degree
 	;rotation.
-	offset = 76 * pi/180
+	offset = 76.0 * !dpi/180
 	
 	;Sine and Cosine of phase
 	sinPhase = sin(phase + offset)
 	cosPhase = cos(phase + offset)
-	
+
 	; So that it looks math-like
 	;                 |  cos  sin  0  |
 	;   spin2despun = | -sin  cos  0  |
@@ -103,4 +103,6 @@ SPINUP=spinup
 	spin2despun[0,1,*] = -sinPhase
 	spin2despun[1,1,*] =  cosPhase
 	spin2despun[2,2,*] =  1
+
+	return, spin2despun
 end

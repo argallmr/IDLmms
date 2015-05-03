@@ -77,7 +77,7 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/02/15  -   Written by Matthew Argall.
+;       2015/02/15  -   Written by Matthew Argall
 ;-
 function mms_dss_read_sunpulse, sc, tstart, tend, dss_dir, $
 UNIQ_PACKETS=uniq_packets, $
@@ -92,24 +92,29 @@ UNIQ_PULSE=uniq_pulse
 ; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Create the file name
-	fname = mms_construct_filename(sc, 'hk_fields', 'l1b', '101', /TOKENS, DIRECTORY=dss_dir)
+	fname = mms_construct_filename(sc, 'fields_hk', 'l1b', '101', /TOKENS, DIRECTORY=dss_dir)
 
 	;Create the variable names
-	sunpulse_name = mms_construct_varname(sc, '101_sunpulse')
-	flag_name     = mms_construct_varname(sc, '101_sunssps')
-	period_name   = mms_construct_varname(sc, '101_sunssps')
-  
+	sunpulse_name = mms_construct_varname(sc, '101', 'sunpulse')
+	flag_name     = mms_construct_varname(sc, '101', 'sunssps')
+	period_name   = mms_construct_varname(sc, '101', 'iifsunper')
+
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Search for the files
-	files = MrFile_Search(fname, TSTART=tstart, TEND=tend, /CLOSEST, TIMEORDER='%Y%M%d')
+	;Search for files
+	files = MrFile_Search(fname, /CLOSEST, $
+	                      COUNT     = count, $
+	                      TSTART    = tstart, $
+	                      TEND      = tend, $
+	                      TIMEORDER ='%Y%M%d')
+	if count eq 0 then message, 'No HK 0x101 sunpulse files found in "' + dss_dir + '".'
 
 	;Read the data
 	sunpulse = MrCDF_nRead(files, sunpulse_name, $
-	                     DEPEND_0 = hk_epoch, $
-	                     TSTART   = tstart, $
-	                     TEND     = tend)
+	                       DEPEND_0 = hk_epoch, $
+	                       TSTART   = tstart, $
+	                       TEND     = tend)
 	period = MrCDF_nRead(files, period_name, TSTART=tstart, TEND=tend)
 	flag   = MrCDF_nRead(files, flag_name,   TSTART=tstart, TEND=tend)
 
@@ -132,7 +137,7 @@ UNIQ_PULSE=uniq_pulse
 	endif
 
 	;Return a structure
-	hk_struct = { epoch:    hkepoch, $
+	hk_struct = { epoch:    hk_epoch, $
 	              sunpulse: sunpulse, $
 	              flag:     flag, $
 	              period:   period }
