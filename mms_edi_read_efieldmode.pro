@@ -62,22 +62,32 @@
 ; :Returns:
 ;       EDI:            Structure of EDI data. Fields are below. If zero beams are
 ;                           detected from a GD pair, its fields will be missing from
-;                           the output structure. Use N_GD12 and N_GD21 to test.
-;                             'N_GD12'       -  Number of points returned
-;                             'EPOCH_GD12'   -  Time (cdf_time_tt2000)
-;                             'AZIMUTH_GD12' -  Azimuthal firing angle (degrees)
-;                             'POLAR_GD12'   -  Polar firing angle (degrees)
-;                             'FV_GD12'      -  Firing vectors
-;                             'TOF_GD12'     -  Time of flight (micro-seconds)
-;                             'Q_GD12'       -  Quality flag
+;                           the output structure. Use COUNT_GD12 and COUNT_GD21 to test.
+;                             'COUNT_GD12'       -  Number of points returned
+;                             'EPOCH_GD12'       -  Time (cdf_time_tt2000)
+;                             'AZIMUTH_GD12'     -  Azimuthal firing angle (degrees)
+;                             'POLAR_GD12'       -  Polar firing angle (degrees)
+;                             'FV_GD12'          -  Firing vectors
+;                             'TOF_GD12'         -  Time of flight (micro-seconds)
+;                             'QUALITY_GD12'     -  Quality flag
+;                             'ENERGY_GD12'      -  Energy
+;                             'CODE_LENGTH_GD12' -  Code length
+;                             'M_GD12'           -  Correlator length
+;                             'N_GD12'           -  Correlator length
+;                             'MAX_ADDR_GD12'    -  Max beam hit address
 ;
-;                             'N_GD21'       -  Number of points returned
-;                             'EPOCH_GD21'   -  Time (cdf_time_tt2000)
-;                             'AZIMUTH_GD21' -  Azimuthal firing angle (degrees)
-;                             'POLAR_GD21'   -  Polar firing angle (degrees)
-;                             'FV_GD21'      -  Firing vectors
-;                             'TOF_GD21'     -  Time of flight (micro-seconds)
-;                             'Q_GD21'       -  Quality flag
+;                             'COUNT_GD21'       -  Number of points returned
+;                             'EPOCH_GD21'       -  Time (cdf_time_tt2000)
+;                             'AZIMUTH_GD21'     -  Azimuthal firing angle (degrees)
+;                             'POLAR_GD21'       -  Polar firing angle (degrees)
+;                             'FV_GD21'          -  Firing vectors
+;                             'TOF_GD21'         -  Time of flight (micro-seconds)
+;                             'QUALITY_GD21'     -  Quality flag
+;                             'ENERGY_GD21'      -  Energy
+;                             'CODE_LENGTH_GD21' -  Code length
+;                             'M_GD21'           -  Correlator length
+;                             'N_GD21'           -  Correlator length
+;                             'MAX_ADDR_GD21'    -  Max beam hit address
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -90,12 +100,21 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
+;       2015/05/05  -   Return energy, code length, correlator n and m, and max_addr. - MRA
 ;-
 function mms_edi_read_efieldmode, sc, mode, level, tstart, tend, $
 DIRECTORY=edi_dir, $
 QUALITY=quality
 	compile_opt idl2
-	on_error, 2
+	
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if n_elements(cdfIDs) gt 0 then $
+			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
+		void = cgErrorMSG(/QUIET)
+		return, !Null
+	endif
 	
 	if n_elements(edi_dir) eq 0 then cd, CURRENT=edi_dir
 
@@ -110,16 +129,26 @@ QUALITY=quality
 	                               DIRECTORY = edi_dir)
 	
 	;Variable names for GD12
-	phi_gd12_name   = mms_construct_varname(sc, 'edi', 'phi_gd12')
-	theta_gd12_name = mms_construct_varname(sc, 'edi', 'theta_gd12')
-	tof_gd12_name   = mms_construct_varname(sc, 'edi', 'tof1_us')
-	q_gd12_name     = mms_construct_varname(sc, 'edi', 'sq_gd12')
+	phi_gd12_name         = mms_construct_varname(sc, 'edi', 'phi_gd12')
+	theta_gd12_name       = mms_construct_varname(sc, 'edi', 'theta_gd12')
+	tof_gd12_name         = mms_construct_varname(sc, 'edi', 'tof1_us')
+	q_gd12_name           = mms_construct_varname(sc, 'edi', 'sq_gd12')
+	e_gd12_name           = mms_construct_varname(sc, 'edi', 'e_gd12')
+	code_length_gd12_name = mms_construct_varname(sc, 'edi', 'code_length_gd12')
+	m_gd12_name           = mms_construct_varname(sc, 'edi', 'm_gd12')
+	n_gd12_name           = mms_construct_varname(sc, 'edi', 'n_gd12')
+	max_addr_gd12_name    = mms_construct_varname(sc, 'edi', 'max_addr_gd12')
 	
 	;Variable names for GD21
-	phi_gd21_name   = mms_construct_varname(sc, 'edi', 'phi_gd21')
-	theta_gd21_name = mms_construct_varname(sc, 'edi', 'theta_gd21')
-	tof_gd21_name   = mms_construct_varname(sc, 'edi', 'tof2_us')
-	q_gd21_name     = mms_construct_varname(sc, 'edi', 'sq_gd21')
+	phi_gd21_name         = mms_construct_varname(sc, 'edi', 'phi_gd21')
+	theta_gd21_name       = mms_construct_varname(sc, 'edi', 'theta_gd21')
+	tof_gd21_name         = mms_construct_varname(sc, 'edi', 'tof2_us')
+	q_gd21_name           = mms_construct_varname(sc, 'edi', 'sq_gd21')
+	e_gd21_name           = mms_construct_varname(sc, 'edi', 'e_gd21')
+	code_length_gd21_name = mms_construct_varname(sc, 'edi', 'code_length_gd21')
+	m_gd21_name           = mms_construct_varname(sc, 'edi', 'm_gd21')
+	n_gd21_name           = mms_construct_varname(sc, 'edi', 'n_gd21')
+	max_addr_gd21_name    = mms_construct_varname(sc, 'edi', 'max_addr_gd21')
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -127,66 +156,93 @@ QUALITY=quality
 
 	;Search for files
 	files = MrFile_Search(fname, /CLOSEST, $
-	                      COUNT     = count, $
+	                      COUNT     = nFiles, $
 	                      TSTART    = tstart, $
 	                      TEND      = tend, $
 	                      TIMEORDER ='%Y%M%d')
-	if count eq 0 then message, 'No EDI files found in "' + edi_dir + '".'
+	if nFiles eq 0 then message, 'No EDI files found in "' + edi_dir + '".'
+
+	;Open the files
+	cdfIDs = lonarr(nFiles)
+	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(fname[i])
 
 	;Read the data for GD12
-	phi_gd12 = MrCDF_nRead(files, phi_gd12_name, $
+	phi_gd12 = MrCDF_nRead(cdfIDs, phi_gd12_name, $
 	                       DEPEND_0 = epoch_gd12, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd12 = MrCDF_nRead(files, theta_gd12_name, TSTART=tstart, TEND=tend)
-	tof_gd12   = MrCDF_nRead(files, tof_gd12_name,   TSTART=tstart, TEND=tend)
-	q_gd12     = MrCDF_nRead(files, q_gd12_name,     TSTART=tstart, TEND=tend)
+	theta_gd12       = MrCDF_nRead(cdfIDs, theta_gd12_name,       TSTART=tstart, TEND=tend)
+	tof_gd12         = MrCDF_nRead(cdfIDs, tof_gd12_name,         TSTART=tstart, TEND=tend)
+	q_gd12           = MrCDF_nRead(cdfIDs, q_gd12_name,           TSTART=tstart, TEND=tend)
+	e_gd12           = MrCDF_nRead(cdfIDs, e_gd12_name,           TSTART=tstart, TEND=tend)
+	code_length_gd12 = MrCDF_nRead(cdfIDs, code_length_gd12_name, TSTART=tstart, TEND=tend)
+	m_gd12           = MrCDF_nRead(cdfIDs, m_gd12_name,           TSTART=tstart, TEND=tend)
+	n_gd12           = MrCDF_nRead(cdfIDs, n_gd12_name,           TSTART=tstart, TEND=tend)
+	max_addr_gd12    = MrCDF_nRead(cdfIDs, max_addr_gd12_name,    TSTART=tstart, TEND=tend)
 
 	;Read the data for GD21
-	phi_gd21 = MrCDF_nRead(files, phi_gd21_name, $
+	phi_gd21 = MrCDF_nRead(cdfIDs, phi_gd21_name, $
 	                       DEPEND_0 = epoch_gd21, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd21 = MrCDF_nRead(files, theta_gd21_name, TSTART=tstart, TEND=tend)
-	tof_gd21   = MrCDF_nRead(files, tof_gd21_name,   TSTART=tstart, TEND=tend)
-	q_gd21     = MrCDF_nRead(files, q_gd21_name,     TSTART=tstart, TEND=tend)
+	theta_gd21       = MrCDF_nRead(cdfIDs, theta_gd21_name,       TSTART=tstart, TEND=tend)
+	tof_gd21         = MrCDF_nRead(cdfIDs, tof_gd21_name,         TSTART=tstart, TEND=tend)
+	q_gd21           = MrCDF_nRead(cdfIDs, q_gd21_name,           TSTART=tstart, TEND=tend)
+	e_gd21           = MrCDF_nRead(cdfIDs, e_gd21_name,           TSTART=tstart, TEND=tend)
+	code_length_gd21 = MrCDF_nRead(cdfIDs, code_length_gd21_name, TSTART=tstart, TEND=tend)
+	m_gd21           = MrCDF_nRead(cdfIDs, m_gd21_name,           TSTART=tstart, TEND=tend)
+	n_gd21           = MrCDF_nRead(cdfIDs, n_gd21_name,           TSTART=tstart, TEND=tend)
+	max_addr_gd21    = MrCDF_nRead(cdfIDs, max_addr_gd21_name,    TSTART=tstart, TEND=tend)
+	
+	;Close the files
+	for i = 0, nFiles do cdf_close, cdfIDs[i]
 
 ;-----------------------------------------------------
 ; Filter by Quality? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	if n_elements(quality) gt 0 then begin
-		void = MrIsMember(quality, q_gd12, iq_gd12, COUNT=n_gd12)
-		void = MrIsMember(quality, q_gd21, iq_gd21, COUNT=n_gd21)
+		void = MrIsMember(quality, q_gd12, iq_gd12, COUNT=count_gd12)
+		void = MrIsMember(quality, q_gd21, iq_gd21, COUNT=count_gd21)
 		
 		;GD12
-		if n_gd12 gt 0 then begin
-			epoch_gd12 = epoch_gd12[iq_gd12]
-			phi_gd12   = phi_gd12[iq_gd12]
-			theta_gd12 = theta_gd12[iq_gd12]
-			tof_gd12   = tof_gd12[iq_gd12]
-			q_gd12     = q_gd12[iq_gd12]
+		if count_gd12 gt 0 then begin
+			epoch_gd12       = epoch_gd12[iq_gd12]
+			phi_gd12         = phi_gd12[iq_gd12]
+			theta_gd12       = theta_gd12[iq_gd12]
+			tof_gd12         = tof_gd12[iq_gd12]
+			q_gd12           = q_gd12[iq_gd12]
+			e_gd12           = e_gd12[iq_gd12]
+			code_length_gd12 = code_length_gd12[iq_gd12]
+			m_gd12           = m_gd12[iq_gd12]
+			n_gd12           = n_gd12[iq_gd12]
+			max_addr_gd12    = max_addr_gd12[iq_gd12]
 		endif else begin
 			message, 'No beams of desired quality for GD12.', /INFORMATIONAL
 		endelse
 		
 		;GD21
-		if n_gd21 gt 0 then begin
-			epoch_gd21 = epoch_gd21[iq_gd21]
-			phi_gd21   = phi_gd21[iq_gd21]
-			theta_gd21 = theta_gd21[iq_gd21]
-			tof_gd21   = tof_gd21[iq_gd21]
-			q_gd21     = q_gd21[iq_gd21]
+		if count_gd21 gt 0 then begin
+			epoch_gd21       = epoch_gd21[iq_gd21]
+			phi_gd21         = phi_gd21[iq_gd21]
+			theta_gd21       = theta_gd21[iq_gd21]
+			tof_gd21         = tof_gd21[iq_gd21]
+			q_gd21           = q_gd21[iq_gd21]
+			e_gd21           = e_gd21[iq_gd21]
+			code_length_gd21 = code_length_gd21[iq_gd12]
+			m_gd21           = m_gd21[iq_gd21]
+			n_gd21           = n_gd21[iq_gd21]
+			max_addr_gd21    = max_addr_gd21[iq_gd21]
 		endif else begin
 			message, 'No beams of desired quality for GD21.', /INFORMATIONAL
 		endelse
 		
-		if n_gd12 + n_gd21 eq 0 then $
+		if count_gd12 + count_gd21 eq 0 then $
 			message, 'No beams found of desired quality.'
 			
 	;No filter
 	endif else begin
-		n_gd12 = n_elements(epoch_gd12)
-		n_gd21 = n_elements(epoch_gd21)
+		count_gd12 = n_elements(epoch_gd12)
+		count_gd21 = n_elements(epoch_gd21)
 	endelse
 
 ;-----------------------------------------------------
@@ -225,29 +281,39 @@ QUALITY=quality
 ;-----------------------------------------------------
 	;All data
 	if n_gd12 gt 0 then begin
-		edi_gd12 = { n_gd12:       n_gd12, $
-		             epoch_gd12:   epoch_gd12, $
-		             azimuth_gd12: phi_gd12, $
-		             polar_gd12:   theta_gd12, $
-		             fv_gd12:      fv_gd12, $
-		             tof_gd12:     tof_gd12, $
-		             q_gd12:       q_gd12 $
+		edi_gd12 = { count_gd12:       n_gd12, $
+		             epoch_gd12:       epoch_gd12, $
+		             azimuth_gd12:     phi_gd12, $
+		             polar_gd12:       theta_gd12, $
+		             fv_gd12:          fv_gd12, $
+		             tof_gd12:         tof_gd12, $
+		             quality_gd12:     q_gd12, $
+		             energy_gd12:      e_gd12, $
+		             code_length_gd12: code_length_gd12, $
+		             m_gd12:           m_gd12, $
+		             n_gd12:           n_gd12, $
+		             max_addr_gd12:    max_addr_gd12 $
 		           }
 	;Number of points found
-	endif else edi_gd12 = {n_gd21: ngd21}
+	endif else edi_gd12 = {count_gd21: count_gd21}
 	
 	;All data
 	if n_gd21 gt 0 then begin
-		edi_gd21 = { n_gd21:       n_gd21, $
-		             epoch_gd21:   epoch_gd21, $
-		             azimuth_gd21: phi_gd21, $
-		             polar_gd21:   theta_gd21, $
-		             fv_gd21:      fv_gd21, $
-		             tof_gd21:     tof_gd21, $
-		             q_gd21:       q_gd21 $
+		edi_gd21 = { count_gd21:       n_gd21, $
+		             epoch_gd21:       epoch_gd21, $
+		             azimuth_gd21:     phi_gd21, $
+		             polar_gd21:       theta_gd21, $
+		             fv_gd21:          fv_gd21, $
+		             tof_gd21:         tof_gd21, $
+		             quality_gd21:     q_gd21 $
+		             energy_gd21:      e_gd21, $
+		             code_length_gd21: code_length_gd21, $
+		             m_gd21:           m_gd21, $
+		             n_gd21:           n_gd21, $
+		             max_addr_gd21:    max_addr_gd21 $
 		           }
 	;Number of points found
-	endif else edi_gd12 = {n_gd21: ngd21}
+	endif else edi_gd12 = {count_gd21: count_gd21}
 	
 	;Return the data
 	return, create_struct(edi_gd12, edi_gd21)

@@ -306,7 +306,7 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 			n_beam2_avg gt 0:   !Null = moment( b_fg_beam2, DIMENSION=2, $
 			                                    MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
 			;Skip to the next interval
-			else: 
+			else: ;Taken care of above.
 		endcase
 		b_avg[*,count]   = temporary(temp_mean)
 		b_stdev[*,count] = temporary(temp_sdev)

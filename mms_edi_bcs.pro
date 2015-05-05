@@ -44,8 +44,6 @@
 ;                       MMS observatory/spacecraft number (e.g., 'mms1')
 ;       MODE:           in, required, type=string
 ;                       Data telemetry mode.
-;       LEVEL:          in, required, type=string
-;                       Data level.
 ;       TSTART:         in, required, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, required, type=string
@@ -85,7 +83,7 @@
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
 ;-
-function mms_edi_bcs, sc, mode, level, tstart, tend, $
+function mms_edi_bcs, sc, mode, tstart, tend, $
 EDI=edi_cs, $
 DIRECTORY=edi_dir, $
 QUALITY=quality
@@ -105,7 +103,7 @@ QUALITY=quality
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_read_efieldmode(sc, mode, level, tstart, tend, $
+	edi = mms_edi_read_efieldmode(sc, mode, 'l1a', tstart, tend, $
 	                              DIRECTORY = edi_dir, $
 	                              QUALITY = quality)
 
@@ -117,8 +115,8 @@ QUALITY=quality
 	edi2_to_bcs = mms_instr_xxyz2ocs('EDI2')
 	
 	;Rotate CS
-	if edi.n_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12)
-	if edi.n_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21)
+	if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12)
+	if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21)
 
 ;-----------------------------------------------------
 ; Append Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -132,12 +130,12 @@ QUALITY=quality
 	                    'det_gd12_bcs', det_gd12_bcs, $
 	                    'gun_gd21_bcs', gun_gd21_bcs, $
 	                    'det_gd21_bcs', det_gd21_bcs, $
-	                    'virtual_gun1_bcs', gun_gd12_bcs - det_gd12_bcs, $
-	                    'virtual_gun2_bcs', gun_gd21_bcs - det_gd21_bcs )
+	                    'virtual_gun1_bcs', gun_gd12_bcs - det_gd21_bcs, $
+	                    'virtual_gun2_bcs', gun_gd21_bcs - det_gd12_bcs )
 	
 	;Firing vectors
-	if edi.n_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
-	if edi.n_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
+	if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
+	if edi.count_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
 	
 	;Return structure
 	return, edi

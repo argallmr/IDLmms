@@ -44,8 +44,6 @@
 ;                       MMS observatory/spacecraft number (e.g., 'mms1')
 ;       MODE:           in, required, type=string
 ;                       Data telemetry mode.
-;       LEVEL:          in, required, type=string
-;                       Data level.
 ;       TSTART:         in, required, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, required, type=string
@@ -95,7 +93,7 @@
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
 ;-
-function mms_edi_gse, sc, mode, level, tstart, tend, $
+function mms_edi_gse, sc, mode, tstart, tend, $
 GSE=gse, $
 BCS=bcs, $
 DMPA=dmpa, $
@@ -131,7 +129,7 @@ _REF_EXTRA=extra
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_bcs(sc, mode, level, tstart, tend, EDI=edi, _STRICT_EXTRA=extra)
+	edi = mms_edi_bcs(sc, mode, tstart, tend, EDI=edi, _STRICT_EXTRA=extra)
 
 ;-----------------------------------------------------
 ; Rotate to SMPA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -145,14 +143,14 @@ _REF_EXTRA=extra
 		
 		;Copy data
 		;   - Rotation is small -- assume negligible.
-		if edi.n_gd12 gt 0 then begin
+		if edi.count_gd12 gt 0 then begin
 			fv_gd12_smpa      = edi.fv_gd12_bcs
 			gun_gd12_smpa     = edi.gun_gd12_bcs
 			det_gd12_smpa     = edi.det_gd12_bcs
 			virtual_gun1_smpa = edi.virtual_gun1_bcs
 		endif
 		
-		if edi.n_gd21 gt 0 then begin
+		if edi.count_gd21 gt 0 then begin
 			fv_gd21_smpa      = edi.fv_gd21_bcs
 			gun_gd21_smpa     = edi.gun_gd21_bcs
 			det_gd21_smpa     = edi.det_gd21_bcs
@@ -183,19 +181,19 @@ _REF_EXTRA=extra
 		dss_sunpulse = mms_dss_read_sunpulse(sc, tstart, tend, sunpulse_dir, /UNIQ_PULSE)
 
 		;Build matrix
-		if edi.n_gd12 gt 0 then smpa2dmpa_gd12 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd12 )
-		if edi.n_gd21 gt 0 then smpa2dmpa_gd21 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd21 )
+		if edi.count_gd12 gt 0 then smpa2dmpa_gd12 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd12 )
+		if edi.count_gd21 gt 0 then smpa2dmpa_gd21 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd21 )
 	endelse
 
 	;Transform
-	if edi.n_gd12 gt 0 then begin
+	if edi.count_gd12 gt 0 then begin
 		fv_gd12_dmpa      = mrvector_rotate( smpa2dmpa_gd12, fv_gd12_smpa )
 		gun_gd12_dmpa     = mrvector_rotate( smpa2dmpa_gd12, gun_gd12_smpa )
 		det_gd12_dmpa     = mrvector_rotate( smpa2dmpa_gd12, det_gd12_smpa )
 		virtual_gun1_dmpa = mrvector_rotate( smpa2dmpa_gd12, virtual_gun1_smpa )
 	endif
 	
-	if edi.n_gd21 gt 0 then begin
+	if edi.count_gd21 gt 0 then begin
 		fv_gd21_dmpa      = mrvector_rotate( smpa2dmpa_gd21, fv_gd21_smpa )
 		gun_gd21_dmpa     = mrvector_rotate( smpa2dmpa_gd21, gun_gd21_smpa )
 		det_gd21_dmpa     = mrvector_rotate( smpa2dmpa_gd21, det_gd21_smpa )
@@ -230,7 +228,7 @@ _REF_EXTRA=extra
 
 	;Return data in SMPA?
 	if smpa then begin
-		if edi.n_gd12 gt 0 then begin
+		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_smpa', fv_gd12_smpa, $
 				                'gun_gd12_smpa', gun_gd12_smpa, $
@@ -238,7 +236,7 @@ _REF_EXTRA=extra
 				                'virtual_gun1_smpa', virtual_gun1_smpa )
 		endif
 		
-		if edi.n_gd21 gt 0 then begin
+		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
 			                    'fv_gd21_smpa', fv_gd21_smpa, $
 			                    'gun_gd21_smpa', gun_gd21_smpa, $
@@ -249,7 +247,7 @@ _REF_EXTRA=extra
 	
 	;Return data in DMPA?
 	if dmpa then begin
-		if edi.n_gd12 gt 0 then begin
+		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_dmpa', fv_gd12_dmpa, $
 				                'gun_gd12_dmpa', gun_gd12_dmpa, $
@@ -257,7 +255,7 @@ _REF_EXTRA=extra
 				                'virtual_gun1_dmpa', virtual_gun1_dmpa )
 		endif
 		
-		if edi.n_gd21 gt 0 then begin
+		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
 			                    'fv_gd21_dmpa', fv_gd21_dmpa, $
 			                    'gun_gd21_dmpa', gun_gd21_dmpa, $
@@ -268,7 +266,7 @@ _REF_EXTRA=extra
 	
 	;Return data in GSE
 	if gse then begin
-		if edi.n_gd12 gt 0 then begin
+		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_gse', fv_gd12_gse, $
 				                'gun_gd12_gse', gun_gd12_gse, $
@@ -276,7 +274,7 @@ _REF_EXTRA=extra
 				                'virtual_gun1_gse', virtual_gun1_gse )
 		endif
 		
-		if edi.n_gd21 gt 0 then begin
+		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
 			                    'fv_gd21_gse', fv_gd21_gse, $
 			                    'gun_gd21_gse', gun_gd21_gse, $

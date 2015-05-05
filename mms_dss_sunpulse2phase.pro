@@ -165,6 +165,9 @@ SUNPULSE=sunpulse
 	sunpulse = hk.sunpulse
 	period   = hk.period * 1000LL     ;Convert from micro- to nano-seconds
 	flag     = hk.flag
+	
+	;Number of points
+	nPts = n_elements(sunpulse)
 
 	;Valid period
 	;    - PERIOD is technically valid if FLAG eq 0 and if PERIOD NE 0, but
@@ -175,8 +178,18 @@ SUNPULSE=sunpulse
 	;   - SUNPULSE is recorded every sun pulse, so the difference between
 	;     pulse times should be the spin period. This should be comparable
 	;     to PERIOD.
-	dPulse      = double(sunpulse[1:*] - sunpulse)
-	dPulse_flag = bytarr(n_elements(period))
+	if nPts eq 1 then begin
+		;Cannot determine first period accurately
+		if flag[0] ne 0 then $
+			message, 'Single period with flag ' + strtrim(flag[0], 2), /INFORMATIONAL
+		
+		;Use the period given
+		dPulse      = period[0]
+		dPulse_flag = 0
+	endif else begin
+		dPulse      = double(sunpulse[1:*] - sunpulse)
+		dPulse_flag = bytarr(n_elements(period))
+	endelse
 
 	;If the first period is a valid value, it can be used to create
 	;an epoch time just prior to the start of the data interval.

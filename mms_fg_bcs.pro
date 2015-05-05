@@ -109,8 +109,8 @@ MPA=mpa
 	loCal_file = MrFile_Search(local_fname, COUNT=nLoCal)
 
 	;Make sure the files exist
-	if nHiCal eq 0 then message, 'HiCal file not found.'
-	if nLoCal eq 0 then message, 'LoCal file not found.'
+	if nHiCal eq 0 then message, 'HiCal file not found: "' + hical_fname + '".'
+	if nLoCal eq 0 then message, 'LoCal file not found: "' + local_fname + '".'
 
 	;Calibrate hi-range
 	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend)

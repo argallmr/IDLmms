@@ -45,8 +45,6 @@
 ;                       Instrument name. Choices are 'dfg' or 'afg'.
 ;       MODE:           in, required, type=string
 ;                       Data telemetry mode.
-;       LEVEL:          in, required, type=string
-;                       Data level.
 ;       TSTART:         in, required, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, required, type=string
@@ -86,7 +84,7 @@
 ;   Modification History::
 ;       2015/05/04  -   Written by Matthew Argall
 ;-
-function mms_fg_gse, sc, instr, mode, level, tstart, tend, $
+function mms_fg_gse, sc, instr, mode, tstart, tend, $
 ATTITUDE_DIR=attitude_dir, $
 B_BCS=b_bcs, $
 B_OMB=b_omb, $
@@ -114,7 +112,7 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 
 	;Read data
-	b_bcs = mms_fg_bcs(sc, instr, mode, level, tstart, tend, $
+	b_bcs = mms_fg_bcs(sc, instr, mode, tstart, tend, $
 	                   EPOCH         = epoch, $
 	                   B_SMPA        = b_smpa, $
 	                   B_OMB         = b_omb, $
@@ -149,7 +147,7 @@ _REF_EXTRA=extra
 	endelse
 
 	;Transform
-	b_dmpa = mrvector_rotate( smpa2dmpa, b_dmpa )
+	b_dmpa = mrvector_rotate( smpa2dmpa, b_smpa )
 	if arg_present(b_dmpa) eq 0 then b_dmpa = !Null
 
 
