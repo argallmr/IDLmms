@@ -99,7 +99,7 @@ MPA=mpa
 	;
 	
 	;Should not have values before the first calibration time
-	if t[0] lt cal_params.epoch[0] then %
+	if t[0] lt cal_params.epoch[0] then $
 		message, 'Times must be after the first calibration period.'
 	
 	;Map times to closest calibration time.
@@ -110,20 +110,20 @@ MPA=mpa
 ;-------------------------------------------------------
 	;Subtract DC offsets
 	b_omb      = B_123
-	b_omb[1,*] = B_123[1,*] - cal_params.offset[0,inds]
-	b_omb[2,*] = B_123[2,*] - cal_params.offset[1,inds]
-	b_omb[3,*] = B_123[3,*] - cal_params.offset[2,inds]
+	b_omb[0,*] = B_123[0,*] - cal_params.offset[0,inds]
+	b_omb[1,*] = B_123[1,*] - cal_params.offset[1,inds]
+	b_omb[2,*] = B_123[2,*] - cal_params.offset[2,inds]
 	
 	;Create orthogonalization matrix
-	orthog_mat = mms_fg_calparams2matrix( cal_params.gain, cal_params.dtheta, ...
-	                                      cal_params.dphi, cal_params.u3 )
-	
+	x123toOMB = mms_fg_calparams2matrix( cal_params.gain, cal_params.dtheta, $
+	                                     cal_params.dphi, cal_params.u3 )
+
 	;Orthogonalize the data
-	b_omb = mrvector_rotate( orthog_mat[*,*,cal_inds], b_omb )
+	b_omb = mrvector_rotate( x123toOMB[*,*,inds], b_omb )
 
 	;Major principle axis
-	zmpa = cal_params.mpa[*,cal_inds]
-	
+	mpa = cal_params.mpa[*,inds]
+
 	;Return the data
 	return, b_omb
 end
@@ -146,10 +146,15 @@ end
 ;       LOCAL:          in, required, type=struct
 ;                       Structure of lo-range calibration parameters returned by mms_fg_read_cal.
 ;
+; :Keywords:
+;       MPA:            out, optional, type=3xN float
+;                       The major principle axis, as viewed from BCS.
+;
 ; :Returns:
 ;       B_OMB:          Magnetic field data in the orthogonalized OMB system.
 ;-
-function mms_fg_calibrate, b_123, t, range, t_range, hiCal, loCal
+function mms_fg_calibrate, b_123, t, range, t_range, hiCal, loCal, $
+MPA=mpa
 	compile_opt idl2
 	on_error, 2
 
@@ -180,7 +185,7 @@ function mms_fg_calibrate, b_123, t, range, t_range, hiCal, loCal
 	;Separate hi- and lo-range indices
 	;   1 if hi-range
 	;   0 if lo-range
-	iHi = where(range, nHi, COMPLEMENT=iLo, NCOMPLEMENT=nLo)
+	iHi = where(range[irange], nHi, COMPLEMENT=iLo, NCOMPLEMENT=nLo)
 
 ;-------------------------------------------------------
 ; Apply Calibration Parameters /////////////////////////
@@ -190,11 +195,11 @@ function mms_fg_calibrate, b_123, t, range, t_range, hiCal, loCal
 	b_omb = b_123
 	
 	;Hi-range
-	if nHi gt 0 then b_omb[*, iHo] = mms_fg_calibrate_apply(B_123[:, iHi], t[iHi], hiCal, MPA=hiMPA)
-	if nLo gt 0 then b_omb[*, iLo] = mms_fg_calibrate_apply(B_123[:, iLo], t[iLo], loCal, MPA=loMPA)
+	if nHi gt 0 then b_omb[*, iHi] = mms_fg_calibrate_apply(B_123[*, iHi], t[iHi], hiCal, MPA=hiMPA)
+	if nLo gt 0 then b_omb[*, iLo] = mms_fg_calibrate_apply(B_123[*, iLo], t[iLo], loCal, MPA=loMPA)
 	
 	;Also return MPA axis?
-	if arg_present(zmpa) then begin
+	if arg_present(mpa) then begin
 		mpa = b_omb
 		if nHi gt 0 then mpa[*,iHi] = hiMPA
 		if nLo gt 0 then mpa[*,iLo] = loMPA

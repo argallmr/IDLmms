@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_dss_read_sunpulse
+;       mms_fg_read_cal
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -70,39 +70,58 @@
 ;-
 function mms_fg_read_cal, filenames, tstart, tend
 	compile_opt idl2
-	on_error, 2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if n_elements(cdfIDs) gt 0 then $
+			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
+		void = cgErrorMSG(/QUIET)
+		return, !Null
+	endif
 
 	;Dissect the file name
-	[sc, instr, mode, level] = mms_dissect_filename(filename[0])
+	mms_dissect_filename, filenames[0], SC=sc, INSTR=instr, MODE=mode, LEVEL=level
 
 	;Construct the param name for the cal variables
-	if strcmp(mode, 'lorangecal')
-		name = ['lo_' level]
-	else
-		name = ['hi_' level]
-	end
+	if mode eq 'lorangecal' $
+		then name = 'lo_' + level $
+		else name = 'hi_' + level
 	
 	;Construct the variable names
-	epoch_name  = mms_construct_varname(sc, instr, name, 'Epoch')
-	gain_name   = mms_construct_varname(sc, instr, name, 'G')
-	dTheta_name = mms_construct_varname(sc, instr, name, 'dTheta')
-	dPhi_name   = mms_construct_varname(sc, instr, name, 'dPhi')
-	u3_name     = mms_construct_varname(sc, instr, name, 'U3')
-	offset_name = mms_construct_varname(sc, instr, name, 'O')
-	mpa_name    = mms_construct_varname(sc, instr, name, 'MPA')
+	epoch_name  = mms_construct_varname(sc, instr, name + '_Epoch')
+	gain_name   = mms_construct_varname(sc, instr, name + '_G')
+	dTheta_name = mms_construct_varname(sc, instr, name + '_dTheta')
+	dPhi_name   = mms_construct_varname(sc, instr, name + '_dPhi')
+	u3_name     = mms_construct_varname(sc, instr, name + '_U3')
+	offset_name = mms_construct_varname(sc, instr, name + '_O')
+	mpa_name    = mms_construct_varname(sc, instr, name + '_MPA')
 	
+	;
 	;Read data calibration data
 	;  - Read all of it because there may not be calibration
 	;    parameters within the time range yet.
 	;  - Also, dTheta and dPhi do not have DEPEND_0 variables.
 	;    However, their values appear to change. I have only
 	;    pre-flight calibration files so cannot say.
-	gain_data   = MrCDF_nRead(filename, gain_name, DEPEND_0=t_cal)
-	dTheta_data = MrCDF_nRead(filename, dTheta_name)
-	dPhi_data   = MrCDF_nRead(filename, dPhi_name)
-	u3_data     = MrCDF_nRead(filename, u3_name)
-	offset_data = MrCDF_nRead(filename, offset_name)
-	mpa_data    = MrCDF_nRead(filename, mpa_name)
+	;
+	
+	;Open all of the files
+	nFiles = n_elements(filenames)
+	cdfIDs = lonarr(nFiles)
+	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(filenames[i])
+	
+	;Read the data
+	gain_data   = MrCDF_nRead(cdfIDs, gain_name, DEPEND_0=t_cal)
+	dTheta_data = MrCDF_nRead(cdfIDs, dTheta_name)
+	dPhi_data   = MrCDF_nRead(cdfIDs, dPhi_name)
+	u3_data     = MrCDF_nRead(cdfIDs, u3_name)
+	offset_data = MrCDF_nRead(cdfIDs, offset_name)
+	mpa_data    = MrCDF_nRead(cdfIDs, mpa_name)
+	
+	;Close the files
+	for i = 0, nFiles - 1 do cdf_close, cdfIDs[i]
+	
 	
 	;Find the closest calibration time and pick those calibration params.
 	;  - Transpose to return row vectors instead of column vectors.

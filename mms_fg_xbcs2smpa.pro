@@ -64,10 +64,12 @@
 ;-
 function mms_fg_xbcs2smpa, mpa, $
 INVERSE=inverse
+	compile_opt idl2
+	on_error, 2
 
 	;Create unit vectors
 	z_smpa = MrVector_Normalize(mpa)
-	y_smpa = MrVector_Cross(smpaz, [1 0 0])
+	y_smpa = MrVector_Cross(z_smpa, [1, 0, 0])
 	y_smpa = MrVector_Normalize(y_smpa)
 	x_smpa = MrVector_Cross(y_smpa, z_smpa)
 	
@@ -76,6 +78,6 @@ INVERSE=inverse
 
 	;Return the inverse transformation?
 	if keyword_set(inverse) $
-		then return, transpose(bcs2smpa, [1,0,2]) $
-		else return, bcs2smpa
+		then return, transpose(bcs2smpa, [2, 0, 1]) $
+		else return, transpose(bcs2smpa, [0, 2, 1])
 end

@@ -67,14 +67,14 @@ INVERSE=inverse
 	;
 
 	;Constants
-	theta    = -225.0 * pi / 180.0
+	theta    = -225.0 * !dpi / 180.0
 	cosTheta = cos(theta)
 	sinTheta = sin(theta)
 	
 	;Rotation matrix
-	omb2smpa = [  cosTheta  sinTheta  0
-	             -sinTheta  cosTheta  0
-	                 0         0      1 ]
+	omb2smpa = [[  cosTheta,  sinTheta,  0 ], $
+	            [ -sinTheta,  cosTheta,  0 ], $
+	            [     0,         0,      1 ]]
 
 	;Return the inverse transformation?
 	if keyword_set(inverse) $

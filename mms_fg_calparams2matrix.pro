@@ -49,11 +49,11 @@
 ;                       Orientation of 3 with respect to OMB.
 ;
 ; :Keywords:
-;       M:              out, optional, type=3x3xN float
-;                       OMG -> 123 transformation matrix
+;       xOMBto123:      out, optional, type=3x3xN float
+;                       OMB -> 123 transformation matrix
 ;
 ; :Returns:
-;       SENSOR_MATRIX:  123 -> OMB transformation.
+;       x123toOMB:      123 -> OMB transformation.
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -69,43 +69,45 @@
 ;       2015-05-03  -   Interchanged rows and columns to use ## operator. - MRA
 ;-
 function mms_fg_calparams2matrix, G, dphi, dtheta, u3, $
-M=m
+XOMBTO123=xOMBto123
+	compile_opt idl2
+	on_error, 2
 	
 	;Convert degrees to radians
 	deg2rad = !dpi / 180.0D
 	
 	;Theta is measured from the y-axis. Measure from X-axis instead.
-	theta1 = (90 - dtheta[0,*]) * deg2rad
-	theta2 = (90 - dtheta[1,*]) * deg2rad
-	phi1   = dphi[0,*] * deg2rad
-	phi2   = (90+dphi[1,*]) * deg2rad
-	a      = u3[0,*]
-	b      = u3[1,*]
-	N      = n_elements(G)/3
-	m      = dblarr(3,3,N)
+	theta1    = (90.0 - dtheta[0,*]) * deg2rad
+	theta2    = (90.0 - dtheta[1,*]) * deg2rad
+	phi1      = dphi[0,*] * deg2rad
+	phi2      = (90.0 + dphi[1,*]) * deg2rad
+	a         = u3[0,*]
+	b         = u3[1,*]
+	N         = n_elements(G)/3
+	xOMBto123 = dblarr(3,3,N)
 
 	;row 1
-	m[0,0,*] = G[0,*]*sin(theta1)*cos(phi1)
-	m[1,0,*] = G[0,*]*sin(theta1)*sin(phi1)
-	m[2,0,*] = G[0,*]*cos(theta1)
+	xOMBto123[0,0,*] = G[0,*]*sin(theta1)*cos(phi1)
+	xOMBto123[1,0,*] = G[0,*]*sin(theta1)*sin(phi1)
+	xOMBto123[2,0,*] = G[0,*]*cos(theta1)
 
 	;row 2
-	m[0,1,*] = G[1,*]*sin(theta2)*cos(phi2) 
-	m[1,1,*] = G[1,*]*sin(theta2)*sin(phi2)
-	m[2,1,*] = G[1,*]*cos(theta2)
+	xOMBto123[0,1,*] = G[1,*]*sin(theta2)*cos(phi2) 
+	xOMBto123[1,1,*] = G[1,*]*sin(theta2)*sin(phi2)
+	xOMBto123[2,1,*] = G[1,*]*cos(theta2)
 
 	;row 3
-	m[0,2,*] = G[2,*]*a
-	m[1,2,*] = G[2,*]*b
-	m[2,2,*] = G[2,*]*sqrt(1-(a*a + b*b))
+	xOMBto123[0,2,*] = G[2,*]*a
+	xOMBto123[1,2,*] = G[2,*]*b
+	xOMBto123[2,2,*] = G[2,*]*sqrt(1-(a*a + b*b))
 
 	;Invert the matrix
-	sensor_matrix = m
+	x123toOMB = xOMBto123
 	for i = 0, N-1 do begin
-		sensor_matrix[*,*,i] = la_invert(m[*,*,i])
+		x123toOMB[*,*,i] = la_invert(xOMBto123[*,*,i])
 	endfor
 
-	return, sensor_matrix
+	return, x123toOMB
 end
 
 
@@ -115,20 +117,20 @@ end
 ;----------------------------------------------------------------
 
 ;Sample data
-G      = [0.965819,     0.998249,   0.993915]
-dPhi   = [-0.0760805,  -0.0660412]
-dTheta = [-0.241677,   -0.0810649]
-u3     = [-0.00187507,  0.00423245]
-sensor_matrix = mms_fg_calparams2matrix(G, dPhi, dTheta, u3, M=m)
+G         = [0.965819,     0.998249,   0.993915]
+dPhi      = [-0.0760805,  -0.0660412]
+dTheta    = [-0.241677,   -0.0810649]
+u3        = [-0.00187507,  0.00423245]
+x123toOMB = mms_fg_calparams2matrix(G, dPhi, dTheta, u3, XOMBTO123=xOMBto123)
 
 ;Print results
-print, FORMAT='(%"         [ %7.4f, %7.4f, %7.4f ]")', sensor_matrix[*,0]
-print, FORMAT='(%"sensor = [ %7.4f, %7.4f, %7.4f ]")', sensor_matrix[*,1]
-print, FORMAT='(%"         [ %7.4f, %7.4f, %7.4f ]")', sensor_matrix[*,2]
+print, FORMAT='(%"         [ %7.4f, %7.4f, %7.4f ]")', x123toOMB[*,0]
+print, FORMAT='(%"sensor = [ %7.4f, %7.4f, %7.4f ]")', x123toOMB[*,1]
+print, FORMAT='(%"         [ %7.4f, %7.4f, %7.4f ]")', x123toOMB[*,2]
 
-print, FORMAT='(%"    [ %7.4f, %7.4f, %7.4f ]")', m[*,0]
-print, FORMAT='(%"m = [ %7.4f, %7.4f, %7.4f ]")', m[*,1]
-print, FORMAT='(%"    [ %7.4f, %7.4f, %7.4f ]")', m[*,2]
+print, FORMAT='(%"    [ %7.4f, %7.4f, %7.4f ]")', xOMBto123[*,0]
+print, FORMAT='(%"m = [ %7.4f, %7.4f, %7.4f ]")', xOMBto123[*,1]
+print, FORMAT='(%"    [ %7.4f, %7.4f, %7.4f ]")', xOMBto123[*,2]
 
 
 end

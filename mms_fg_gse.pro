@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_dss_read_sunpulse
+;       mms_fg_gse
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,7 +33,7 @@
 ;
 ; PURPOSE:
 ;+
-;   Read fluxgate calibration files.
+;   Read DFG or AFG magnetic field data and transform it into GSE coordinates.
 ;
 ; :Categories:
 ;   MMS, DFG, AFG
@@ -53,21 +53,26 @@
 ;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
+;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find FDOA definitive attitude data.
+;       B_BCS:          out, optional, type=3xN float
+;                       A named variable to receive the magnetic field in BCS coordinates.
+;       B_DMPA:         out, optional, type=3xN float
+;                       A named variable to receive the magnetic field in DMPA coordinates.
 ;       B_OMB:          out, optional, type=3xN float
 ;                       A named variable to receive the magnetic field in OMB coordinates.
 ;       B_SMPA:         out, optional, type=3xN float
 ;                       A named variable to receive the magnetic field in SMPA coordinates.
-;       CAL_DIR:        in, optional, type=string, default=pwd
-;                       Directory in which to find fluxgate calibration files.
-;       DATA_DIR:       in, optional, type=string, default=pwd
-;                       Directory in which to find fluxgate magnetometer data.
 ;       EPOCH:          out, optional, type=int64arr (cdf_time_tt2000)
 ;                       Named variable to receive the epoch times associated with B
-;       MPA:            in, optional, type=string, default=pwd
-;                       The major principle axis, as viewed from BCS.
+;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find HK 0X101 sunpulse data.
+;       _REF_EXTRA:     in, optional, type=string, default=pwd
+;                       Any keyword accepted by mms_fg_bcs is also accepted via keyword
+;                           inheritance.
 ;
 ; :Returns:
-;       B_BCS:          3-component magnetic field in BCS coordinates.
+;       B_GSE:          3-component magnetic field in GSE coordinates.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -79,92 +84,93 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
+;       2015/05/04  -   Written by Matthew Argall
 ;-
-function mms_fg_bcs, sc, instr, mode, tstart, tend, $
-B_SMPA=b_smpa, $
+function mms_fg_gse, sc, instr, mode, level, tstart, tend, $
+ATTITUDE_DIR=attitude_dir, $
+B_BCS=b_bcs, $
 B_OMB=b_omb, $
-CAL_DIR=cal_dir, $
-DATA_DIR=data_dir, $
+B_DMPA=b_dmpa, $
+B_SMPA=b_smpa, $
 EPOCH=epoch, $
-MPA=mpa
+SUNPULSE_DIR=sunpulse_dir, $
+_REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
-
-	;Default directories
-	if n_elements(data_dir) eq 0 then cd, CURRENT=data_dir
-	if n_elements(cal_dir)  eq 0 then cal_dir = data_dir
-
-;-------------------------------------------------------
-; Read Calibration Data ////////////////////////////////
-;-------------------------------------------------------
-	;File name patterns
-	hical_fname = mms_construct_filename(sc, instr, 'hirangecal', 'l2pre', /TOKENS, $
-	                                     DIRECTORY = cal_dir)
-	local_fname = mms_construct_filename(sc, instr, 'lorangecal', 'l2pre', /TOKENS, $
-	                                     DIRECTORY = cal_dir)
-
-	;Find the calibration file
-	hiCal_file = MrFile_Search(hical_fname, COUNT=nHiCal)
-	loCal_file = MrFile_Search(local_fname, COUNT=nLoCal)
-
-	;Make sure the files exist
-	if nHiCal eq 0 then message, 'HiCal file not found.'
-	if nLoCal eq 0 then message, 'LoCal file not found.'
-
-	;Calibrate hi-range
-	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend)
-	loCal = mms_fg_read_cal(loCal_file, tstart, tend)
-
-;-------------------------------------------------------
-; Read Mag Data ////////////////////////////////////////
-;-------------------------------------------------------
-
-	;Create the file names
-	fpattern = mms_construct_filename(sc, instr, mode, 'l1a', /TOKENS, $
-	                                  DIRECTORY = data_dir)
 	
-	;Find the files
-	files = MrFile_Search(fpattern, /CLOSEST, $
-	                      COUNT     = nFiles, $
-	                      TSTART    = tstart, $
-	                      TEND      = tend, $
-	                      TIMEORDER = '%Y%M%d')
-	if nFiles eq 0 $
-		then message, 'No files found matching "' + fpattern + '".'
+	;Defaults
+	bcs  = keyword_set(bcs)
+	dmpa = keyword_set(dmpa)
+	gse  = keyword_set(gse)
+	smpa = keyword_set(smpa)
+	if n_elements(attitude_dir) eq 0 then attitude_dir = ''
+	if n_elements(sunpulse_dir) eq 0 then sunpulse_dir = ''
+	
+	;Make sure either attitude or sunpulse information is given
+	if attitude_dir eq '' && sunpulse_dir eq '' then cd, CURRENT=attitude_dir
+	
+;-----------------------------------------------------
+; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
-	;Create variable names
-	b_name = mms_construct_varname(sc, instr, '123')
-	if strcmp(instr, 'afg') $
-		then range_name = mms_construct_varname(sc, instr, 'hirange') $
-		else range_name = mms_construct_varname(sc, instr, 'range')
+	;Read data
+	b_bcs = mms_fg_bcs(sc, instr, mode, level, tstart, tend, $
+	                   EPOCH         = epoch, $
+	                   B_SMPA        = b_smpa, $
+	                   B_OMB         = b_omb, $
+	                   _STRICT_EXTRA = extra)
+	if arg_present(b_bcs) eq 0 then b_bcs = !Null
+	if arg_present(b_omb) eq 0 then b_omb = !Null
 
-	;Read the magnetometer data
-	b_123 = MrCDF_nRead(files, b_name,     TSTART=tstart, TEND=tend, DEPEND_0=epoch)
-	range = MrCDF_nRead(files, range_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_range)
+;-----------------------------------------------------
+; Despin \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
-;-------------------------------------------------------
-; Calibrate Mag Data ///////////////////////////////////
-;-------------------------------------------------------
-	;Calibrate
-	b_omb = mms_fg_calibrate(b_123, epoch, range, epoch_range, hiCal, loCal, MPA=mpa)
+	;
+	; Assume the principle axis of inertia (z-MPA)
+	; is the same as the angular momentum vector (L)
+	;
 
-;-------------------------------------------------------
-; OMB -> SMPA //////////////////////////////////////////
-;-------------------------------------------------------
+	;Despin using definitive attitude
+	if sunpulse_dir eq '' then begin
+		message, 'Despinning with attitude data not implemented yet.'
+	
+		;Build matrix
+		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, t, 'L')
+		smpa2dmpa_gd21 = mms_fdoa_xdespin(attitude, t, 'L')
+	
+	;Despin using sun pulse times.
+	endif else begin
+		;Read sun pulse data
+		dss = mms_dss_read_sunpulse(sc, tstart, tend, sunpulse_dir, /UNIQ_PULSE)
 
-	;OMB -> SMPA
-	omb2smpa = mms_fg_xomb2smpa()
-	b_smpa   = MrVector_Rotate(omb2smpa, b_omb)
+		;Build matrix
+		smpa2dmpa = mms_dss_xdespin( dss, epoch )
+	endelse
 
-;-------------------------------------------------------
-; SMPA -> BCS //////////////////////////////////////////
-;-------------------------------------------------------
+	;Transform
+	b_dmpa = mrvector_rotate( smpa2dmpa, b_dmpa )
+	if arg_present(b_dmpa) eq 0 then b_dmpa = !Null
 
-	;Build transformation from SMPA to BCS
-	smpa2bcs = mms_fg_xbcs2smpa(mpa, /INVERSE)
 
-	;Rotate to SMPA
-	b_bcs = MrVector_Rotate(smpa2bcs, b_smpa)
-	return, b_bcs
+;-----------------------------------------------------
+; Rotate to GSE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	if n_elements(attitude) ne 0 then begin
+		message, 'Rotate to GSE not implemented yet.'
+		
+		;dmpa2gei
+		
+		;CXForm
+		b_gse = cxform(b_dmpa, 'GEI', 'GSE', sse)
+	endif else begin
+		message, 'No attitude data. Cannot rotate to GSE', /INFORMATIONAL
+		b_gse = !Null
+	endelse
+
+;-----------------------------------------------------
+; Return Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	return, b_gse
 end

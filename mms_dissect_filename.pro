@@ -1,8 +1,35 @@
 ; docformat = 'rst'
 ;
 ; NAME:
+;       mms_dissect_filename
 ;
-;       MMS_DISSECT_FILENAME
+;*****************************************************************************************
+;   Copyright (c) 2015, University of New Hampshire                                      ;
+;   All rights reserved.                                                                 ;
+;                                                                                        ;
+;   Redistribution and use in source and binary forms, with or without modification,     ;
+;   are permitted provided that the following conditions are met:                        ;
+;                                                                                        ;
+;       * Redistributions of source code must retain the above copyright notice,         ;
+;         this list of conditions and the following disclaimer.                          ;
+;       * Redistributions in binary form must reproduce the above copyright notice,      ;
+;         this list of conditions and the following disclaimer in the documentation      ;
+;         and/or other materials provided with the distribution.                         ;
+;       * Neither the name of the University of New Hampshire nor the names of its       ;
+;         contributors may  be used to endorse or promote products derived from this     ;
+;         software without specific prior written permission.                            ;
+;                                                                                        ;
+;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
+;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
+;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
+;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
+;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
+;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
+;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
+;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
+;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
+;   DAMAGE.                                                                              ;
+;*****************************************************************************************
 ;
 ; PURPOSE:
 ;+
@@ -13,64 +40,64 @@
 ;       MMS
 ;
 ; :Params:
-;       FILENAME:           in, required, type=string
-;                           The filename of the MMS file to be dissected.
+;       FILENAME:       in, required, type=string
+;                       The filename of the MMS file to be dissected.
 ;
 ; :Keywords:
-;       DESCRIPTOR:         out, optional, type=string
-;                           Optional data product descriptor.
-;       INSTRUMENT:         out, optional, type=string
-;                           Instrument ID. Possible values are::
-;                               'hpca'              'edi'
-;                               'aspoc'             'adp'
-;                               'epd'               'sdp'
-;                               'epd-eis'           'adp-sdp'
-;                               'epd-feeps'         'afg'
-;                               'fpi'               'dfg'
-;                               'des'               'afg-dfg'
-;                               'dis'               'scm'
-;                               'des-dis'           'fields'
-;       LEVEL:              out, optional, type=string
-;                           Level of data production. Possible values are::
-;                               'l1a'
-;                               'l1b'
-;                               'l2'
-;                               'ql'
-;                               'l2pre'
-;                               'l2plus'
-;       MODE:               out, optional, type=string
-;                           Data capture mode. Possible values are::
-;                               'fast'
-;                               'slow'
-;                               'brst'
-;                               'srvy'
-;       SPACECRAFT:         out, optional, type=string
-;                           The spacecraft ID. Possible values are::
-;                               'mms1'
-;                               'mms2'
-;                               'mms3'
-;                               'mms4'
-;       START_TIME:         out, optional, type=string
-;                           Start time of the data interval formatted as yyyymmddhhmmss,
-;                               with irrelevant, least significant, fields dropped
-;                               when files start on regular hourly or minute boundaries.
-;       VERSION:            out, optional, type=string
-;                           Version of the data file, formatted as 'vX.Y.Z'
-;                               X - Interface number.  Increments in this number represent a
-;                                       significant change to the processing software and/or to the contents of the 
-;                                       file. These changes will likely break existing code that expects a specific 
-;                                       file format (e.g. file reading software).  Additionally, increments in this 
-;                                       number may require code changes to analysis software that expects the 
-;                                       data to have been created using specific processing algorithms. The user 
-;                                       should consult the appropriate meta-data for or changelogs.
-;                               Y - Quality number. This number represents a change in the quality of
-;                                       the data in the file, such as change in calibration or increase in fidelity. 
-;                                       Changes should not impact software, but may require consideration when 
-;                                       processing data.
-;                               Z - Bug fix/revision number. This number changes to indicate minor
-;                                       changes to the contents of the file due to reprocessing of missing data.  
-;                                       Any dependent data products should generally be reprocessed if this value 
-;                                       changes.
+;       OPTDESC:        out, optional, type=string
+;                       Optional data product descriptor.
+;       INSTR:          out, optional, type=string
+;                       Instrument ID. Possible values are::
+;                           'hpca'              'edi'
+;                           'aspoc'             'adp'
+;                           'epd'               'sdp'
+;                           'epd-eis'           'adp-sdp'
+;                           'epd-feeps'         'afg'
+;                           'fpi'               'dfg'
+;                           'des'               'afg-dfg'
+;                           'dis'               'scm'
+;                           'des-dis'           'fields'
+;       LEVEL:          out, optional, type=string
+;                       Level of data production. Possible values are::
+;                           'l1a'
+;                           'l1b'
+;                           'l2'
+;                           'ql'
+;                           'l2pre'
+;                           'l2plus'
+;       MODE:           out, optional, type=string
+;                       Data capture mode. Possible values are::
+;                           'fast'
+;                           'slow'
+;                           'brst'
+;                           'srvy'
+;       SC:             out, optional, type=string
+;                       The spacecraft ID. Possible values are::
+;                           'mms1'
+;                           'mms2'
+;                           'mms3'
+;                           'mms4'
+;       TSTART:         out, optional, type=string
+;                       Start time of the data interval formatted as yyyymmddhhmmss,
+;                           with irrelevant, least significant, fields dropped
+;                           when files start on regular hourly or minute boundaries.
+;       VERSION:        out, optional, type=string
+;                       Version of the data file, formatted as 'vX.Y.Z'
+;                           X - Interface number.  Increments in this number represent a
+;                                   significant change to the processing software and/or to the contents of the 
+;                                   file. These changes will likely break existing code that expects a specific 
+;                                   file format (e.g. file reading software).  Additionally, increments in this 
+;                                   number may require code changes to analysis software that expects the 
+;                                   data to have been created using specific processing algorithms. The user 
+;                                   should consult the appropriate meta-data for or changelogs.
+;                           Y - Quality number. This number represents a change in the quality of
+;                                   the data in the file, such as change in calibration or increase in fidelity. 
+;                                   Changes should not impact software, but may require consideration when 
+;                                   processing data.
+;                           Z - Bug fix/revision number. This number changes to indicate minor
+;                                   changes to the contents of the file due to reprocessing of missing data.  
+;                                   Any dependent data products should generally be reprocessed if this value 
+;                                   changes.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -86,14 +113,17 @@
 ; :History::
 ;   Modification History::
 ;       2015/02/06  -   Written by Matthew Argall
+;       2015/05/04  -   Renamed keywords DESCRIPTOR to OPTDESC, SPACECRAFT to SC,
+;                           START_TIME to TSTART, and INSTRUMENT to INSTR to be
+;                           consistent with other programs. - MRA
 ;-
 pro mms_dissect_filename, filename, $
-DESCRIPTOR=descriptor, $
-INSTRUMENT=instrument, $
+OPTDESC=optdesc, $
+INSTR=instr, $
 LEVEL=level, $
 MODE=mode, $
-SPACECRAFT=spacecraft, $
-START_TIME=start_time, $
+SC=sc, $
+TSTART=tstart, $
 VERSION=version
 	compile_opt strictarr
 	on_error, 2
@@ -121,23 +151,23 @@ VERSION=version
 	if nPass eq 0 then return
 
 	;Extract the subexpressions
-	spacecraft   = str[1,iPass]
-	instrument   = str[2,iPass]
-	mode         = str[3,iPass]
-	level        = str[4,iPass]
-	descriptor   = str[5,iPass]
-	start_time   = str[6,iPass]
-	version      = str[7,iPass]
+	sc      = str[1,iPass]
+	instr   = str[2,iPass]
+	mode    = str[3,iPass]
+	level   = str[4,iPass]
+	optdesc = str[5,iPass]
+	tstart  = str[6,iPass]
+	version = str[7,iPass]
 	
 	;Return scalars?
 	if nPass eq 1 then begin
-		spacecraft = spacecraft[0]
-		instrument = instrument[0]
-		mode       = mode[0]
-		level      = level[0]
-		descriptor = descriptor[0]
-		start_time = start_time[0]
-		version    = version[0]
+		sc      = sc[0]
+		instr   = instr[0]
+		mode    = mode[0]
+		level   = level[0]
+		optdesc = optdesc[0]
+		tstart  = tstart[0]
+		version = version[0]
 	endif
 end
 
@@ -159,13 +189,13 @@ print, format='(%"                        %s")', filenames[3]
 
 ;Dissect all of the names
 mms_dissect_filename, filenames, $
-                      DESCRIPTOR = descriptor, $
-                      INSTRUMENT = instrument, $
-                      LEVEL      = level, $
-                      MODE       = mode, $
-                      START_TIME = start_time, $
-                      SPACECRAFT = spacecraft, $
-                      VERSION    = version
+                      OPTDESC = descriptor, $
+                      INSTR   = instrument, $
+                      LEVEL   = level, $
+                      MODE    = mode, $
+                      TSTART  = start_time, $
+                      SC      = spacecraft, $
+                      VERSION = version
                     
 ;breakdown the filenames and display the results.
 for i = 0, n_elements(filenames) - 1 do begin

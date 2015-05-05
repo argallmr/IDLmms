@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_read_efieldmode
+;       mms_edi_gse
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -54,24 +54,34 @@
 ;                       Directory in which to find EDI data.
 ;
 ; :Keywords:
-;       DIRECTORY:      in, optional, type=string, default=pwd
-;                       Directory in which to find EDI data.
-;       QUALITY:        in, optional, type=integer/intarr, default=pwd
-;                       Quality of EDI beams to return. Can be a scalar or vector with
-;                           values [0, 1, 2, 3].
+;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find FDOA definitive attitude data.
+;       BCS:            in, optional, type=boolean, default=0
+;                       If set, data in BCS coordinates will be included in `EDI`.
+;       DMPA:           in, optional, type=boolean, default=0
+;                       If set, data in DMPA coordinates will be included in `EDI`.
+;       EDI:            in, optional, type=boolean, default=0
+;                       If set, data in EDI coordinates will be included in `EDI`.
+;       SMPA:           in, optional, type=boolean, default=0
+;                       If set, data in SMPA coordinates will be included in `EDI`.
+;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find HK 0X101 sunpulse data.
+;       _REF_EXTRA:     in, optional, type=string, default=pwd
+;                       Any keyword accepted by mms_fg_bcs is also accepted via keyword
+;                           inheritance.
 ;
 ; :Returns:
 ;       EDI:            Structure array of EDI data. In addition to fields returned by
 ;                           mms_edi_read_efield, we have::
-;                             'GUN_GD12_BCS'     -  Position of gun 1 (meters)
-;                             'DET_GD12_BCS'     -  Position of detector 2 (meters)
-;                             'VIRTUAL_GUN1_BCS' -  Position of gun 1 on virtual spacecraft (meters)
-;                             'FV_GD12_BCS'      -  Firing vectors
+;                             'GUN_GD12_GSE'     -  Position of gun 1 (meters)
+;                             'DET_GD12_GSE'     -  Position of detector 2 (meters)
+;                             'VIRTUAL_GUN1_GSE' -  Position of gun 1 on virtual spacecraft (meters)
+;                             'FV_GD12_GSE'      -  Firing vectors
 ;
-;                             'GUN_GD21_BCS'     -  Position of gun 2 (meters)
-;                             'DET_GD21_BCS'     -  Position of detector 1 (meters)
-;                             'VIRTUAL_GUN2_BCS' -  Position of gun 2 on virtual spacecraft (meters)
-;                             'FV_GD21_BCS'      -  Firing vectors
+;                             'GUN_GD21_GSE'     -  Position of gun 2 (meters)
+;                             'DET_GD21_GSE'     -  Position of detector 1 (meters)
+;                             'VIRTUAL_GUN2_GSE' -  Position of gun 2 on virtual spacecraft (meters)
+;                             'FV_GD21_GSE'      -  Firing vectors
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -95,7 +105,7 @@ ATTITUDE_DIR = attitude_dir, $
 SUNPULSE_DIR = sunpulse_dir, $
 _REF_EXTRA=extra
 	compile_opt idl2
-;	on_error, 2
+	on_error, 2
 	
 	;Defaults
 	bcs  = keyword_set(bcs)
