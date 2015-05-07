@@ -101,6 +101,8 @@
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
 ;       2015/05/05  -   Return energy, code length, correlator n and m, and max_addr. - MRA
+;       2015/05/06  -   CODELENGTH was actually NUM_CHIPS. Calculate CODE_LENGTH and
+;                           CHIP_WIDTH. - MRA
 ;-
 function mms_edi_read_efieldmode, sc, mode, level, tstart, tend, $
 DIRECTORY=edi_dir, $
@@ -129,26 +131,26 @@ QUALITY=quality
 	                               DIRECTORY = edi_dir)
 	
 	;Variable names for GD12
-	phi_gd12_name         = mms_construct_varname(sc, 'edi', 'phi_gd12')
-	theta_gd12_name       = mms_construct_varname(sc, 'edi', 'theta_gd12')
-	tof_gd12_name         = mms_construct_varname(sc, 'edi', 'tof1_us')
-	q_gd12_name           = mms_construct_varname(sc, 'edi', 'sq_gd12')
-	e_gd12_name           = mms_construct_varname(sc, 'edi', 'e_gd12')
-	code_length_gd12_name = mms_construct_varname(sc, 'edi', 'code_length_gd12')
-	m_gd12_name           = mms_construct_varname(sc, 'edi', 'm_gd12')
-	n_gd12_name           = mms_construct_varname(sc, 'edi', 'n_gd12')
-	max_addr_gd12_name    = mms_construct_varname(sc, 'edi', 'max_addr_gd12')
+	phi_gd12_name       = mms_construct_varname(sc, 'edi', 'phi_gd12')
+	theta_gd12_name     = mms_construct_varname(sc, 'edi', 'theta_gd12')
+	tof_gd12_name       = mms_construct_varname(sc, 'edi', 'tof1_us')
+	q_gd12_name         = mms_construct_varname(sc, 'edi', 'sq_gd12')
+	e_gd12_name         = mms_construct_varname(sc, 'edi', 'e_gd12')
+	num_chips_gd12_name = mms_construct_varname(sc, 'edi', 'codelength_gd12') ;'num_chips_gd12')
+	m_gd12_name         = mms_construct_varname(sc, 'edi', 'm_gd12')
+	n_gd12_name         = mms_construct_varname(sc, 'edi', 'n_gd12')
+	max_addr_gd12_name  = mms_construct_varname(sc, 'edi', 'max_addr_gd12')
 	
 	;Variable names for GD21
-	phi_gd21_name         = mms_construct_varname(sc, 'edi', 'phi_gd21')
-	theta_gd21_name       = mms_construct_varname(sc, 'edi', 'theta_gd21')
-	tof_gd21_name         = mms_construct_varname(sc, 'edi', 'tof2_us')
-	q_gd21_name           = mms_construct_varname(sc, 'edi', 'sq_gd21')
-	e_gd21_name           = mms_construct_varname(sc, 'edi', 'e_gd21')
-	code_length_gd21_name = mms_construct_varname(sc, 'edi', 'code_length_gd21')
-	m_gd21_name           = mms_construct_varname(sc, 'edi', 'm_gd21')
-	n_gd21_name           = mms_construct_varname(sc, 'edi', 'n_gd21')
-	max_addr_gd21_name    = mms_construct_varname(sc, 'edi', 'max_addr_gd21')
+	phi_gd21_name       = mms_construct_varname(sc, 'edi', 'phi_gd21')
+	theta_gd21_name     = mms_construct_varname(sc, 'edi', 'theta_gd21')
+	tof_gd21_name       = mms_construct_varname(sc, 'edi', 'tof2_us')
+	q_gd21_name         = mms_construct_varname(sc, 'edi', 'sq_gd21')
+	e_gd21_name         = mms_construct_varname(sc, 'edi', 'e_gd21')
+	num_chips_gd21_name = mms_construct_varname(sc, 'edi', 'codelength_gd21') ;'num_chips_gd21')
+	m_gd21_name         = mms_construct_varname(sc, 'edi', 'm_gd21')
+	n_gd21_name         = mms_construct_varname(sc, 'edi', 'n_gd21')
+	max_addr_gd21_name  = mms_construct_varname(sc, 'edi', 'max_addr_gd21')
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -164,38 +166,41 @@ QUALITY=quality
 
 	;Open the files
 	cdfIDs = lonarr(nFiles)
-	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(fname[i])
+	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
 
 	;Read the data for GD12
 	phi_gd12 = MrCDF_nRead(cdfIDs, phi_gd12_name, $
 	                       DEPEND_0 = epoch_gd12, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd12       = MrCDF_nRead(cdfIDs, theta_gd12_name,       TSTART=tstart, TEND=tend)
-	tof_gd12         = MrCDF_nRead(cdfIDs, tof_gd12_name,         TSTART=tstart, TEND=tend)
-	q_gd12           = MrCDF_nRead(cdfIDs, q_gd12_name,           TSTART=tstart, TEND=tend)
-	e_gd12           = MrCDF_nRead(cdfIDs, e_gd12_name,           TSTART=tstart, TEND=tend)
-	code_length_gd12 = MrCDF_nRead(cdfIDs, code_length_gd12_name, TSTART=tstart, TEND=tend)
-	m_gd12           = MrCDF_nRead(cdfIDs, m_gd12_name,           TSTART=tstart, TEND=tend)
-	n_gd12           = MrCDF_nRead(cdfIDs, n_gd12_name,           TSTART=tstart, TEND=tend)
-	max_addr_gd12    = MrCDF_nRead(cdfIDs, max_addr_gd12_name,    TSTART=tstart, TEND=tend)
+	theta_gd12     = MrCDF_nRead(cdfIDs, theta_gd12_name,     TSTART=tstart, TEND=tend)
+	tof_gd12       = MrCDF_nRead(cdfIDs, tof_gd12_name,       TSTART=tstart, TEND=tend)
+	q_gd12         = MrCDF_nRead(cdfIDs, q_gd12_name,         TSTART=tstart, TEND=tend)
+	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend)
+	num_chips_gd12 = MrCDF_nRead(cdfIDs, num_chips_gd12_name, TSTART=tstart, TEND=tend)
+	m_gd12         = MrCDF_nRead(cdfIDs, m_gd12_name,         TSTART=tstart, TEND=tend)
+	n_gd12         = MrCDF_nRead(cdfIDs, n_gd12_name,         TSTART=tstart, TEND=tend)
+	max_addr_gd12  = MrCDF_nRead(cdfIDs, max_addr_gd12_name,  TSTART=tstart, TEND=tend)
 
 	;Read the data for GD21
 	phi_gd21 = MrCDF_nRead(cdfIDs, phi_gd21_name, $
 	                       DEPEND_0 = epoch_gd21, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd21       = MrCDF_nRead(cdfIDs, theta_gd21_name,       TSTART=tstart, TEND=tend)
-	tof_gd21         = MrCDF_nRead(cdfIDs, tof_gd21_name,         TSTART=tstart, TEND=tend)
-	q_gd21           = MrCDF_nRead(cdfIDs, q_gd21_name,           TSTART=tstart, TEND=tend)
-	e_gd21           = MrCDF_nRead(cdfIDs, e_gd21_name,           TSTART=tstart, TEND=tend)
-	code_length_gd21 = MrCDF_nRead(cdfIDs, code_length_gd21_name, TSTART=tstart, TEND=tend)
-	m_gd21           = MrCDF_nRead(cdfIDs, m_gd21_name,           TSTART=tstart, TEND=tend)
-	n_gd21           = MrCDF_nRead(cdfIDs, n_gd21_name,           TSTART=tstart, TEND=tend)
-	max_addr_gd21    = MrCDF_nRead(cdfIDs, max_addr_gd21_name,    TSTART=tstart, TEND=tend)
+	theta_gd21     = MrCDF_nRead(cdfIDs, theta_gd21_name,     TSTART=tstart, TEND=tend)
+	tof_gd21       = MrCDF_nRead(cdfIDs, tof_gd21_name,       TSTART=tstart, TEND=tend)
+	q_gd21         = MrCDF_nRead(cdfIDs, q_gd21_name,         TSTART=tstart, TEND=tend)
+	e_gd21         = MrCDF_nRead(cdfIDs, e_gd21_name,         TSTART=tstart, TEND=tend)
+	num_chips_gd21 = MrCDF_nRead(cdfIDs, num_chips_gd21_name, TSTART=tstart, TEND=tend)
+	m_gd21         = MrCDF_nRead(cdfIDs, m_gd21_name,         TSTART=tstart, TEND=tend)
+	n_gd21         = MrCDF_nRead(cdfIDs, n_gd21_name,         TSTART=tstart, TEND=tend)
+	max_addr_gd21  = MrCDF_nRead(cdfIDs, max_addr_gd21_name,  TSTART=tstart, TEND=tend)
 	
 	;Close the files
-	for i = 0, nFiles do cdf_close, cdfIDs[i]
+	for i = 0, nFiles - 1 do begin
+		cdf_close, cdfIDs[i]
+		cdfIDs[i] = 0L
+	endfor
 
 ;-----------------------------------------------------
 ; Filter by Quality? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -206,32 +211,32 @@ QUALITY=quality
 		
 		;GD12
 		if count_gd12 gt 0 then begin
-			epoch_gd12       = epoch_gd12[iq_gd12]
-			phi_gd12         = phi_gd12[iq_gd12]
-			theta_gd12       = theta_gd12[iq_gd12]
-			tof_gd12         = tof_gd12[iq_gd12]
-			q_gd12           = q_gd12[iq_gd12]
-			e_gd12           = e_gd12[iq_gd12]
-			code_length_gd12 = code_length_gd12[iq_gd12]
-			m_gd12           = m_gd12[iq_gd12]
-			n_gd12           = n_gd12[iq_gd12]
-			max_addr_gd12    = max_addr_gd12[iq_gd12]
+			epoch_gd12     = epoch_gd12[iq_gd12]
+			phi_gd12       = phi_gd12[iq_gd12]
+			theta_gd12     = theta_gd12[iq_gd12]
+			tof_gd12       = tof_gd12[iq_gd12]
+			q_gd12         = q_gd12[iq_gd12]
+			e_gd12         = e_gd12[iq_gd12]
+			num_chips_gd12 = num_chips_gd12[iq_gd12]
+			m_gd12         = m_gd12[iq_gd12]
+			n_gd12         = n_gd12[iq_gd12]
+			max_addr_gd12  = max_addr_gd12[iq_gd12]
 		endif else begin
 			message, 'No beams of desired quality for GD12.', /INFORMATIONAL
 		endelse
 		
 		;GD21
 		if count_gd21 gt 0 then begin
-			epoch_gd21       = epoch_gd21[iq_gd21]
-			phi_gd21         = phi_gd21[iq_gd21]
-			theta_gd21       = theta_gd21[iq_gd21]
-			tof_gd21         = tof_gd21[iq_gd21]
-			q_gd21           = q_gd21[iq_gd21]
-			e_gd21           = e_gd21[iq_gd21]
-			code_length_gd21 = code_length_gd21[iq_gd12]
-			m_gd21           = m_gd21[iq_gd21]
-			n_gd21           = n_gd21[iq_gd21]
-			max_addr_gd21    = max_addr_gd21[iq_gd21]
+			epoch_gd21     = epoch_gd21[iq_gd21]
+			phi_gd21       = phi_gd21[iq_gd21]
+			theta_gd21     = theta_gd21[iq_gd21]
+			tof_gd21       = tof_gd21[iq_gd21]
+			q_gd21         = q_gd21[iq_gd21]
+			e_gd21         = e_gd21[iq_gd21]
+			num_chips_gd21 = num_chips_gd21[iq_gd21]
+			m_gd21         = m_gd21[iq_gd21]
+			n_gd21         = n_gd21[iq_gd21]
+			max_addr_gd21  = max_addr_gd21[iq_gd21]
 		endif else begin
 			message, 'No beams of desired quality for GD21.', /INFORMATIONAL
 		endelse
@@ -252,7 +257,7 @@ QUALITY=quality
 	;Constant: Degrees -> Radians
 	deg2rad = !pi / 180.0D
 	
-	if n_gd12 gt 0 then begin
+	if count_gd12 gt 0 then begin
 		;Convert to radians
 		azimuth_gd12 = phi_gd12   * deg2rad
 		polar_gd12   = theta_gd12 * deg2rad
@@ -264,7 +269,7 @@ QUALITY=quality
 		fv_gd12[2,*] = cos(polar_gd12)
 	endif
 	
-	if n_gd21 gt 0 then begin
+	if count_gd21 gt 0 then begin
 		;Convert to radians
 		azimuth_gd21 = phi_gd21   * deg2rad
 		polar_gd21   = theta_gd21 * deg2rad
@@ -277,10 +282,41 @@ QUALITY=quality
 	endif
 
 ;-----------------------------------------------------
+; Calculate Chip Width \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; From Hans Vaith concerning raw data:
+	;
+	;    chip_width = n * m * 2^(-23) seconds
+	;    code_length = chip_width * number_of_chips
+	;
+	;    n = 1,2,4,8  (the corresponding raw values are 0,1,2,3)
+	;    m = 2,4,8,16 (the corresponding raw values are 3,2,1,0)
+	;    number_of_chips = 255,511,1023 (corresponding raw values: 0,1,2)
+	;
+	; L1A file
+	;    n and m are already converted from raw values
+	;    code_length is calculated
+	;    chip_width must be calculated
+	;
+	; Terminology
+	;    chip_width is also referred to as the chip period
+	;    code_length is also referred to as the code period
+	;
+	if count_gd12 gt 0 then begin
+		chip_width_gd12  = n_gd12 * m_gd12 * 2D^(-23)
+		code_length_gd12 = chip_width_gd12 * num_chips_gd12
+	endif
+	if count_gd21 gt 0 then begin
+		chip_width_gd21  = n_gd21 * m_gd21 * 2D^(-23)
+		code_length_gd21 = chip_width_gd21 * num_chips_gd21
+	endif
+
+;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
-	if n_gd12 gt 0 then begin
+	if count_gd12 gt 0 then begin
 		edi_gd12 = { count_gd12:       n_gd12, $
 		             epoch_gd12:       epoch_gd12, $
 		             azimuth_gd12:     phi_gd12, $
@@ -289,7 +325,9 @@ QUALITY=quality
 		             tof_gd12:         tof_gd12, $
 		             quality_gd12:     q_gd12, $
 		             energy_gd12:      e_gd12, $
+		             chip_width_gd12:  chip_width_gd12, $
 		             code_length_gd12: code_length_gd12, $
+		             num_chips_gd12:   num_chips_gd12, $
 		             m_gd12:           m_gd12, $
 		             n_gd12:           n_gd12, $
 		             max_addr_gd12:    max_addr_gd12 $
@@ -298,16 +336,18 @@ QUALITY=quality
 	endif else edi_gd12 = {count_gd21: count_gd21}
 	
 	;All data
-	if n_gd21 gt 0 then begin
+	if count_gd21 gt 0 then begin
 		edi_gd21 = { count_gd21:       n_gd21, $
 		             epoch_gd21:       epoch_gd21, $
 		             azimuth_gd21:     phi_gd21, $
 		             polar_gd21:       theta_gd21, $
 		             fv_gd21:          fv_gd21, $
 		             tof_gd21:         tof_gd21, $
-		             quality_gd21:     q_gd21 $
+		             quality_gd21:     q_gd21, $
 		             energy_gd21:      e_gd21, $
+		             chip_width_gd21:  chip_width_gd21, $
 		             code_length_gd21: code_length_gd21, $
+		             num_chips_gd21:   num_chips_gd21, $
 		             m_gd21:           m_gd21, $
 		             n_gd21:           n_gd21, $
 		             max_addr_gd21:    max_addr_gd21 $

@@ -127,14 +127,15 @@ function mms_edi_bestarg
 		beam_yg        = fltarr(nBeams)       ; Y-Coordinate of gun in BPP
 		beam_alpha     = fltarr(nBeams)       ; ????
 		beam_tof       = lonarr(nBeams)       ; Time of flight (micro-seconds)
-		beam_code_type = lonarr(nBeams)       ; ????
+		beam_code_type = lonarr(nBeams)       ; Beam code type (raw num_chips)
 		beam_qual      = bytarr(nBeams)       ; Quality
-		beam_bwidth    = fltarr(nBeams)       ; ????
+		beam_bwidth    = fltarr(nBeams)       ; Beam width
 		beam_runstat   = fltarr(nBeams)       ; ????
 		beam_maxchan   = lonarr(nBeams)       ; Max Channel/Address
-		beam_btime     = lon64arr(nBeams)     ; ????
-		beam_tchip     = lonarr(nBeams)       ; ????
-		beam_tcode     = lonarr(nBeams)       ; ????
+		beam_btime     = lon64arr(nBeams)     ; Beam times
+		beam_tchip     = lonarr(nBeams)       ; Chip period (a.k.a. chip width)
+		beam_tcode     = lonarr(nBeams)       ; Code period (a.k.a. code length)
+		num_chips      = intarr(nBeams)       ; Number of chips used in the code
 		erg            = fltarr(nBeams)       ; Energy
 		rmax           = fltarr(nBeams)       ; ????
 		gyrorad        = fltarr(nBeams)       ; Gyroradius
@@ -151,25 +152,30 @@ function mms_edi_bestarg
 			inds1 = ri1[ri1[i]:ri1[i+1]-1]
 			
 			;Extract data
-			beam_time[0:n1-1]      = edi.epoch_gd12[inds1]
-			beam_b[*,0:n1-1]       = avg.b_gd12[*,inds1]
-			beam_gunid[0:n1-1]     = 1B
-			beam_xg[0:n1-1]        = edi.virtual_gun1_dmpa[0,inds1]
-			beam_yg[0:n1-1]        = edi.virtual_gun1_dmpa[0,inds1]
-;			beam_alpha[0:n1-1]     =
-			beam_tof[0:n1-1]       = edi.tof_gd12[inds1]
-;			beam_code_type[0:n1-1] = 
-			beam_qual[0:n1-1]      = edi.quality_gd12[inds1]
-;			beam_bwidth[0:n1-1]    =
-;			beam_runstat[0:n1-1]   =
-			beam_maxchan[0:n1-1]   = edi.max_addr_gd12[inds1]
-;			beam_btime[0:n1-1]     = 
-;			beam_tchip[0:n1-1]     = 
-;			beam_tcode[0:n1-1]     =
-			erg[0:n1-1]            = edi_energy_gd12[inds1]
-;			rmax[0:n1-1]           = 
-;			flip[0:n1-1]           = 
-;			poc[0:n1-1]            = 
+			beam_time[0:n1-1]    = edi.epoch_gd12[inds1]
+			beam_b[*,0:n1-1]     = avg.b_gd12[*,inds1]
+			beam_gunid[0:n1-1]   = 1B
+			beam_xg[0:n1-1]      = edi.virtual_gun1_dmpa[0,inds1]
+			beam_yg[0:n1-1]      = edi.virtual_gun1_dmpa[0,inds1]
+;			beam_alpha[0:n1-1]   =
+			beam_tof[0:n1-1]     = edi.tof_gd12[inds1]
+			beam_qual[0:n1-1]    = edi.quality_gd12[inds1]
+;			beam_bwidth[0:n1-1]  =
+;			beam_runstat[0:n1-1] =
+			beam_maxchan[0:n1-1] = edi.max_addr_gd12[inds1]
+			beam_btime[0:n1-1]   = edi.epoch_gd12[inds1]
+			num_chips[0:n1-1]    = edi.num_chips_gd12[inds1]
+			beam_tchip[0:n1-1]   = edi.chip_width_gd12[inds1]
+			beam_tcode[0:n1-1]   = edi.code_length_gd12[inds1]
+			erg[0:n1-1]          = edi_energy_gd12[inds1]
+;			rmax[0:n1-1]         = 
+			flip[0:n1-1]         = 0B
+;			poc[0:n1-1]          = 
+			
+			;Translate back to raw code type
+			beam_code_type[0:n1-1] = 0S * (num_chips eq  255S) + $
+			                              (num_chips eq  511S) + $
+			                         3S * (num_chips eq 1023S)
 			
 			;Transformation to BPP
 			xyz2bpp = mms_edi_xxyz2bpp(b_gd12)
@@ -187,25 +193,30 @@ function mms_edi_bestarg
 			inds2 = ri2[ri2[i]:ri2[i+1]-1]
 			
 			;Extract data
-			beam_time[n1:n2-1]      = edi.epoch_gd21[inds1]
-			beam_b[*,n1:n2-1]       = avg.b_gd21[*,inds1]
-			beam_gunid[n1:n2-1]     = 1B
-			beam_xg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds1]
-			beam_yg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds1]
+			beam_time[n1:n2-1]      = edi.epoch_gd21[inds2]
+			beam_b[*,n1:n2-1]       = avg.b_gd21[*,inds2]
+			beam_gunid[n1:n2-1]     = 2B
+			beam_xg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds2]
+			beam_yg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds2]
 ;			beam_alpha[n1:n2-1]     =
-			beam_tof[n1:n2-1]       = edi.tof_gd21[inds1]
-;			beam_code_type[n1:n2-1] = 
-			beam_qual[n1:n2-1]      = edi.quality_gd21[inds1]
+			beam_tof[n1:n2-1]       = edi.tof_gd21[inds2]
+			beam_qual[n1:n2-1]      = edi.quality_gd21[inds2]
 ;			beam_bwidth[n1:n2-1]    =
 ;			beam_runstat[n1:n2-1]   =
-			beam_maxchan[n1:n2-1]   = edi.max_addr_gd21[inds1]
-;			beam_btime[n1:n2-1]     = 
-;			beam_tchip[n1:n2-1]     = 
-;			beam_tcode[n1:n2-1]     =
-			erg[n1:n2-1]            = edi_energy_gd21[inds1]
+			beam_maxchan[n1:n2-1]   = edi.max_addr_gd21[inds2]
+			beam_btime[n1:n2-1]     = edi.epoch_gd21[inds2]
+			num_chips[n1:n2-1]      = edi.num_chips_gd21[inds2]
+			beam_tchip[n1:n2-1]     = edi.chip_width_gd21[inds2]
+			beam_tcode[n1:n2-1]     = edi.code_length_gd21[inds2]
+			erg[n1:n2-1]            = edi_energy_gd21[inds2]
 ;			rmax[n1:n2-1]           = 
-;			flip[n1:n2-1]           = 
+			flip[n1:n2-1]           = 0B
 ;			poc[n1:n2-1]            = 
+			
+			;Translate back to raw code type
+			beam_code_type[n1:n2-1] = 0S * (num_chips eq  255S) + $
+			                               (num_chips eq  511S) + $
+			                          3S * (num_chips eq 1023S)
 			
 			;Transformation to BPP
 			xyz2bpp = mms_edi_xxyz2bpp(b_gd21)
@@ -225,9 +236,9 @@ function mms_edi_bestarg
 		; v_perp = sqrt( 2 E / m )
 		;
 		;Unit conversions
-		; T      = kg / C-nT = kg-C-s / C-kg * 1e9 = s * 1e9
-		; r      = kg km/s / C-nT = kg-m-C-s / C-kg-s * 1e3 * 1e9 = m * 1e12
-		; v_perp = eV / kg = J / kg * 1.602e-19 = kg-m / s-kg * 1.602e-19 = m/s * 1.602e-19 = km/s * 1.602e-19 * 1e-3
+		; T      = kg / C-nT --> kg-C-s / C-kg * 1e9 --> s * 1e9
+		; r      = kg km/s / C-nT --> kg-m-C-s / C-kg-s * 1e3 * 1e9 --> m * 1e12
+		; v_perp = eV / kg --> J / kg * 1.602e-19 --> kg-m / s-kg * 1.602e-19 --> m/s * 1.602e-19 -> km/s * 1.602e-19 * 1e-3
 		bmag    = MrVector_Magnitude(beam_b)
 		gyroper = ( 1e9 * 2 * !pi * constants('m_e') / constants('q') ) / bmag
 		v_perp  = sqrt( ( 2.0 * constants('q') / constants('m_e') ) * erg )
