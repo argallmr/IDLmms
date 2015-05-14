@@ -73,23 +73,48 @@ function mms_edi_bestarg
 	;Get FG data
 	!Null = mms_fg_gse(sc, 'dfg', 'f128', tstart, tend, $
 	                  B_DMPA       = b_dmpa, $
+	                  B_BCS        = b_bcs, $
 	                  CAL_DIR      = fg_cal_dir, $
 	                  DATA_DIR     = dfg_dir, $
 	                  EPOCH        = fg_epoch, $
 	                  SUNPULSE_DIR = sunpulse_dir)
 
 	;Get EDI data
-	edi = mms_edi_gse(sc, 'slow', tstart, tend, /DMPA, $
+	edi = mms_edi_gse(sc, 'slow', tstart, tend, /DMPA, /EDI, $
 	                  DIRECTORY    = edi_dir, $
 	                  QUALITY      = quality, $
 	                  SUNPULSE_DIR = sunpulse_dir)
 
-	;Average magnetic field
-	avg = mms_edi_bavg(fg_epoch, b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
+;-----------------------------------------------------
+; Beam Widths \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;Interpolate the magnetic field in BCS onto beam times
+	;   - There will be a 1-to-1 correspondence between field and beams
+	avg = mms_edi_bavg(fg_epoch, b_bcs, edi.epoch_gd12, edi.epoch_gd21)
+
+	;Rotate the firing vectors and magnetic field into the EDI CS
+	bcs2edi1 = mms_instr_xxyz2instr('BCS', 'EDI1')
+	bcs2edi2 = mms_instr_xxyz2instr('BCS', 'EDI2')
+	
+	;Rotate Field to EDI coordinate system
+	b_edi1 = MrVector_Rotate(bcs2edi1, avg.b_gd12)
+	b_edi2 = MrVector_Rotate(bcs2edi2, avg.b_gd21)
+	avg    = !Null
+	
+	;Beam widths
+	beam_width_gd12 = mms_edi_beam_width(edi.fv_gd12, b_edi1, ALPHA=beam_alpha_gd12)
+	beam_width_gd21 = mms_edi_beam_width(edi.fv_gd21, b_edi2, ALPHA=beam_alpha_gd21)
 
 ;-----------------------------------------------------
 ; Get Beams Associated with each B_AVG \\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+
+	;Average DMPA magnetic field
+	;   - Interpolate the field onto beam times.
+	;   - Average over 5-second intervals.
+	;   - Keep track of which beams are associated with each averaged field.
+	avg = mms_edi_bavg(fg_epoch, b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
 
 	;Look at each averaging interval
 	navg = n_elements(avg.t_avg)
@@ -125,11 +150,11 @@ function mms_edi_bestarg
 		beam_gunid     = bytarr(nBeams)       ; Gun Number {1 | 2}
 		beam_xg        = fltarr(nBeams)       ; X-coordinate of gun in BPP
 		beam_yg        = fltarr(nBeams)       ; Y-Coordinate of gun in BPP
-		beam_alpha     = fltarr(nBeams)       ; ????
+		beam_alpha     = fltarr(nBeams)       ; Angle between (fv x B) and e_polar
 		beam_tof       = lonarr(nBeams)       ; Time of flight (micro-seconds)
 		beam_code_type = lonarr(nBeams)       ; Beam code type (raw num_chips)
 		beam_qual      = bytarr(nBeams)       ; Quality
-		beam_bwidth    = fltarr(nBeams)       ; Beam width
+		beam_bwidth    = fltarr(nBeams)       ; Beam width in BPP
 		beam_runstat   = fltarr(nBeams)       ; ????
 		beam_maxchan   = lonarr(nBeams)       ; Max Channel/Address
 		beam_btime     = lon64arr(nBeams)     ; Beam times
@@ -144,6 +169,14 @@ function mms_edi_bestarg
 		bmag           = fltarr(nBeams)       ; Magnetic field magnitude
 		poc            = intarr(nBeams)       ; ???
 		
+		;
+		; Unknown value defaults
+		;    RUNSTAT = 0B
+		;    RMAX    = 15.0
+		;    POC     = 2B
+		;    FLIP    = 0B
+		;
+		
 	;-----------------------------------------------------
 	; GD12 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
@@ -157,20 +190,20 @@ function mms_edi_bestarg
 			beam_gunid[0:n1-1]   = 1B
 			beam_xg[0:n1-1]      = edi.virtual_gun1_dmpa[0,inds1]
 			beam_yg[0:n1-1]      = edi.virtual_gun1_dmpa[0,inds1]
-;			beam_alpha[0:n1-1]   =
+			beam_alpha[0:n1-1]   = beam_alpha_gd12[inds1]
 			beam_tof[0:n1-1]     = edi.tof_gd12[inds1]
 			beam_qual[0:n1-1]    = edi.quality_gd12[inds1]
-;			beam_bwidth[0:n1-1]  =
-;			beam_runstat[0:n1-1] =
+			beam_bwidth[0:n1-1]  = beam_width_gd12[inds1]
+			beam_runstat[0:n1-1] = 0B
 			beam_maxchan[0:n1-1] = edi.max_addr_gd12[inds1]
 			beam_btime[0:n1-1]   = edi.epoch_gd12[inds1]
 			num_chips[0:n1-1]    = edi.num_chips_gd12[inds1]
 			beam_tchip[0:n1-1]   = edi.chip_width_gd12[inds1]
 			beam_tcode[0:n1-1]   = edi.code_length_gd12[inds1]
 			erg[0:n1-1]          = edi_energy_gd12[inds1]
-;			rmax[0:n1-1]         = 
+			rmax[0:n1-1]         = 15.0
 			flip[0:n1-1]         = 0B
-;			poc[0:n1-1]          = 
+			poc[0:n1-1]          = 2B
 			
 			;Translate back to raw code type
 			beam_code_type[0:n1-1] = 0S * (num_chips eq  255S) + $
@@ -198,20 +231,20 @@ function mms_edi_bestarg
 			beam_gunid[n1:n2-1]     = 2B
 			beam_xg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds2]
 			beam_yg[n1:n2-1]        = edi.virtual_gun1_dmpa[0,inds2]
-;			beam_alpha[n1:n2-1]     =
+			beam_alpha[n1:n2-1]     = beam_alpha_gd12[inds2]
 			beam_tof[n1:n2-1]       = edi.tof_gd21[inds2]
 			beam_qual[n1:n2-1]      = edi.quality_gd21[inds2]
-;			beam_bwidth[n1:n2-1]    =
-;			beam_runstat[n1:n2-1]   =
+			beam_bwidth[n1:n2-1]    = beam_width_gd12[inds1]
+			beam_runstat[n1:n2-1]   = 0B
 			beam_maxchan[n1:n2-1]   = edi.max_addr_gd21[inds2]
 			beam_btime[n1:n2-1]     = edi.epoch_gd21[inds2]
 			num_chips[n1:n2-1]      = edi.num_chips_gd21[inds2]
 			beam_tchip[n1:n2-1]     = edi.chip_width_gd21[inds2]
 			beam_tcode[n1:n2-1]     = edi.code_length_gd21[inds2]
 			erg[n1:n2-1]            = edi_energy_gd21[inds2]
-;			rmax[n1:n2-1]           = 
+			rmax[n1:n2-1]           = 15.0
 			flip[n1:n2-1]           = 0B
-;			poc[n1:n2-1]            = 
+			poc[n1:n2-1]            = 2B
 			
 			;Translate back to raw code type
 			beam_code_type[n1:n2-1] = 0S * (num_chips eq  255S) + $

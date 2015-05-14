@@ -18,89 +18,89 @@
 ;       IDL> .r mms_construct_filename
 ;
 ; :Params:
-;       SPACECRAFT:         out, optional, type=string
-;                           The spacecraft ID. Possible values are::
-;                               'mms1'
-;                               'mms2'
-;                               'mms3'
-;                               'mms4'
-;       INSTRUMENT:         out, optional, type=string
-;                           Instrument ID. Possible values are::
-;                               'hpca'              'edi'
-;                               'aspoc'             'adp'
-;                               'epd'               'sdp'
-;                               'epd-eis'           'adp-sdp'
-;                               'epd-feeps'         'afg'
-;                               'fpi'               'dfg'
-;                               'des'               'afg-dfg'
-;                               'dis'               'scm'
-;                               'des-dis'           'fields'
-;       MODE:               out, optional, type=string
-;                           Data capture mode. Possible values are::
-;                               'fast'
-;                               'slow'
-;                               'brst'
-;                               'srvy'
-;       LEVEL:              out, optional, type=string
-;                           Level of data production. Possible values are::
-;                               'l1a'
-;                               'l1b'
-;                               'l2'
-;                               'ql'
-;                               'l2pre'
-;                               'l2plus'
+;       SPACECRAFT:     out, optional, type=string
+;                       The spacecraft ID. Possible values are::
+;                           'mms1'
+;                           'mms2'
+;                           'mms3'
+;                           'mms4'
+;       INSTRUMENT:     out, optional, type=string
+;                       Instrument ID. Possible values are::
+;                           'hpca'              'edi'
+;                           'aspoc'             'adp'
+;                           'epd'               'sdp'
+;                           'epd-eis'           'adp-sdp'
+;                           'epd-feeps'         'afg'
+;                           'fpi'               'dfg'
+;                           'des'               'afg-dfg'
+;                           'dis'               'scm'
+;                           'des-dis'           'fields'
+;       MODE:           out, optional, type=string
+;                       Data capture mode. Possible values are::
+;                           'fast'
+;                           'slow'
+;                           'brst'
+;                           'srvy'
+;       LEVEL:          out, optional, type=string
+;                       Level of data production. Possible values are::
+;                           'l1a'
+;                           'l1b'
+;                           'l2'
+;                           'ql'
+;                           'l2pre'
+;                           'l2plus'
 ;
 ; :Keywords:
-;       OPTDESC:            in, optional, type=string, default=''
-;                           Optional field that may not be needed for all
-;                               products (e.g. Quicklook and SITL).  Where it is used, 
-;                               identifiers should be short (e.g. 3-8 character)
-;                               descriptors that are helpful to end-users.  If a descriptor
-;                               contains multiple components, hyphens are used to separate
-;                               those components.
-;       TOKENS:             in, optional, type=boolean, default=0
-;                           If set, then the default value of `START_TIME` is '%Y%M%d'.
-;                               This pattern is recognized by MrTokens and can be used
-;                               to find files with year, month, and day in the file name.
-;       START_TIME:         in, optional, type=string, default='*'
-;                           Start time of the data interval formatted as yyyymmddhhmmss,
-;                               with irrelevant, least significant, fields dropped
-;                               when files start on regular hourly or minute boundaries.
-;       VERSION:            in, optional, type=string, default='*'
-;                           Version of the data file, formatted as 'vX.Y.Z'
-;                               X - Interface number.  Increments in this number represent a
-;                                       significant change to the processing software and/or to the contents of the 
-;                                       file. These changes will likely break existing code that expects a specific 
-;                                       file format (e.g. file reading software).  Additionally, increments in this 
-;                                       number may require code changes to analysis software that expects the 
-;                                       data to have been created using specific processing algorithms. The user 
-;                                       should consult the appropriate meta-data for or changelogs.
-;                               Y - Quality number. This number represents a change in the quality of
-;                                       the data in the file, such as change in calibration or increase in fidelity. 
-;                                       Changes should not impact software, but may require consideration when 
-;                                       processing data.
-;                               Z - Bug fix/revision number. This number changes to indicate minor
-;                                       changes to the contents of the file due to reprocessing of missing data.  
-;                                       Any dependent data products should generally be reprocessed if this value 
-;                                       changes.
+;       OPTDESC:        in, optional, type=string, default=''
+;                       Optional field that may not be needed for all
+;                           products (e.g. Quicklook and SITL).  Where it is used, 
+;                           identifiers should be short (e.g. 3-8 character)
+;                           descriptors that are helpful to end-users.  If a descriptor
+;                           contains multiple components, hyphens are used to separate
+;                           those components.
+;       TOKENS:         in, optional, type=boolean, default=0
+;                       If set, then the default value of `START_TIME` is '%Y%M%d'.
+;                           This pattern is recognized by MrTokens and can be used
+;                           to find files with year, month, and day in the file name.
+;       TSTART:         in, optional, type=string, default='*'
+;                       Start time of the data interval formatted as yyyymmddhhmmss,
+;                           with irrelevant, least significant, fields dropped
+;                           when files start on regular hourly or minute boundaries.
+;       VERSION:        in, optional, type=string, default='*'
+;                       Version of the data file, formatted as 'vX.Y.Z'
+;                           X - Interface number.  Increments in this number represent a
+;                                   significant change to the processing software and/or to the contents of the 
+;                                   file. These changes will likely break existing code that expects a specific 
+;                                   file format (e.g. file reading software).  Additionally, increments in this 
+;                                   number may require code changes to analysis software that expects the 
+;                                   data to have been created using specific processing algorithms. The user 
+;                                   should consult the appropriate meta-data for or changelogs.
+;                           Y - Quality number. This number represents a change in the quality of
+;                                   the data in the file, such as change in calibration or increase in fidelity. 
+;                                   Changes should not impact software, but may require consideration when 
+;                                   processing data.
+;                           Z - Bug fix/revision number. This number changes to indicate minor
+;                                   changes to the contents of the file due to reprocessing of missing data.  
+;                                   Any dependent data products should generally be reprocessed if this value 
+;                                   changes.
 ;
 ; :Returns:
-;       FILENAME:           The MMS file name.
+;       FILENAME:       The MMS file name.
 ;
 ; :Author:
 ;       Matthew Argall::
 ;       University of New Hampshire
-;       Morse Hall, Room 113
+;       Morse Hall, Room 348
 ;       8 College Rd.
 ;       Durham, NH, 03824
-;       matthew.argall@wildcats.unh.edu
+;       matthew.argall@unh.edu
 ;
 ; :History:
 ;   Modification History::
 ;       2015/02/06  -   Written by Matthew Argall
 ;
 function mms_construct_filename, sc, instrument, mode, level, $
-START_TIME=start_time, $
+TSTART=tstart, $
 OPTDESC=optdesc, $
 DIRECTORY=directory, $
 TOKENS=tokens, $
@@ -110,8 +110,8 @@ VERSION=version
 	
 	tokens = keyword_set(tokens)
 	if tokens $
-		then start_time = '%Y%M%d' $
-		else if n_elements(start_time) eq 0 then start_time = '*'
+		then tstart = '%Y%M%d' $
+		else if n_elements(tstart) eq 0 then tstart = '*'
 	
 	;if no directory was supplied, get the current directory
 	;if no base was chosen, go with the complete base
@@ -161,10 +161,10 @@ VERSION=version
 ;		then message, 'Invalid data level: "' + level + '".'
 	
 	;Start Time
-	if tokens eq 0 && start_time ne '*' then begin
-		if stregex(start_time, '[0-9]{8}[0-9]*', /BOOLEAN) eq 0 $
-			then message, 'Invalid start time: "' + start_time + '".'
-	endif
+;	if tokens eq 0 && tstart ne '*' then begin
+;		if stregex(tstart, '[0-9]{8}[0-9]*', /BOOLEAN) eq 0 $
+;			then message, 'Invalid start time: "' + tstart + '".'
+;	endif
 	
 	;Version
 	if version ne '*' then begin
@@ -173,12 +173,12 @@ VERSION=version
 	endif
 	
 	;Create the MMS filename
-	filename = _sc           + '_' + $
-	           instrument    + '_' + $
-	           mode          + '_' + $
-	           level         + '_' + $
-	           desc          + $
-	           start_time    + '_' + $
+	filename = _sc        + '_' + $
+	           instrument + '_' + $
+	           mode       + '_' + $
+	           level      + '_' + $
+	           desc       + $
+	           tstart    + '_' + $
 	           'v' + version + $
 	           '.cdf'
 
