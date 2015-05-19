@@ -50,11 +50,9 @@
 ;
 ; :Returns:
 ;       FG_QL_STRUCT:       Structure of fluxgate quicklook data. Tags are::
-;                               'epoch'       - TT2000 epoch times
-;                               'b_dmpa'      - 4xN (Bx, By, Bz, |B|) in DMPA
-;                               'b_gsm_dmpa'  - 4xN (Bx, By, Bz, |B|) in GSM-DMPA
-;                               'pos_gse'     - (x, y, z) s/c position in GSE
-;                               'pos_gsm'     - (x, y, z) s/c position in GSM
+;                               'epoch'  - TT2000 epoch times
+;                               'b_bcs'  - 4xN (Bx, By, Bz, |B|) in BCS
+;                               'b_omb'  - 4xN (Bx, By, Bz, |B|) in OMB
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -66,10 +64,9 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
-;       2015/05/19  -   Accept file names instead of searching for files. - MRA
+;       2015/05/19  -   Written by Matthew Argall
 ;-
-function mms_fg_read_ql, files, $
+function mms_fg_read_l1b, files, $
 TSTART=tstart, $
 TEND=tend
 	compile_opt idl2
@@ -97,7 +94,7 @@ TEND=tend
 	if count gt 0 then message, 'Only AFG and DFG files are allowed.'
 	
 	;Level, Mode
-	if min(level eq 'ql')    eq 0 then message, 'Only Quick-Look (QL) files are allowed.'
+	if min(level eq 'l1b')   eq 0 then message, 'Only L1B files are allowed.'
 	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
 
 	;We now know all the files match, so keep on the the first value.
@@ -114,30 +111,21 @@ TEND=tend
 ;-----------------------------------------------------	
 
 	;Create the variable names
-	b_dmpa_name     = mms_construct_varname(sc, instr, 'srvy_dmpa')
-	b_gsm_dmpa_name = mms_construct_varname(sc, instr, 'srvy_gsm_dmpa')
-	pos_gse         = mms_construct_varname(sc, 'ql',  'pos_gse')
-	pos_gsm         = mms_construct_varname(sc, 'ql',  'pos_gsm')
+	b_bcs_name = mms_construct_varname(sc, instr, mode, OPTDESC='bcs')
+	b_omb_name = mms_construct_varname(sc, instr, mode, OPTDESC='omb')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 
 	;Read the data
-	b_dmpa = MrCDF_nRead(files, b_dmpa_name, $
-	                     DEPEND_0 = fg_epoch, $
-	                     TSTART   = tstart, $
-	                     TEND     = tend)
-	b_gsm_dmpa = MrCDF_nRead(files, b_gsm_dmpa_name, TSTART=tstart, TEND=tend)
-	pos_gse    = MrCDF_nRead(files, pos_gse,         TSTART=tstart, TEND=tend)
-	pos_gsm    = MrCDF_nRead(files, pos_gsm,         TSTART=tstart, TEND=tend)
+	b_bcs = MrCDF_nRead(files, b_bcs_name, TSTART=tstart, TEND=tend, DEPEND_0=fg_epoch)
+	b_omb = MrCDF_nRead(files, b_omb_name, TSTART=tstart, TEND=tend)
 
 	;Return a structure
-	fg_ql = { epoch:      fg_epoch, $
-	          b_dmpa:     b_dmpa, $
-	          b_gsm_dmpa: b_gsm_dmpa, $
-	          pos_gse:    pos_gse, $
-	          pos_gsm:    pos_gsm }
+	fg_l1b = { epoch: fg_epoch, $
+	           b_bcs: b_bcs, $
+	           b_omb: b_omb,  }
 
-	return, fg_ql
+	return, fg_l1b
 end

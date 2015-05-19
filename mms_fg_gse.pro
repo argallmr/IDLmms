@@ -39,38 +39,38 @@
 ;   MMS, DFG, AFG
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       MMS observatory/spacecraft number (e.g., 'mms1')
-;       INSTR:          in, required, type=string
-;                       Instrument name. Choices are 'dfg' or 'afg'.
-;       MODE:           in, required, type=string
-;                       Data telemetry mode.
-;       TSTART:         in, required, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, required, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
+;       FILES:          in, required, type=string/strarr
+;                       Name(s) of the AFG or DFG L1A file(s) to read.
 ;
 ; :Keywords:
 ;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
 ;                       Directory in which to find FDOA definitive attitude data.
-;       B_BCS:          out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in BCS coordinates.
-;       B_DMPA:         out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in DMPA coordinates.
-;       B_OMB:          out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in OMB coordinates.
-;       B_SMPA:         out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in SMPA coordinates.
-;       EPOCH:          out, optional, type=int64arr (cdf_time_tt2000)
-;                       Named variable to receive the epoch times associated with B
+;       DMPA:           in, optional, type=boolean, default=0
+;                       If set, data in DMPA will be included in `FG_GSE`
+;       GSE:            in, optional, type=boolean, default=1
+;                       If set, data in GSE will be included in `FG_GSE`
 ;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
 ;                       Directory in which to find HK 0X101 sunpulse data.
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;       _REF_EXTRA:     in, optional, type=string, default=pwd
 ;                       Any keyword accepted by mms_fg_bcs is also accepted via keyword
 ;                           inheritance.
 ;
 ; :Returns:
-;       B_GSE:          3-component magnetic field in GSE coordinates.
+;       FG_GSE:         Fluxgate magnetic field data structure. Possible fields include::
+;                           'epoch'        - TT2000 epoch times for 'b_123'
+;                           'epoch_stat'   - TT2000 epoch times for 'range' and 'sample_rate'
+;                           'b_123'        - 4xN (Bx, By, Bz, |B|) in 123 coordinates
+;                           'b_omb'        - 4xN (Bx, By, Bz, |B|) in OMB coordinates
+;                           'b_smpa'       - 4xN (Bx, By, Bz, |B|) in SMPA coordinates
+;                           'b_bcs'        - 4xN (Bx, By, Bz, |B|) in BCS coordinates
+;                           'b_dmpa'       - 4xN (Bx, By, Bz, |B|) in DMPA coordinates
+;                           'b_gse'        - 4xN (Bx, By, Bz, |B|) in GSE coordinates
+;                           'range'        - Instrument range flag (1=hi, 0=lo)
+;                           'sample_rate'  - sampling rate
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -83,24 +83,21 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/04  -   Written by Matthew Argall
+;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
+;                           are keywords, not parameters. - MRA
 ;-
 function mms_fg_gse, sc, instr, mode, tstart, tend, $
 ATTITUDE_DIR=attitude_dir, $
-B_BCS=b_bcs, $
-B_OMB=b_omb, $
-B_DMPA=b_dmpa, $
-B_SMPA=b_smpa, $
-EPOCH=epoch, $
+DMPA=dmpa, $
+GSE=gse, $
 SUNPULSE_DIR=sunpulse_dir, $
 _REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
 	
 	;Defaults
-	bcs  = keyword_set(bcs)
 	dmpa = keyword_set(dmpa)
-	gse  = keyword_set(gse)
-	smpa = keyword_set(smpa)
+	gse  = n_elements(gse) eq 0 ? 0 : keyword_set(gse)
 	if n_elements(attitude_dir) eq 0 then attitude_dir = ''
 	if n_elements(sunpulse_dir) eq 0 then sunpulse_dir = ''
 	
@@ -112,13 +109,10 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 
 	;Read data
-	b_bcs = mms_fg_bcs(sc, instr, mode, tstart, tend, $
-	                   EPOCH         = epoch, $
-	                   B_SMPA        = b_smpa, $
-	                   B_OMB         = b_omb, $
-	                   _STRICT_EXTRA = extra)
-	if arg_present(b_bcs) eq 0 then b_bcs = !Null
-	if arg_present(b_omb) eq 0 then b_omb = !Null
+	fg_bcs = mms_fg_bcs(files,
+	                    TSTART        = tstart, $
+	                    TEND          = tend, $
+	                    _STRICT_EXTRA = extra)
 
 ;-----------------------------------------------------
 ; Despin \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -169,6 +163,10 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 ; Return Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Copy the data structure
+	fg_gse = temporary(fg_bcs)
+	if dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
+	if gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
 
-	return, b_gse
+	return, fg_gse
 end

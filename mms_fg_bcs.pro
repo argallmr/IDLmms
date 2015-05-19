@@ -39,35 +39,35 @@
 ;   MMS, DFG, AFG
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       MMS observatory/spacecraft number (e.g., 'mms1')
-;       INSTR:          in, required, type=string
-;                       Instrument name. Choices are 'dfg' or 'afg'.
-;       MODE:           in, required, type=string
-;                       Data telemetry mode.
-;       LEVEL:          in, required, type=string
-;                       Data level.
-;       TSTART:         in, required, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, required, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
+;       FILES:          in, required, type=string/strarr
+;                       Name(s) of the AFG or DFG L1A file(s) to read.
 ;
 ; :Keywords:
-;       B_OMB:          out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in OMB coordinates.
-;       B_SMPA:         out, optional, type=3xN float
-;                       A named variable to receive the magnetic field in SMPA coordinates.
+;       BCS:            out, optional, type=boolean, default=1
+;                       If set, data in BCS will be included in `FG_BCS`.
 ;       CAL_DIR:        in, optional, type=string, default=pwd
 ;                       Directory in which to find fluxgate calibration files.
-;       DATA_DIR:       in, optional, type=string, default=pwd
-;                       Directory in which to find fluxgate magnetometer data.
-;       EPOCH:          out, optional, type=int64arr (cdf_time_tt2000)
-;                       Named variable to receive the epoch times associated with B
-;       MPA:            in, optional, type=string, default=pwd
-;                       The major principle axis, as viewed from BCS.
+;       OMB:            out, optional, type=boolean, default=0
+;                       If set, data in OMB will be included in `FG_BCS`.
+;       SENSOR:         out, optional, type=boolean, default=0
+;                       If set, data in sensor 123 will be included in `FG_BCS`.
+;       SMPA:           out, optional, type=boolean, default=0
+;                       If set, data in SMPA will be included in `FG_BCS`.
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
-;       B_BCS:          3-component magnetic field in BCS coordinates.
+;       FG_BCS:         Fluxgate magnetic field data structure. Fields include::
+;                           'epoch'        - TT2000 epoch times for 'b_123'
+;                           'epoch_stat'   - TT2000 epoch times for 'range' and 'sample_rate'
+;                           'b_123'        - 4xN (Bx, By, Bz, |B|) in 123 coordinates
+;                           'b_omb'        - 4xN (Bx, By, Bz, |B|) in OMB coordinates
+;                           'b_smpa'       - 4xN (Bx, By, Bz, |B|) in SMPA coordinates
+;                           'b_bcs'        - 4xN (Bx, By, Bz, |B|) in BCS coordinates
+;                           'range'        - Instrument range flag (1=hi, 0=lo)
+;                           'sample_rate'  - sampling rate
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -80,24 +80,36 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/03  -   Written by Matthew Argall
+;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
+;                           are keywords, not parameters. - MRA
 ;-
-function mms_fg_bcs, sc, instr, mode, tstart, tend, $
-B_SMPA=b_smpa, $
-B_OMB=b_omb, $
+function mms_fg_bcs, files, $
 CAL_DIR=cal_dir, $
-DATA_DIR=data_dir, $
-EPOCH=epoch, $
-MPA=mpa
+BCS=bcs, $
+OMB=omb, $
+SENSOR=sensor, $
+SMPA=smpa, $
+TSTART=tstart, $
+TEND=tend
 	compile_opt idl2
 	on_error, 2
 
 	;Default directories
+	bcs    = n_elements(bcs) eq 0 ? 0 : keyword_set(bcs)
+	sensor = keyword_set(sensor)
+	smpa   = keyword_set(smpa)
+	omb    = keyword_set(omb)
 	if n_elements(data_dir) eq 0 then cd, CURRENT=data_dir
 	if n_elements(cal_dir)  eq 0 then cal_dir = data_dir
+
+	if bcs + smpa + omb eq 0 then bcs = 1
 
 ;-------------------------------------------------------
 ; Read Calibration Data ////////////////////////////////
 ;-------------------------------------------------------
+	;Get the spacecraft and instrument names
+	mms_dissect_filename, files[0], SC=sc, INSTR=instr
+
 	;File name patterns
 	hical_fname = mms_construct_filename(sc, instr, 'hirangecal', 'l2pre', /TOKENS, $
 	                                     DIRECTORY = cal_dir)
@@ -120,34 +132,14 @@ MPA=mpa
 ; Read Mag Data ////////////////////////////////////////
 ;-------------------------------------------------------
 
-	;Create the file names
-	fpattern = mms_construct_filename(sc, instr, mode, 'l1a', /TOKENS, $
-	                                  DIRECTORY = data_dir)
-	
-	;Find the files
-	files = MrFile_Search(fpattern, /CLOSEST, $
-	                      COUNT     = nFiles, $
-	                      TSTART    = tstart, $
-	                      TEND      = tend, $
-	                      TIMEORDER = '%Y%M%d')
-	if nFiles eq 0 $
-		then message, 'No files found matching "' + fpattern + '".'
-
-	;Create variable names
-	b_name = mms_construct_varname(sc, instr, '123')
-	if strcmp(instr, 'afg') $
-		then range_name = mms_construct_varname(sc, instr, 'hirange') $
-		else range_name = mms_construct_varname(sc, instr, 'range')
-
-	;Read the magnetometer data
-	b_123 = MrCDF_nRead(files, b_name,     TSTART=tstart, TEND=tend, DEPEND_0=epoch)
-	range = MrCDF_nRead(files, range_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_range)
+	;Read the data
+	fg_l1a = mms_fg_read_l1a(files, TSTART=tstart, TEND=tend)
 
 ;-------------------------------------------------------
 ; Calibrate Mag Data ///////////////////////////////////
 ;-------------------------------------------------------
 	;Calibrate
-	b_omb = mms_fg_calibrate(b_123, epoch, range, epoch_range, hiCal, loCal, MPA=mpa)
+	b_omb = mms_fg_calibrate(fg_l1a.b_123, fg_l1a.epoch, fg_l1a.range, fg_l1a.epoch_stat, hiCal, loCal, MPA=mpa)
 
 ;-------------------------------------------------------
 ; OMB -> SMPA //////////////////////////////////////////
@@ -166,5 +158,19 @@ MPA=mpa
 
 	;Rotate to SMPA
 	b_bcs = MrVector_Rotate(smpa2bcs, b_smpa)
-	return, b_bcs
+
+;-------------------------------------------------------
+; Output Structure /////////////////////////////////////
+;-------------------------------------------------------
+	;Copy the l1a structure
+	fg_bcs = temporary(fg_l1a)
+	
+	;Add fields
+	fg_bcs = create_struct(fg_bcs, 'zmpa', mpa)
+	if ~sensor then fg_bcs = remove_tag(fg_bcs, 'b_123')
+	if bcs     then fg_bcs = create_struct(fg_bcs, 'b_bcs',  b_bcs)
+	if omb     then fg_bcs = create_struct(fg_bcs, 'b_omb',  b_omb)
+	if smpa    then fg_bcs = create_struct(fg_bcs, 'b_smpa', b_smpa)
+
+	return, fg_bcs
 end

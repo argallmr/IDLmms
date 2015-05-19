@@ -40,16 +40,8 @@
 ;   MMS, EDI
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       MMS observatory/spacecraft number (e.g., 'mms1')
-;       MODE:           in, required, type=string
-;                       Data telemetry mode.
-;       TSTART:         in, required, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, required, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
-;       EDI_DIR:        in, required, type=string
-;                       Directory in which to find EDI data.
+;       FILES:          in, required, type=string/strarr
+;                       Name(s) of the L1A EDI efield-mode file(s) to read.
 ;
 ; :Keywords:
 ;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
@@ -60,10 +52,16 @@
 ;                       If set, data in DMPA coordinates will be included in `EDI`.
 ;       EDI:            in, optional, type=boolean, default=0
 ;                       If set, data in EDI coordinates will be included in `EDI`.
+;       GSE:            in, optional, type=boolean, default=1
+;                       If set, data in GSE coordinates will be included in `EDI`.
 ;       SMPA:           in, optional, type=boolean, default=0
 ;                       If set, data in SMPA coordinates will be included in `EDI`.
 ;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
 ;                       Directory in which to find HK 0X101 sunpulse data.
+;       TSTART:         in, required, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, required, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;       _REF_EXTRA:     in, optional, type=string, default=pwd
 ;                       Any keyword accepted by mms_fg_bcs is also accepted via keyword
 ;                           inheritance.
@@ -92,6 +90,8 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
+;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
+;                           are keywords, not parameters. - MRA
 ;-
 function mms_edi_gse, sc, mode, tstart, tend, $
 GSE=gse, $
@@ -108,7 +108,7 @@ _REF_EXTRA=extra
 	;Defaults
 	bcs  = keyword_set(bcs)
 	dmpa = keyword_set(dmpa)
-	gse  = keyword_set(gse)
+	gse  = n_elements(gse) eq 0 ? 1 : keyword_set(gse)
 	smpa = keyword_set(smpa)
 	if n_elements(attitude_dir) eq 0 then attitude_dir = ''
 	if n_elements(sunpulse_dir) eq 0 then sunpulse_dir = ''
@@ -129,7 +129,7 @@ _REF_EXTRA=extra
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_bcs(sc, mode, tstart, tend, EDI=edi, _STRICT_EXTRA=extra)
+	edi = mms_edi_bcs(files, EDI=edi, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
 
 ;-----------------------------------------------------
 ; Rotate to SMPA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

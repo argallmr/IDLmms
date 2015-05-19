@@ -40,23 +40,17 @@
 ;   MMS, EDI
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       MMS observatory/spacecraft number (e.g., 'mms1')
-;       MODE:           in, required, type=string
-;                       Data telemetry mode.
+;       FILES:          in, required, type=string/strarr
+;                       Name(s) of the L1A EDI efield-mode file(s) to read.
+;
+; :Keywords:
+;       QUALITY:        in, optional, type=integer/intarr, default=pwd
+;                       Quality of EDI beams to return. Can be a scalar or vector with
+;                           values [0, 1, 2, 3].
 ;       TSTART:         in, required, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, required, type=string
 ;                       End time of the data interval to read, as an ISO-8601 string.
-;       EDI_DIR:        in, required, type=string
-;                       Directory in which to find EDI data.
-;
-; :Keywords:
-;       DIRECTORY:      in, optional, type=string, default=pwd
-;                       Directory in which to find EDI data.
-;       QUALITY:        in, optional, type=integer/intarr, default=pwd
-;                       Quality of EDI beams to return. Can be a scalar or vector with
-;                           values [0, 1, 2, 3].
 ;
 ; :Returns:
 ;       EDI:            Structure array of EDI data. In addition to fields returned by
@@ -82,16 +76,16 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/01  -   Written by Matthew Argall
+;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
+;                           are keywords, not parameters. - MRA
 ;-
-function mms_edi_bcs, sc, mode, tstart, tend, $
+function mms_edi_bcs, files, tstart, tend, $
 EDI=edi_cs, $
-DIRECTORY=edi_dir, $
-QUALITY=quality
+QUALITY=quality, $
+TSTART=tstart, $
+TEND=tend
 	compile_opt idl2
 	on_error, 2
-	
-	;Return data in the EDI1 and EDI2 systems as well?
-	edi_cs = keyword_set(edi_cs)
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -103,9 +97,10 @@ QUALITY=quality
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_read_efieldmode(sc, mode, 'l1a', tstart, tend, $
-	                              DIRECTORY = edi_dir, $
-	                              QUALITY = quality)
+	edi = mms_edi_read_efieldmode(files, $
+	                              QUALITY = quality, $
+	                              TSTART  = tstart, $
+	                              TEND    = tend)
 
 ;-----------------------------------------------------
 ; Rotate Firing Vectors to BCS \\\\\\\\\\\\\\\\\\\\\\\

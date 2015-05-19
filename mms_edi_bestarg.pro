@@ -53,31 +53,19 @@
 ;   Modification History::
 ;       2015/05/05  -   Written by Matthew Argall
 ;-
-function mms_edi_bestarg
+function mms_edi_bestarg, edi_files, fg_l1b_files, fg_ql_files, $
+TSTART=tstart, $
+TEND=tend
 	compile_opt idl2
 	on_error, 2
 
 ;-----------------------------------------------------
 ; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	edi_dir      = '/Users/argall/Documents/Work/Data/MMS/EDI/'
-	dfg_dir      = '/Users/argall/Documents/Work/Data/MMS/DFG/'
-	fg_cal_dir   = '/Users/argall/Documents/Work/Data/MMS/FG_Cal/'
-	sunpulse_dir = '/Users/argall/Documents/Work/Data/MMS/HK/'
-	attitude_dir = '/Users/argall/Documents/Work/Data/MMS/Ephemeris/'
-	sc           = 'mms4'
-	tstart       = '2015-04-22T17:03:15Z'
-	tend         = '2015-04-22T17:03:30Z'
-	quality      = 3
 	
 	;Get FG data
-	!Null = mms_fg_gse(sc, 'dfg', 'f128', tstart, tend, $
-	                  B_DMPA       = b_dmpa, $
-	                  B_BCS        = b_bcs, $
-	                  CAL_DIR      = fg_cal_dir, $
-	                  DATA_DIR     = dfg_dir, $
-	                  EPOCH        = fg_epoch, $
-	                  SUNPULSE_DIR = sunpulse_dir)
+	fg_l1b = mms_fg_read_l1b(fg_l1b_files, TSTART=tstart, TEND=tend)
+	fg_ql  = mms_fg_read_ql(fg_ql_files,   TSTART=tstart, TEND=tend)
 
 	;Get EDI data
 	edi = mms_edi_gse(sc, 'slow', tstart, tend, /DMPA, /EDI, $
@@ -91,7 +79,7 @@ function mms_edi_bestarg
 
 	;Interpolate the magnetic field in BCS onto beam times
 	;   - There will be a 1-to-1 correspondence between field and beams
-	avg = mms_edi_bavg(fg_epoch, b_bcs, edi.epoch_gd12, edi.epoch_gd21)
+	avg = mms_edi_bavg(fg_l1b.epoch, fg_l1b.b_bcs, edi.epoch_gd12, edi.epoch_gd21)
 
 	;Rotate the firing vectors and magnetic field into the EDI CS
 	bcs2edi1 = mms_instr_xxyz2instr('BCS', 'EDI1')
@@ -105,6 +93,9 @@ function mms_edi_bestarg
 	;Beam widths
 	beam_width_gd12 = mms_edi_beam_width(edi.fv_gd12, b_edi1, ALPHA=beam_alpha_gd12)
 	beam_width_gd21 = mms_edi_beam_width(edi.fv_gd21, b_edi2, ALPHA=beam_alpha_gd21)
+	
+	;Clear the data
+	fg_l1b = !Null
 
 ;-----------------------------------------------------
 ; Get Beams Associated with each B_AVG \\\\\\\\\\\\\\\
@@ -114,7 +105,7 @@ function mms_edi_bestarg
 	;   - Interpolate the field onto beam times.
 	;   - Average over 5-second intervals.
 	;   - Keep track of which beams are associated with each averaged field.
-	avg = mms_edi_bavg(fg_epoch, b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
+	avg = mms_edi_bavg(fg_ql.epoch, fg_ql.b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
 
 	;Look at each averaging interval
 	navg = n_elements(avg.t_avg)

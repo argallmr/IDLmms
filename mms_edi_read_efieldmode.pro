@@ -39,18 +39,8 @@
 ;   MMS, EDI, Bestarg
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       MMS observatory/spacecraft number (e.g., 'mms1')
-;       MODE:           in, required, type=string
-;                       Data telemetry mode.
-;       LEVEL:          in, required, type=string
-;                       Data level.
-;       TSTART:         in, required, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, required, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
-;       EDI_DIR:        in, required, type=string
-;                       Directory in which to find EDI data.
+;       FILES:          in, required, type=string/strarr
+;                       Name of the EDI e-field mode file or files to be read.
 ;
 ; :Keywords:
 ;       DIRECTORY:      in, optional, type=string, default=pwd
@@ -58,6 +48,10 @@
 ;       QUALITY:        in, optional, type=integer/intarr, default=pwd
 ;                       Quality of EDI beams to return. Can be a scalar or vector with
 ;                           values [0, 1, 2, 3].
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
 ;       EDI:            Structure of EDI data. Fields are below. If zero beams are
@@ -103,10 +97,13 @@
 ;       2015/05/05  -   Return energy, code length, correlator n and m, and max_addr. - MRA
 ;       2015/05/06  -   CODELENGTH was actually NUM_CHIPS. Calculate CODE_LENGTH and
 ;                           CHIP_WIDTH. - MRA
+;       2015/05/18  -   Accept file names instead of searching for files. TSTART and TEND
+;                           parameters are now keywords. - MRA
 ;-
-function mms_edi_read_efieldmode, sc, mode, level, tstart, tend, $
-DIRECTORY=edi_dir, $
-QUALITY=quality
+function mms_edi_read_efieldmode, files, $
+QUALITY=quality, $
+TSTART=tstart, $
+TEND=tend
 	compile_opt idl2
 	
 	catch, the_error
@@ -118,51 +115,65 @@ QUALITY=quality
 		return, !Null
 	endif
 	
-	if n_elements(edi_dir) eq 0 then cd, CURRENT=edi_dir
+;-----------------------------------------------------
+; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Number of files given
+	nFiles = n_elements(files)
+
+	;Dissect the file name
+	mms_dissect_filename, files, $
+	                      INSTR   = instr, $
+	                      LEVEL   = level, $
+	                      MODE    = mode, $
+	                      OPTDESC = optdesc, $
+	                      SC      = sc, $
+	
+	;Ensure L1A EDI files were given
+	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
+	if min(instr   eq 'edi')    eq 0 then message, 'Only EDI files are allowed.'
+	if min(level   eq 'l1a')    eq 0 then message, 'Only L1A files are allowed.'
+	if min(optdesc eq 'efield') eq 0 then message, 'Only EDI eField-mode files are allowed.'
+	if min(mode    eq mode[0])  eq 0 then message, 'All files must have the same telemetry mode.'
+
+	;We now know all the files match, so keep on the the first value.
+	if nFiles gt 1 then begin
+		sc      = sc[0]
+		instr   = instr[0]
+		mode    = mode[0]
+		level   = level[0]
+		optdesc = optdesc[0]
+	end
 
 ;-----------------------------------------------------
-; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-
-	;Create the file name
-	fname = mms_construct_filename(sc, 'edi', mode, level, $
-	                               OPTDESC   = 'efield', $
-	                               /TOKENS, $
-	                               DIRECTORY = edi_dir)
 	
 	;Variable names for GD12
-	phi_gd12_name       = mms_construct_varname(sc, 'edi', 'phi_gd12')
-	theta_gd12_name     = mms_construct_varname(sc, 'edi', 'theta_gd12')
-	tof_gd12_name       = mms_construct_varname(sc, 'edi', 'tof1_us')
-	q_gd12_name         = mms_construct_varname(sc, 'edi', 'sq_gd12')
-	e_gd12_name         = mms_construct_varname(sc, 'edi', 'e_gd12')
-	num_chips_gd12_name = mms_construct_varname(sc, 'edi', 'codelength_gd12') ;'num_chips_gd12')
-	m_gd12_name         = mms_construct_varname(sc, 'edi', 'm_gd12')
-	n_gd12_name         = mms_construct_varname(sc, 'edi', 'n_gd12')
-	max_addr_gd12_name  = mms_construct_varname(sc, 'edi', 'max_addr_gd12')
+	phi_gd12_name       = mms_construct_varname(sc, instr, 'phi_gd12')
+	theta_gd12_name     = mms_construct_varname(sc, instr, 'theta_gd12')
+	tof_gd12_name       = mms_construct_varname(sc, instr, 'tof1_us')
+	q_gd12_name         = mms_construct_varname(sc, instr, 'sq_gd12')
+	e_gd12_name         = mms_construct_varname(sc, instr, 'e_gd12')
+	num_chips_gd12_name = mms_construct_varname(sc, instr, 'codelength_gd12') ;'num_chips_gd12')
+	m_gd12_name         = mms_construct_varname(sc, instr, 'm_gd12')
+	n_gd12_name         = mms_construct_varname(sc, instr, 'n_gd12')
+	max_addr_gd12_name  = mms_construct_varname(sc, instr, 'max_addr_gd12')
 	
 	;Variable names for GD21
-	phi_gd21_name       = mms_construct_varname(sc, 'edi', 'phi_gd21')
-	theta_gd21_name     = mms_construct_varname(sc, 'edi', 'theta_gd21')
-	tof_gd21_name       = mms_construct_varname(sc, 'edi', 'tof2_us')
-	q_gd21_name         = mms_construct_varname(sc, 'edi', 'sq_gd21')
-	e_gd21_name         = mms_construct_varname(sc, 'edi', 'e_gd21')
-	num_chips_gd21_name = mms_construct_varname(sc, 'edi', 'codelength_gd21') ;'num_chips_gd21')
-	m_gd21_name         = mms_construct_varname(sc, 'edi', 'm_gd21')
-	n_gd21_name         = mms_construct_varname(sc, 'edi', 'n_gd21')
-	max_addr_gd21_name  = mms_construct_varname(sc, 'edi', 'max_addr_gd21')
+	phi_gd21_name       = mms_construct_varname(sc, instr, 'phi_gd21')
+	theta_gd21_name     = mms_construct_varname(sc, instr, 'theta_gd21')
+	tof_gd21_name       = mms_construct_varname(sc, instr, 'tof2_us')
+	q_gd21_name         = mms_construct_varname(sc, instr, 'sq_gd21')
+	e_gd21_name         = mms_construct_varname(sc, instr, 'e_gd21')
+	num_chips_gd21_name = mms_construct_varname(sc, instr, 'codelength_gd21') ;'num_chips_gd21')
+	m_gd21_name         = mms_construct_varname(sc, instr, 'm_gd21')
+	n_gd21_name         = mms_construct_varname(sc, instr, 'n_gd21')
+	max_addr_gd21_name  = mms_construct_varname(sc, instr, 'max_addr_gd21')
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-
-	;Search for files
-	files = MrFile_Search(fname, /CLOSEST, $
-	                      COUNT     = nFiles, $
-	                      TSTART    = tstart, $
-	                      TEND      = tend, $
-	                      TIMEORDER ='%Y%M%d')
-	if nFiles eq 0 then message, 'No EDI files found in "' + edi_dir + '".'
 
 	;Open the files
 	cdfIDs = lonarr(nFiles)

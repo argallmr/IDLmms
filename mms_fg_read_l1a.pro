@@ -40,7 +40,7 @@
 ;
 ; :Params:
 ;       FILES:              in, required, type=string/strarr
-;                           Name(s) of the AFG or DFG file(s) to be read.
+;                           Name(s) of the AFG or DFG L1A file(s) to read.
 ;
 ; :Keywords:
 ;       TSTART:             in, optional, type=string
@@ -49,12 +49,12 @@
 ;                           End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
-;       FG_QL_STRUCT:       Structure of fluxgate quicklook data. Tags are::
-;                               'epoch'       - TT2000 epoch times
-;                               'b_dmpa'      - 4xN (Bx, By, Bz, |B|) in DMPA
-;                               'b_gsm_dmpa'  - 4xN (Bx, By, Bz, |B|) in GSM-DMPA
-;                               'pos_gse'     - (x, y, z) s/c position in GSE
-;                               'pos_gsm'     - (x, y, z) s/c position in GSM
+;       FG_L1A:             Structure of fluxgate L1A data. Tags are::
+;                               'epoch'        - TT2000 epoch times for 'b_123'
+;                               'epoch_stat'   - TT2000 epoch times for 'range' and 'sample_rate'
+;                               'b_123'        - 4xN (Bx, By, Bz, |B|) in 123 coordinates
+;                               'range'        - Instrument range flag (1=hi, 0=lo)
+;                               'sample_rate'  - sampling rate
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -66,14 +66,21 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
-;       2015/05/19  -   Accept file names instead of searching for files. - MRA
+;       2015/05/18  -   Written by Matthew Argall
 ;-
-function mms_fg_read_ql, files, $
+function mms_fg_read_l1a, files, $
 TSTART=tstart, $
-TEND=tend
+TSTART=tend
 	compile_opt idl2
-	on_error, 2
+	
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if n_elements(cdfIDs) gt 0 then $
+			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
+		void = cgErrorMSG(/QUIET)
+		return, !Null
+	endif
 	
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -97,7 +104,7 @@ TEND=tend
 	if count gt 0 then message, 'Only AFG and DFG files are allowed.'
 	
 	;Level, Mode
-	if min(level eq 'ql')    eq 0 then message, 'Only Quick-Look (QL) files are allowed.'
+	if min(level eq 'l1a')   eq 0 then message, 'Only L1A files are allowed.'
 	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
 
 	;We now know all the files match, so keep on the the first value.
@@ -110,34 +117,45 @@ TEND=tend
 	end
 
 ;-----------------------------------------------------
-; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------	
+; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Create the variable names
-	b_dmpa_name     = mms_construct_varname(sc, instr, 'srvy_dmpa')
-	b_gsm_dmpa_name = mms_construct_varname(sc, instr, 'srvy_gsm_dmpa')
-	pos_gse         = mms_construct_varname(sc, 'ql',  'pos_gse')
-	pos_gsm         = mms_construct_varname(sc, 'ql',  'pos_gsm')
+	b_123_name      = mms_construct_varname(sc, instr, '123')
+	samplerate_name = mms_construct_varname(sc, instr, 'samplerate')
+	
+	if instr eq 'afg' $
+		then range_name = mms_construct_varname(sc, instr, 'hirange') $
+		else range_name = mms_construct_varname(sc, instr, 'range')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 
+	;Open the files
+	cdfIDs = lonarr(nFiles)
+	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
+	
 	;Read the data
-	b_dmpa = MrCDF_nRead(files, b_dmpa_name, $
-	                     DEPEND_0 = fg_epoch, $
-	                     TSTART   = tstart, $
-	                     TEND     = tend)
-	b_gsm_dmpa = MrCDF_nRead(files, b_gsm_dmpa_name, TSTART=tstart, TEND=tend)
-	pos_gse    = MrCDF_nRead(files, pos_gse,         TSTART=tstart, TEND=tend)
-	pos_gsm    = MrCDF_nRead(files, pos_gsm,         TSTART=tstart, TEND=tend)
+	b_123      = MrCDF_nRead(files, b_123_name,      TSTART=tstart, TEND=tend, DEPEND_0=epoch)
+	samplerate = MrCDF_nRead(files, samplerate_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_stat)
+	range      = MrCDF_nRead(files, range_name,      TSTART=tstart, TEND=tend)
+	
+	;Close the files
+	for i = 0, nFiles - 1 do begin
+		cdf_close, cdfIDs[i]
+		cdfIDs[i] = 0L
+	endfor
 
+;-----------------------------------------------------
+; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 	;Return a structure
-	fg_ql = { epoch:      fg_epoch, $
-	          b_dmpa:     b_dmpa, $
-	          b_gsm_dmpa: b_gsm_dmpa, $
-	          pos_gse:    pos_gse, $
-	          pos_gsm:    pos_gsm }
+	fg_l1a = { epoch:       epoch, $
+	           epoch_stat:  epoch_stat, $
+	           b_123:       b_123, $
+	           range:       range, $
+	           sample_rate: samplerate }
 
-	return, fg_ql
+	return, fg_l1a
 end
