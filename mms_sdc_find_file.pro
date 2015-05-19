@@ -52,6 +52,8 @@
 ; :Keywords:
 ;       COUNT:          out, optional, type=integer
 ;                       Named varaible to receive the number of files found.
+;       DIRECTORY:      in, optional, type=string, default=built from inputs
+;                       Directory in which to find the desired data.
 ;       OPTDESC:        in, optional, type=string, default=''
 ;                       Optional descriptor in file name.
 ;       SEARCHSTR:      out, optional, type=string
@@ -63,6 +65,8 @@
 ;                       Start of the time interval in which to search for files.
 ;       TEND:           in, optional, type=string
 ;                       End of the time interval in which to search for files.
+; :Returns:
+;       FILES:          File name(s) matching the input conditions.
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -78,6 +82,7 @@
 ;-
 function mms_sdc_find_file, sc, instr, mode, level, $
 COUNT=count, $
+DIRECTORY=sdc_dir, $
 OPTDESC=optdesc, $
 SEARCHSTR=fpattern, $
 TIMEORDER=timeorder, $
@@ -96,15 +101,22 @@ TEND=tend
 ;-------------------------------------------------------
 
 	;Build the directory
-	sdc_root = '/mmsa/sdc/'
-	sdc_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=[sc, instr, mode, level, optdesc])
+	if n_elements(directory) eq 0 then begin
+		sdc_root = '/mmsa/sdc/'
+		sdc_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=[sc, instr, mode, level, optdesc])
 	
-	;Test the directory
-	if ~file_test(sdc_dir, /DIRECTORY) then $
-		message, 'SDC director does not exist: "' + sdc_dir + '".'
+		;Test the directory
+		if ~file_test(sdc_dir, /DIRECTORY) then $
+			message, 'SDC directory does not exist: "' + sdc_dir + '".'
 
-	;Now append the year, month, and day
-	sdc_dir = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['%Y', '%M', '%d'])
+		;Now append the year, month, and day
+		sdc_dir = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['%Y', '%M', '%d'])
+		
+	;Use the directory given
+	endif else begin
+		if ~file_test(directory, /DIRECTORY) then $
+			message, 'SDC directory does not exist: "' + sdc_dir + '".'
+	endelse
 
 ;-------------------------------------------------------
 ; Filename  ////////////////////////////////////////////
