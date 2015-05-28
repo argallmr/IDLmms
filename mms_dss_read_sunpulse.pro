@@ -39,14 +39,8 @@
 ;   MMS, DSS
 ;
 ; :Params:
-;       SC:                 in, required, type=string
-;                           MMS observatory/spacecraft number (e.g., 'mms1')
-;       TSTART:             in, required, type=string
-;                           Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:               in, required, type=string
-;                           End time of the data interval to read, as an ISO-8601 string.
-;       DSS_DIR:            in, required, type=string
-;                           Directory in which to file digital sun sensor data.
+;       FILENAMES:          in, required, type=string
+;                           Name(s) of the sunpulse data files to read.
 ;
 ; :Keywords:
 ;       UNIQ_PACKETS:       out, optional, type=struct, default=false
@@ -78,8 +72,9 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/15  -   Written by Matthew Argall
+;       2015/05/28  -   Written by Matthew Argall
 ;-
-function mms_dss_read_sunpulse, sc, tstart, tend, dss_dir, $
+function mms_dss_read_sunpulse, filenames, $
 UNIQ_PACKETS=uniq_packets, $
 UNIQ_PULSE=uniq_pulse
 	compile_opt idl2
@@ -87,12 +82,41 @@ UNIQ_PULSE=uniq_pulse
 
 	uniq_pulse   = keyword_set(uniq_pulse)
 	uniq_packets = keyword_set(uniq_packets) || uniq_pulse
+	
+;-----------------------------------------------------
+; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Number of files given
+	nFiles = n_elements(filenames)
+
+	;Dissect the file name
+	mms_dissect_filename, filenames, $
+	                      INSTR   = instr, $
+	                      LEVEL   = level, $
+	                      MODE    = mode, $
+	                      OPTDESC = optdesc, $
+	                      SC      = sc, $
+	
+	;Do files exist?
+	if min(file_test(filenames, /READ)) eq 0 then message, 'Files must exist and be readable.'
+	
+	;Level, Mode
+	if min(instr eq 'fields') eq 0 then message, 'Only "fields" files are allowed.'
+	if min(mode  eq 'hk')     eq 0 then message, 'All files must be housekeeping (HK) files.'
+	if min(level eq 'l1b')    eq 0 then message, 'Only L1B files are allowed.'
+
+	;We now know all the files match, so keep on the the first value.
+	if nFiles gt 1 then begin
+		sc      = sc[0]
+		instr   = instr[0]
+		mode    = mode[0]
+		level   = level[0]
+		optdesc = optdesc[0]
+	endif
 
 ;-----------------------------------------------------
-; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Create the file name
-	fname = mms_construct_filename(sc, 'fields_hk', 'l1b', '101', /TOKENS, DIRECTORY=dss_dir)
 
 	;Create the variable names
 	sunpulse_name = mms_construct_varname(sc, '101', 'sunpulse')
@@ -102,13 +126,6 @@ UNIQ_PULSE=uniq_pulse
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Search for files
-	files = MrFile_Search(fname, /CLOSEST, $
-	                      COUNT     = count, $
-	                      TSTART    = tstart, $
-	                      TEND      = tend, $
-	                      TIMEORDER ='%Y%M%d')
-	if count eq 0 then message, 'No HK 0x101 sunpulse files found in "' + dss_dir + '".'
 
 	;Read the data
 	sunpulse = MrCDF_nRead(files, sunpulse_name, $

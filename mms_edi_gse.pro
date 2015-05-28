@@ -93,31 +93,26 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;-
-function mms_edi_gse, sc, mode, tstart, tend, $
-GSE=gse, $
-BCS=bcs, $
-DMPA=dmpa, $
-EDI=edi, $
-SMPA=smpa, $
-ATTITUDE_DIR = attitude_dir, $
-SUNPULSE_DIR = sunpulse_dir, $
+function mms_edi_gse, filenames, tstart, tend, $
+CS_GSE=cs_gse, $
+CS_BCS=cs_bcs, $
+CS_DMPA=cs_dmpa, $
+CS_EDI=cs_edi, $
+CS_SMPA=cs_smpa, $
+ATTITUDE=attitude, $
+SUNPULSE=sunpulse, $
 _REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
 	
 	;Defaults
-	bcs  = keyword_set(bcs)
-	dmpa = keyword_set(dmpa)
-	gse  = n_elements(gse) eq 0 ? 1 : keyword_set(gse)
-	smpa = keyword_set(smpa)
-	if n_elements(attitude_dir) eq 0 then attitude_dir = ''
-	if n_elements(sunpulse_dir) eq 0 then sunpulse_dir = ''
-	
-	;Make sure either attitude or sunpulse information is given
-	if attitude_dir eq '' && sunpulse_dir eq '' then cd, CURRENT=attitude_dir
+	cs_bcs  = keyword_set(cs_bcs)
+	cs_dmpa = keyword_set(cs_dmpa)
+	cs_gse  = n_elements(cs_gse) eq 0 ? 1 : keyword_set(cs_gse)
+	cs_smpa = keyword_set(cs_smpa)
 	
 	;Default to returning data in GSE
-	if bcs + dmpa + gse + smpa eq 0 then gse = 1
+	if cs_bcs + cs_dmpa + cs_gse + cs_smpa eq 0 then cs_gse = 1
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -129,15 +124,15 @@ _REF_EXTRA=extra
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_bcs(files, EDI=edi, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
+	edi = mms_edi_bcs(files, CS_EDI=cs_edi, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
 
 ;-----------------------------------------------------
 ; Rotate to SMPA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if attitude_dir ne '' then begin
+	if n_elements(attitude) gt 0 then begin
 		message, 'Rotation to SMPA not implemented yet.'
 	
-	endif else begin
+	endif else if n_elements(sunpulse) gt 0 then begin
 		;Warning message
 		message, 'No Attitude data. Cannot rotate to SMPA.', /INFORMATIONAL
 		
@@ -168,7 +163,7 @@ _REF_EXTRA=extra
 	;
 
 	;Despin using definitive attitude
-	if sunpulse_dir eq '' then begin
+	if n_elements(attitude) gt 0 then begin
 		message, 'Despinning with attitude data not implemented yet.'
 	
 		;Build matrix
@@ -176,13 +171,12 @@ _REF_EXTRA=extra
 		smpa2dmpa_gd21 = mms_fdoa_xdespin(attitude, t, 'L')
 	
 	;Despin using sun pulse times.
-	endif else begin
-		;Read sun pulse data
-		dss_sunpulse = mms_dss_read_sunpulse(sc, tstart, tend, sunpulse_dir, /UNIQ_PULSE)
-
+	endif else if n_elements(sunpulse) gt 0 then begin
 		;Build matrix
 		if edi.count_gd12 gt 0 then smpa2dmpa_gd12 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd12 )
 		if edi.count_gd21 gt 0 then smpa2dmpa_gd21 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd21 )
+	endif else begin
+		message, 'Either ATTITUDE or SUNPULSE must be given.'
 	endelse
 
 	;Transform
@@ -204,7 +198,7 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 ; Rotate to GSE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if n_elements(attitude) ne 0 then begin
+	if n_elements(attitude) gt 0 then begin
 		message, 'Rotate to GSE not implemented yet.'
 		
 		;dmpa2gei
@@ -219,15 +213,15 @@ _REF_EXTRA=extra
 ; Return Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Return data in BCS?
-	if bcs eq 0 then begin
+	if cs_bcs eq 0 then begin
 		edi = remove_tags(edi, ['gun_gd12_bcs',     'det_gd12_bcs', $
-		                       'gun_gd21_bcs',     'det_gd21_bcs', $
-		                       'virtual_gun1_bcs', 'virtual_gun2_bcs', $
-		                       'fv_gd12_bcs',      'fv_gd21_bcs'])
+		                        'gun_gd21_bcs',     'det_gd21_bcs', $
+		                        'virtual_gun1_bcs', 'virtual_gun2_bcs', $
+		                        'fv_gd12_bcs',      'fv_gd21_bcs'])
 	endif
 
 	;Return data in SMPA?
-	if smpa then begin
+	if cs_smpa then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_smpa', fv_gd12_smpa, $
@@ -246,7 +240,7 @@ _REF_EXTRA=extra
 	endif
 	
 	;Return data in DMPA?
-	if dmpa then begin
+	if cs_dmpa then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_dmpa', fv_gd12_dmpa, $
@@ -265,7 +259,7 @@ _REF_EXTRA=extra
 	endif
 	
 	;Return data in GSE
-	if gse then begin
+	if cs_gse then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
 				                'fv_gd12_gse', fv_gd12_gse, $

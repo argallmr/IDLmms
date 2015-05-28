@@ -332,7 +332,7 @@ TEND=tend
 		             epoch_gd12:       epoch_gd12, $
 		             azimuth_gd12:     phi_gd12, $
 		             polar_gd12:       theta_gd12, $
-		             fv_gd12:          fv_gd12, $
+		             fv_gd12_123:      fv_gd12, $
 		             tof_gd12:         tof_gd12, $
 		             quality_gd12:     q_gd12, $
 		             energy_gd12:      e_gd12, $
@@ -352,7 +352,7 @@ TEND=tend
 		             epoch_gd21:       epoch_gd21, $
 		             azimuth_gd21:     phi_gd21, $
 		             polar_gd21:       theta_gd21, $
-		             fv_gd21:          fv_gd21, $
+		             fv_gd21_123:      fv_gd21, $
 		             tof_gd21:         tof_gd21, $
 		             quality_gd21:     q_gd21, $
 		             energy_gd21:      e_gd21, $

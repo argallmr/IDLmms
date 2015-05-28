@@ -80,12 +80,14 @@
 ;                           are keywords, not parameters. - MRA
 ;-
 function mms_edi_bcs, files, tstart, tend, $
-EDI=edi_cs, $
+CS_EDI=cs_edi, $
 QUALITY=quality, $
 TSTART=tstart, $
 TEND=tend
 	compile_opt idl2
 	on_error, 2
+	
+	cs_edi = keyword_set(cs_edi)
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -117,7 +119,7 @@ TEND=tend
 ; Append Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Include data in EDI coordinates?
-	if edi_cs eq 0 then edi = remove_tags(edi, ['fv_gd12', 'fv_gd21'])
+	if cs_edi eq 0 then edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
 
 	;Positions on real and virtual spacecraft
 	edi = create_struct( edi, $

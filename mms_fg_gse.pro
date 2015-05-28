@@ -87,22 +87,17 @@
 ;                           are keywords, not parameters. - MRA
 ;-
 function mms_fg_gse, sc, instr, mode, tstart, tend, $
-ATTITUDE_DIR=attitude_dir, $
-DMPA=dmpa, $
-GSE=gse, $
-SUNPULSE_DIR=sunpulse_dir, $
+ATTITUDE=attitude, $
+CS_DMPA=cs_dmpa, $
+CS_GSE=cs_gse, $
+SUNPULSE=sunpulse, $
 _REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
 	
 	;Defaults
-	dmpa = keyword_set(dmpa)
-	gse  = n_elements(gse) eq 0 ? 0 : keyword_set(gse)
-	if n_elements(attitude_dir) eq 0 then attitude_dir = ''
-	if n_elements(sunpulse_dir) eq 0 then sunpulse_dir = ''
-	
-	;Make sure either attitude or sunpulse information is given
-	if attitude_dir eq '' && sunpulse_dir eq '' then cd, CURRENT=attitude_dir
+	cs_dmpa = keyword_set(cs_dmpa)
+	cs_gse  = n_elements(cs_gse) eq 0 ? 0 : keyword_set(cs_gse)
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -124,20 +119,14 @@ _REF_EXTRA=extra
 	;
 
 	;Despin using definitive attitude
-	if sunpulse_dir eq '' then begin
-		message, 'Despinning with attitude data not implemented yet.'
-	
-		;Build matrix
-		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, t, 'L')
-		smpa2dmpa_gd21 = mms_fdoa_xdespin(attitude, t, 'L')
-	
-	;Despin using sun pulse times.
-	endif else begin
-		;Read sun pulse data
-		dss = mms_dss_read_sunpulse(sc, tstart, tend, sunpulse_dir, /UNIQ_PULSE)
+	if n_elements(attitude) gt 0 then begin
+		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, fg_bcs.epoch, 'L')
 
-		;Build matrix
-		smpa2dmpa = mms_dss_xdespin( dss, epoch )
+	;Despin using sun pulse times.
+	endif else if n_elements(sunpulse) gt 0 then begin
+		smpa2dmpa = mms_dss_xdespin( sunpulse, fg_bcs.epoch )
+	endif else begin
+		message, 'Either ATTITUDE or SUNPULSE must be given.'
 	endelse
 
 	;Transform
@@ -148,7 +137,7 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 ; Rotate to GSE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if n_elements(attitude) ne 0 then begin
+	if n_elements(attitude) gt 0 then begin
 		message, 'Rotate to GSE not implemented yet.'
 		
 		;dmpa2gei
@@ -165,8 +154,8 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 	;Copy the data structure
 	fg_gse = temporary(fg_bcs)
-	if dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
-	if gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
+	if cs_dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
+	if cs_gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
 
 	return, fg_gse
 end
