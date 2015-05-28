@@ -93,7 +93,7 @@ TEND=tend
 
 	;Defaults
 	fpattern = ''
-	if n_elements(optdesc)   eq 0 then optdesc = ''
+	if n_elements(optdesc)   eq 0 then optdesc   = ''
 	if n_elements(timeorder) eq 0 then timeorder = '%Y%M%d'
 
 ;-------------------------------------------------------
@@ -115,7 +115,8 @@ TEND=tend
 	;Use the directory given
 	endif else begin
 		if ~file_test(directory, /DIRECTORY) then $
-			message, 'SDC directory does not exist: "' + sdc_dir + '".'
+			message, 'SDC directory does not exist: "' + directory + '".'
+		sdc_dir = directory
 	endelse
 
 ;-------------------------------------------------------
@@ -133,17 +134,17 @@ TEND=tend
 	                      /CLOSEST, $
 	                      COUNT     = count, $
 	                      TIMEORDER = timeorder, $
-                        TSTART    = tstart, $
+	                      TSTART    = tstart, $
 	                      TEND      = tend)
 
 	;Because MMS file names contain a start time, but no end time,
 	;the first file returned by MrFile_Search may not lie between
-  ;TSTART and TEND. Here, we compare the date within the file name
-  ;and ensure that it is within the same day as what was given
-  mms_dissect_filename, files[0], TSTART=ftstart
+	;TSTART and TEND. Here, we compare the date within the file name
+	;and ensure that it is within the same day as what was given
+	mms_dissect_filename, files[0], TSTART=ftstart
 	if strmid(ftstart, 0, 4) ne strmid(tstart, 0, 4) || $
-     strmid(ftstart, 4, 2) ne strmid(tstart, 5, 2) || $
-     strmid(ftstart, 6, 2) ne strmid(tstart, 8, 2) $
+	   strmid(ftstart, 4, 2) ne strmid(tstart, 5, 2) || $
+	   strmid(ftstart, 6, 2) ne strmid(tstart, 8, 2) $
 	then begin
 		count -= 1
 		if count gt 1 $

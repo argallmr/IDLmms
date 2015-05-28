@@ -84,18 +84,16 @@ TEND=tend
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc, $
+	                      SC      = sc
 	
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	
-	;AFG or DFG
-	!Null = where( (instr ne 'afg') or (instr ne 'dfg'), count)
-	if count gt 0 then message, 'Only AFG and DFG files are allowed.'
-	
 	;Level, Mode
-	if min(level eq 'l1b')   eq 0 then message, 'Only L1B files are allowed.'
-	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
+	if ~(instr[0] eq 'dfg' || instr[0] eq 'afg') then message, 'Only AFG and DFG files are allowed.'
+	if min(instr eq instr[0]) eq 0 then message, 'All files must be from the same instrument.'
+	if min(level eq 'l1b')    eq 0 then message, 'Only L1B files are allowed.'
+	if min(mode  eq mode[0])  eq 0 then message, 'All files must have the same telemetry mode.'
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -125,7 +123,7 @@ TEND=tend
 	;Return a structure
 	fg_l1b = { epoch: fg_epoch, $
 	           b_bcs: b_bcs, $
-	           b_omb: b_omb,  }
+	           b_omb: b_omb  }
 
 	return, fg_l1b
 end

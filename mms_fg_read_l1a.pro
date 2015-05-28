@@ -114,7 +114,7 @@ TSTART=tend
 		mode    = mode[0]
 		level   = level[0]
 		optdesc = optdesc[0]
-	end
+	endif
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
