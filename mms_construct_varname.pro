@@ -128,8 +128,7 @@
 ;       2015/02/06  -   Written by Matthew Argall
 ;       2015/05/01  -   Removed instrument validation. - MRA
 ;
-function mms_construct_varname, sc, instrument, param_name, $
-OPTDESC=optdesc
+function mms_construct_varname, sc, instrument, param_name, optdesc
 	compile_opt strictarr
 	on_error, 2
 	

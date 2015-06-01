@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_read_efieldmode
+;       mms_edi_read_l1a_efield
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -99,8 +99,9 @@
 ;                           CHIP_WIDTH. - MRA
 ;       2015/05/18  -   Accept file names instead of searching for files. TSTART and TEND
 ;                           parameters are now keywords. - MRA
+;       2015/06/01  -   Renamed from mms_edi_read_efieldmode to mms_edi_read_l1a_efield. - MRA
 ;-
-function mms_edi_read_efieldmode, files, $
+function mms_edi_read_l1a_efield, files, $
 QUALITY=quality, $
 TSTART=tstart, $
 TEND=tend
@@ -127,7 +128,7 @@ TEND=tend
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc, $
+	                      SC      = sc
 	
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
@@ -328,7 +329,7 @@ TEND=tend
 ;-----------------------------------------------------
 	;All data
 	if count_gd12 gt 0 then begin
-		edi_gd12 = { count_gd12:       n_gd12, $
+		edi_gd12 = { count_gd12:       count_gd12, $
 		             epoch_gd12:       epoch_gd12, $
 		             azimuth_gd12:     phi_gd12, $
 		             polar_gd12:       theta_gd12, $
@@ -348,7 +349,7 @@ TEND=tend
 	
 	;All data
 	if count_gd21 gt 0 then begin
-		edi_gd21 = { count_gd21:       n_gd21, $
+		edi_gd21 = { count_gd21:       count_gd21, $
 		             epoch_gd21:       epoch_gd21, $
 		             azimuth_gd21:     phi_gd21, $
 		             polar_gd21:       theta_gd21, $

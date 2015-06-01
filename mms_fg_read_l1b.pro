@@ -109,8 +109,8 @@ TEND=tend
 ;-----------------------------------------------------	
 
 	;Create the variable names
-	b_bcs_name = mms_construct_varname(sc, instr, mode, OPTDESC='bcs')
-	b_omb_name = mms_construct_varname(sc, instr, mode, OPTDESC='omb')
+	b_bcs_name = mms_construct_varname(sc, instr, mode, 'bcs')
+	b_omb_name = mms_construct_varname(sc, instr, mode, 'omb')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

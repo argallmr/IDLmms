@@ -93,14 +93,15 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;-
-function mms_edi_gse, filenames, tstart, tend, $
+function mms_edi_gse, filenames, $
+ATTITUDE=attitude, $
 CS_GSE=cs_gse, $
 CS_BCS=cs_bcs, $
 CS_DMPA=cs_dmpa, $
-CS_EDI=cs_edi, $
 CS_SMPA=cs_smpa, $
-ATTITUDE=attitude, $
 SUNPULSE=sunpulse, $
+TSTART=tstart, $
+TEND=tend, $
 _REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
@@ -124,7 +125,7 @@ _REF_EXTRA=extra
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_bcs(files, CS_EDI=cs_edi, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
+	edi = mms_edi_bcs(filenames, /CS_BCS, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
 
 ;-----------------------------------------------------
 ; Rotate to SMPA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -151,7 +152,7 @@ _REF_EXTRA=extra
 			det_gd21_smpa     = edi.det_gd21_bcs
 			virtual_gun2_smpa = edi.virtual_gun2_bcs
 		endif
-	endelse
+	endif
 
 ;-----------------------------------------------------
 ; Despin \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -173,8 +174,8 @@ _REF_EXTRA=extra
 	;Despin using sun pulse times.
 	endif else if n_elements(sunpulse) gt 0 then begin
 		;Build matrix
-		if edi.count_gd12 gt 0 then smpa2dmpa_gd12 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd12 )
-		if edi.count_gd21 gt 0 then smpa2dmpa_gd21 = mms_dss_xdespin( dss_sunpulse, edi.epoch_gd21 )
+		if edi.count_gd12 gt 0 then smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, edi.epoch_gd12 )
+		if edi.count_gd21 gt 0 then smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, edi.epoch_gd21 )
 	endif else begin
 		message, 'Either ATTITUDE or SUNPULSE must be given.'
 	endelse

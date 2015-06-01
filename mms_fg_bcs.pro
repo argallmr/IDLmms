@@ -83,54 +83,34 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;-
-function mms_fg_bcs, files, $
-CAL_DIR=cal_dir, $
-BCS=bcs, $
-OMB=omb, $
-SENSOR=sensor, $
-SMPA=smpa, $
+function mms_fg_bcs, files, hiCal_file, loCal_file, $
+CS_BCS=cs_bcs, $
+CS_OMB=cs_omb, $
+CS_SENSOR=cs_sensor, $
+CS_SMPA=cs_smpa, $
 TSTART=tstart, $
 TEND=tend
 	compile_opt idl2
 	on_error, 2
 
 	;Default directories
-	bcs    = n_elements(bcs) eq 0 ? 0 : keyword_set(bcs)
-	sensor = keyword_set(sensor)
-	smpa   = keyword_set(smpa)
-	omb    = keyword_set(omb)
+	cs_bcs    = n_elements(cs_bcs) eq 0 ? 0 : keyword_set(cs_bcs)
+	cs_sensor = keyword_set(cs_sensor)
+	cs_smpa   = keyword_set(cs_smpa)
+	cs_omb    = keyword_set(cs_omb)
 	if n_elements(data_dir) eq 0 then cd, CURRENT=data_dir
 	if n_elements(cal_dir)  eq 0 then cal_dir = data_dir
 
-	if bcs + smpa + omb eq 0 then bcs = 1
+	if cs_bcs + cs_smpa + cs_omb eq 0 then cs_bcs = 1
 
 ;-------------------------------------------------------
-; Read Calibration Data ////////////////////////////////
+; Read Calibration and Mag Data ////////////////////////
 ;-------------------------------------------------------
-	;Get the spacecraft and instrument names
-	mms_dissect_filename, files[0], SC=sc, INSTR=instr
-
-	;File name patterns
-	hical_fname = mms_construct_filename(sc, instr, 'hirangecal', 'l2pre', /TOKENS, $
-	                                     DIRECTORY = cal_dir)
-	local_fname = mms_construct_filename(sc, instr, 'lorangecal', 'l2pre', /TOKENS, $
-	                                     DIRECTORY = cal_dir)
-
-	;Find the calibration file
-	hiCal_file = MrFile_Search(hical_fname, COUNT=nHiCal)
-	loCal_file = MrFile_Search(local_fname, COUNT=nLoCal)
-
-	;Make sure the files exist
-	if nHiCal eq 0 then message, 'HiCal file not found: "' + hical_fname + '".'
-	if nLoCal eq 0 then message, 'LoCal file not found: "' + local_fname + '".'
 
 	;Calibrate hi-range
 	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend)
 	loCal = mms_fg_read_cal(loCal_file, tstart, tend)
 
-;-------------------------------------------------------
-; Read Mag Data ////////////////////////////////////////
-;-------------------------------------------------------
 
 	;Read the data
 	fg_l1a = mms_fg_read_l1a(files, TSTART=tstart, TEND=tend)
@@ -167,10 +147,10 @@ TEND=tend
 	
 	;Add fields
 	fg_bcs = create_struct(fg_bcs, 'zmpa', mpa)
-	if ~sensor then fg_bcs = remove_tag(fg_bcs, 'b_123')
-	if bcs     then fg_bcs = create_struct(fg_bcs, 'b_bcs',  b_bcs)
-	if omb     then fg_bcs = create_struct(fg_bcs, 'b_omb',  b_omb)
-	if smpa    then fg_bcs = create_struct(fg_bcs, 'b_smpa', b_smpa)
+	if ~cs_sensor then fg_bcs = remove_tags(fg_bcs, 'b_123')
+	if cs_bcs     then fg_bcs = create_struct(fg_bcs, 'b_bcs',  b_bcs)
+	if cs_omb     then fg_bcs = create_struct(fg_bcs, 'b_omb',  b_omb)
+	if cs_smpa    then fg_bcs = create_struct(fg_bcs, 'b_smpa', b_smpa)
 
 	return, fg_bcs
 end

@@ -78,11 +78,11 @@ function mms_dss_read_sunpulse, filenames, $
 UNIQ_PACKETS=uniq_packets, $
 UNIQ_PULSE=uniq_pulse
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 
 	uniq_pulse   = keyword_set(uniq_pulse)
 	uniq_packets = keyword_set(uniq_packets) || uniq_pulse
-	
+
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -95,7 +95,7 @@ UNIQ_PULSE=uniq_pulse
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc, $
+	                      SC      = sc
 	
 	;Do files exist?
 	if min(file_test(filenames, /READ)) eq 0 then message, 'Files must exist and be readable.'
@@ -128,12 +128,12 @@ UNIQ_PULSE=uniq_pulse
 ;-----------------------------------------------------
 
 	;Read the data
-	sunpulse = MrCDF_nRead(files, sunpulse_name, $
+	sunpulse = MrCDF_nRead(filenames, sunpulse_name, $
 	                       DEPEND_0 = hk_epoch, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	period = MrCDF_nRead(files, period_name, TSTART=tstart, TEND=tend)
-	flag   = MrCDF_nRead(files, flag_name,   TSTART=tstart, TEND=tend)
+	period = MrCDF_nRead(filenames, period_name, TSTART=tstart, TEND=tend)
+	flag   = MrCDF_nRead(filenames, flag_name,   TSTART=tstart, TEND=tend)
 
 ;-----------------------------------------------------
 ; Unique Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

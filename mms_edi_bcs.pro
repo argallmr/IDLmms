@@ -79,8 +79,9 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;-
-function mms_edi_bcs, files, tstart, tend, $
+function mms_edi_bcs, files, $
 CS_EDI=cs_edi, $
+CS_BCS=cs_bcs, $
 QUALITY=quality, $
 TSTART=tstart, $
 TEND=tend
@@ -88,6 +89,7 @@ TEND=tend
 	on_error, 2
 	
 	cs_edi = keyword_set(cs_edi)
+	cs_bcs = n_elements(cs_bcs) eq 0 ? 1B : keyword_set(cs_bcs)
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -99,7 +101,7 @@ TEND=tend
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_read_efieldmode(files, $
+	edi = mms_edi_read_l1a_efield(files, $
 	                              QUALITY = quality, $
 	                              TSTART  = tstart, $
 	                              TEND    = tend)
@@ -110,10 +112,10 @@ TEND=tend
 	;Transformation matrices
 	edi1_to_bcs = mms_instr_xxyz2ocs('EDI1')
 	edi2_to_bcs = mms_instr_xxyz2ocs('EDI2')
-	
+
 	;Rotate CS
-	if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12)
-	if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21)
+	if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12_123)
+	if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21_123)
 
 ;-----------------------------------------------------
 ; Append Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -122,17 +124,19 @@ TEND=tend
 	if cs_edi eq 0 then edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
 
 	;Positions on real and virtual spacecraft
-	edi = create_struct( edi, $
-	                    'gun_gd12_bcs', gun_gd12_bcs, $
-	                    'det_gd12_bcs', det_gd12_bcs, $
-	                    'gun_gd21_bcs', gun_gd21_bcs, $
-	                    'det_gd21_bcs', det_gd21_bcs, $
-	                    'virtual_gun1_bcs', gun_gd12_bcs - det_gd21_bcs, $
-	                    'virtual_gun2_bcs', gun_gd21_bcs - det_gd12_bcs )
-	
-	;Firing vectors
-	if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
-	if edi.count_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
+	if cs_bcs then begin
+		edi = create_struct( edi, $
+		                    'gun_gd12_bcs', gun_gd12_bcs, $
+		                    'det_gd12_bcs', det_gd12_bcs, $
+		                    'gun_gd21_bcs', gun_gd21_bcs, $
+		                    'det_gd21_bcs', det_gd21_bcs, $
+		                    'virtual_gun1_bcs', gun_gd12_bcs - det_gd21_bcs, $
+		                    'virtual_gun2_bcs', gun_gd21_bcs - det_gd12_bcs )
+		
+		;Firing vectors
+		if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
+		if edi.count_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
+	endif
 	
 	;Return structure
 	return, edi

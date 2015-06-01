@@ -87,13 +87,13 @@ TEND=tend
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc, $
+	                      SC      = sc
 	
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	
 	;AFG or DFG
-	!Null = where( (instr ne 'afg') or (instr ne 'dfg'), count)
+	!Null = where( (instr ne 'afg') and (instr ne 'dfg'), count)
 	if count gt 0 then message, 'Only AFG and DFG files are allowed.'
 	
 	;Level, Mode

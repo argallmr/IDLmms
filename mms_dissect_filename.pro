@@ -116,12 +116,14 @@
 ;       2015/05/04  -   Renamed keywords DESCRIPTOR to OPTDESC, SPACECRAFT to SC,
 ;                           START_TIME to TSTART, and INSTRUMENT to INSTR to be
 ;                           consistent with other programs. - MRA
+;       2015/05/04  -   Added the DIRECTORY keyword. Accept full file paths. - MRA
 ;-
 pro mms_dissect_filename, filename, $
-OPTDESC=optdesc, $
+DIRECTORY=directory, $
 INSTR=instr, $
 LEVEL=level, $
 MODE=mode, $
+OPTDESC=optdesc, $
 SC=sc, $
 TSTART=tstart, $
 VERSION=version
@@ -130,17 +132,22 @@ VERSION=version
 
 	;Check that a filename was provided.
 	if n_elements(filename) eq 0 then message, 'A file name must be given.'
+	
+	;Remove the directory, if it is present
+	directory = file_dirname(filename)
+	fname     = file_basename(filename)
+	
 ;-----------------------------------------------------
 ;DISSECT FILENAMES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	str = stregex(filename, '(mms[1-4])_'       + $                ;Spacecraft ID
-	                        '([a-z-]+)_'        + $                ;Instrument ID
-	                        '([a-z]+)_'         + $                ;Mode
-	                        '([a-z0-4]+)_'         + $             ;Data Level
-	                        '([a-zA-Z0-9-]*)_?' + $                ;Optional Descriptor
-	                        '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_' + $ ;Start Time
-	                        'v([0-9]+\.[0-9]+\.[0-9])\.cdf', $     ;Version
-	                        /EXTRACT, /SUBEXP)
+	str = stregex(fname, '(mms[1-4])_'       + $                ;Spacecraft ID
+	                     '([a-z-]+)_'        + $                ;Instrument ID
+	                     '([a-z0-9]+)_'      + $                ;Mode
+	                     '([a-z0-4]+)_'      + $             ;Data Level
+	                     '([a-zA-Z0-9-]*)_?' + $                ;Optional Descriptor
+	                     '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_' + $ ;Start Time
+	                     'v([0-9]+\.[0-9]+\.[0-9])\.cdf', $     ;Version
+	                     /EXTRACT, /SUBEXP)
 
 	;Find non-matches
 	iFail = where(str[0,*] eq '', nFail, COMPLEMENT=iPass, NCOMPLEMENT=nPass)

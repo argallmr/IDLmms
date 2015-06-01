@@ -141,10 +141,10 @@ TEND=tend
 	;the first file returned by MrFile_Search may not lie between
 	;TSTART and TEND. Here, we compare the date within the file name
 	;and ensure that it is within the same day as what was given
-	mms_dissect_filename, files[0], TSTART=ftstart
-	if strmid(ftstart, 0, 4) ne strmid(tstart, 0, 4) || $
-	   strmid(ftstart, 4, 2) ne strmid(tstart, 5, 2) || $
-	   strmid(ftstart, 6, 2) ne strmid(tstart, 8, 2) $
+	mms_dissect_filename, files[0], TSTART=fstart
+	if strmid(fstart, 0, 4) ne strmid(tstart, 0, 4) || $
+	   strmid(fstart, 4, 2) ne strmid(tstart, 5, 2) || $
+	   strmid(fstart, 6, 2) ne strmid(tstart, 8, 2) $
 	then begin
 		count -= 1
 		if count gt 1 $

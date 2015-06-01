@@ -161,10 +161,11 @@ SUNPULSE=sunpulse
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 	;Make editable copies of data
-	hk_epoch = hk.epoch
-	sunpulse = hk.sunpulse
-	period   = hk.period * 1000LL     ;Convert from micro- to nano-seconds
-	flag     = hk.flag
+	;   - Make sure arrays are Nx1, not 1xN
+	hk_epoch = reform(hk.epoch)
+	sunpulse = reform(hk.sunpulse)
+	period   = reform(hk.period) * 1000LL     ;Convert from micro- to nano-seconds
+	flag     = reform(hk.flag)
 	
 	;Number of points
 	nPts = n_elements(sunpulse)
@@ -310,6 +311,7 @@ SUNPULSE=sunpulse
 		iNotIntSpin = where( abs( nspins - round(nspins) ) gt 0.25, nNotIntSpin )
 		if nNotIntSpin gt 0 then begin
 			;Warning message
+			ttemp = MrCDF_Epoch_Encode(temp_pulse[[0, nPts-1]])
 			msg = string( FORMAT='(%"No valid periods in interval %s - %s")', $
 			              strmid(ttemp, 0, 20) )
 			message, msg, /INFORMATIONAL

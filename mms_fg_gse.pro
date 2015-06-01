@@ -86,16 +86,18 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;-
-function mms_fg_gse, sc, instr, mode, tstart, tend, $
+function mms_fg_gse, files, hiCal_file, loCal_file, tstart, tend, $
 ATTITUDE=attitude, $
+CS_SMPA=cs_smpa, $
 CS_DMPA=cs_dmpa, $
 CS_GSE=cs_gse, $
 SUNPULSE=sunpulse, $
 _REF_EXTRA=extra
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 	
 	;Defaults
+	cs_smpa = keyword_set(cs_smpa)
 	cs_dmpa = keyword_set(cs_dmpa)
 	cs_gse  = n_elements(cs_gse) eq 0 ? 0 : keyword_set(cs_gse)
 	
@@ -104,7 +106,7 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 
 	;Read data
-	fg_bcs = mms_fg_bcs(files,
+	fg_bcs = mms_fg_bcs(files, hiCal_file, loCal_file, /CS_SMPA, $
 	                    TSTART        = tstart, $
 	                    TEND          = tend, $
 	                    _STRICT_EXTRA = extra)
@@ -130,8 +132,7 @@ _REF_EXTRA=extra
 	endelse
 
 	;Transform
-	b_dmpa = mrvector_rotate( smpa2dmpa, b_smpa )
-	if arg_present(b_dmpa) eq 0 then b_dmpa = !Null
+	b_dmpa = mrvector_rotate( smpa2dmpa, fg_bcs.b_smpa )
 
 
 ;-----------------------------------------------------
@@ -154,8 +155,9 @@ _REF_EXTRA=extra
 ;-----------------------------------------------------
 	;Copy the data structure
 	fg_gse = temporary(fg_bcs)
-	if cs_dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
-	if cs_gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
+	if ~cs_smpa then fg_gse = remove_tags(fg_gse, 'b_smpa')
+	if  cs_dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
+	if  cs_gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
 
 	return, fg_gse
 end
