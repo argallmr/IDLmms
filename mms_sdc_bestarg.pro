@@ -55,12 +55,16 @@
 ;-
 function mms_sdc_bestarg
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 
-	sc           = 'mms4'
-	tstart       = '2015-04-22T17:03:15Z'
-	tend         = '2015-04-22T17:03:30Z'
-	quality      = 3
+;MMS2: May 9, 2015  16:08 - 16:13
+;MMS4: May 6, 2015  15:30 - 15:35
+
+	sc       = 'mms4'
+	tstart   = '2015-05-06T16:08:00Z'
+	tend     = '2015-04-22T16:13:00Z'
+	sdc_root = '/nfs/mmsa/sdc/'
+	quality  = 3
 
 ;-----------------------------------------------------
 ; Find Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -69,33 +73,37 @@ function mms_sdc_bestarg
 	instr = 'dfg'
 	mode  = 'srvy'
 	level = 'l1b'
-	fg_l1b_files = mms_sdc_find_file(sc, instr, mode, level, $
-	                                 COUNT     = count, $
-	                                 SEARCHSTR = searchstr, $
-	                                 TSTART    = tstart, $
-	                                 TEND      = tend)
+	fg_l1b_files = mms_find_file(sc, instr, mode, level, $
+	                             COUNT     = count, $
+	                             SDC_ROOT  = sdc_root, $
+	                             SEARCHSTR = searchstr, $
+	                             TSTART    = tstart, $
+	                             TEND      = tend)
 	if count eq 0 then message, 'DFG L1B files not found: "' + searchstr + '".'
 
 	;DFG QUICK-LOOK
 	mode  = 'srvy'
 	level = 'ql'
-	fg_ql_files = mms_sdc_find_file(sc, instr, mode, level, $
-	                                COUNT     = count, $
-	                                SEARCHSTR = searchstr, $
-	                                TSTART    = tstart, $
-	                                TEND      = tend)
+	fg_ql_files = mms_find_file(sc, instr, mode, level, $
+	                            COUNT     = count, $
+	                            SDC_ROOT  = sdc_root, $
+	                            SEARCHSTR = searchstr, $
+	                            TSTART    = tstart, $
+	                            TEND      = tend)
 	if count eq 0 then message, 'DFG Quick-Look (QL) files not found: "' + searchstr + '".'
 
 	;EDI EFIELD
-	instr = 'edi'
-	mode  = 'srvy'
-	level = 'ql'
-	fg_ql_files = mms_sdc_find_file(sc, instr, mode, level, $
-	                                COUNT     = count, $
-	                                OPTDESC   = 'efield', $
-	                                SEARCHSTR = searchstr, $
-	                                TSTART    = tstart, $
-	                                TEND      = tend)
+	instr   = 'edi'
+	mode    = 'srvy'
+	level   = 'l1a'
+	optdesc = 'efield'
+	edi_files = mms_find_file(sc, instr, mode, level, $
+	                          COUNT     = count, $
+	                          OPTDESC   = optdesc, $
+	                          SDC_ROOT  = sdc_root, $
+	                          SEARCHSTR = searchstr, $
+	                          TSTART    = tstart, $
+	                          TEND      = tend)
 	if count eq 0 then message, 'EDI efield-mode files not found: "' + searchstr + '".'
 
 ;-----------------------------------------------------
