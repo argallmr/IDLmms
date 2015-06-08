@@ -117,7 +117,7 @@ VERSION=version
 	;if no base was chosen, go with the complete base
 	if n_elements(directory)   eq 0 then directory = ''
 	if n_elements(version)     eq 0 then version   = '*'
-	desc = n_elements(optdesc) eq 0 ? '' : optdesc + '_'
+	desc = n_elements(optdesc) eq 0 || optdesc eq '' ? '' : optdesc + '_'
 	
 	;Spacecraft ID
 	if size(sc, /TNAME) eq 'STRING' then begin
@@ -171,7 +171,7 @@ VERSION=version
 		if stregex(version, '[0-9]+\.[0-9]+\.[0-9]+', /BOOLEAN) eq 0 $
 			then message, 'Invalid version: "' + version + '".'
 	endif
-	
+
 	;Create the MMS filename
 	filename = _sc        + '_' + $
 	           instrument + '_' + $

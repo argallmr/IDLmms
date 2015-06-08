@@ -60,9 +60,9 @@ function mms_sdc_bestarg
 ;MMS2: May 9, 2015  16:08 - 16:13
 ;MMS4: May 6, 2015  15:30 - 15:35
 
-	sc       = 'mms4'
-	tstart   = '2015-05-06T16:08:00Z'
-	tend     = '2015-04-22T16:13:00Z'
+	sc       = 'mms2'
+	tstart   = '2015-05-09T16:08:00Z'
+	tend     = '2015-05-09T16:13:00Z'
 	sdc_root = '/nfs/mmsa/sdc/'
 	quality  = 3
 
@@ -94,7 +94,7 @@ function mms_sdc_bestarg
 
 	;EDI EFIELD
 	instr   = 'edi'
-	mode    = 'srvy'
+	mode    = 'slow'
 	level   = 'l1a'
 	optdesc = 'efield'
 	edi_files = mms_find_file(sc, instr, mode, level, $

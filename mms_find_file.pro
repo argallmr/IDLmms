@@ -111,7 +111,7 @@ TEND=tend
 			message, 'SDC directory does not exist: "' + sdc_dir + '".'
 
 		;Now append the year, month, and day
-		sdc_dir = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['%Y', '%M', '%d'])
+		sdc_dir = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['%Y', '%M'])
 		
 	;Use the directory given
 	endif else begin
