@@ -369,7 +369,7 @@ SUNPULSE=sunpulse
 			              strmid(ttemp, 0, 20) )
 			message, msg, /INFORMATIONAL
 			T2 = !values.f_nan
-		endif else if idx gt 1 then begin
+		endif else begin
 			T2 = dPulse[idx+1]
 		endif
 		

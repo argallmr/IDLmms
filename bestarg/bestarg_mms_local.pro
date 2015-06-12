@@ -250,7 +250,7 @@ common ep_envar_con_cb, $
 ; 	save, /ALL, filename='bestarg_mms_C3_2001-06-08t053000_054000_@20150306.sav'
 	localPath = !path
 ; 	restore, /verbose,   'bestarg_mms_C3_2001-06-08t053000_054000_@20150306.sav'
-	restore, 'bestarg_mms_C3_2001-06-08t053000_054000_@20150306.sav'
+	restore, '/Users/argall/Documents/IDL/MMS/bestarg/bestarg_mms_C3_2001-06-08t053000_054000_@20150306.sav'
 ; 	edi6_out = [rd,       derr,      pd*!radeg, perr*!radeg, tg,     tgerr]
 ; 	            0.565200  0.0300000  99.0000    11.0000      107.592 0.000000 (-0.088417, 0.55824)
 	!path = localPath ; C:\Program Files\Exelis\IDL83
