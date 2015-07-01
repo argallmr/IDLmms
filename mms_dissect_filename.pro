@@ -117,6 +117,7 @@
 ;                           START_TIME to TSTART, and INSTRUMENT to INSTR to be
 ;                           consistent with other programs. - MRA
 ;       2015/05/04  -   Added the DIRECTORY keyword. Accept full file paths. - MRA
+;       2015/06/15  -   Version numbers can be greater than 9. - MRA
 ;-
 pro mms_dissect_filename, filename, $
 DIRECTORY=directory, $
@@ -143,10 +144,10 @@ VERSION=version
 	str = stregex(fname, '(mms[1-4])_'       + $                ;Spacecraft ID
 	                     '([a-z-]+)_'        + $                ;Instrument ID
 	                     '([a-z0-9]+)_'      + $                ;Mode
-	                     '([a-z0-4]+)_'      + $             ;Data Level
+	                     '([a-z0-4]+)_'      + $                ;Data Level
 	                     '([a-zA-Z0-9-]*)_?' + $                ;Optional Descriptor
 	                     '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_' + $ ;Start Time
-	                     'v([0-9]+\.[0-9]+\.[0-9])\.cdf', $     ;Version
+	                     'v([0-9]+\.[0-9]+\.[0-9]+)\.cdf', $     ;Version
 	                     /EXTRACT, /SUBEXP)
 
 	;Find non-matches

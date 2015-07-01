@@ -50,7 +50,7 @@
 ;
 ; :Returns:
 ;       FG_QL_STRUCT:       Structure of fluxgate quicklook data. Tags are::
-;                               'epoch'       - TT2000 epoch times
+;                               'tt2000'      - TT2000 epoch times
 ;                               'b_dmpa'      - 4xN (Bx, By, Bz, |B|) in DMPA
 ;                               'b_gsm_dmpa'  - 4xN (Bx, By, Bz, |B|) in GSM-DMPA
 ;                               'pos_gse'     - (x, y, z) s/c position in GSE
@@ -133,7 +133,7 @@ TEND=tend
 	pos_gsm    = MrCDF_nRead(files, pos_gsm,         TSTART=tstart, TEND=tend)
 
 	;Return a structure
-	fg_ql = { epoch:      fg_epoch, $
+	fg_ql = { tt2000:     fg_epoch, $
 	          b_dmpa:     b_dmpa, $
 	          b_gsm_dmpa: b_gsm_dmpa, $
 	          pos_gse:    pos_gse, $

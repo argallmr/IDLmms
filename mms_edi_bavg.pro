@@ -72,17 +72,19 @@
 ;                           Standard deviation for each point in `B_AVG`. It is computed
 ;                               as `B_BEAM1` and `B_BEAM2` are being averaged to create
 ;                               `B_AVG`.
-;       B_BEAM1_DOCS:        out, optional, type=3xM float
+;       B_GD12:             out, optional, type=3xM float
 ;                           `B_DFG_DOCS` interpolated onto `T_EDI_BEAM1`.
-;       B_BEAM2_DOCS:       out, optional, type=3xM float
+;       B_GD21:             out, optional, type=3xM float
 ;                           `B_DFG_DOCS` interpolated onto `T_EDI_BEAM2`.
-;       EDI1_BEAM_INDS:     in, optional, type=3xL float.
+;       RECNUM:             in, optional, type=lonarr
+;                           Record numbers of `T_DFG`.
+;       RECNUM_GD12:        in, optional, type=lonarr
 ;                           A map between the EDI beam1 hits onto which the DFG magnetic
 ;                               field were interpolated, and the average magnetic field 
 ;                               that resulted from the interopolation. INDS_EDI_BEAM2[0]
 ;                               returns the index into `B_AVG` for which the beam at
 ;                               index 0 was used.
-;       EDI2_BEAM_INDS:     in, optional, type=3xK float.
+;       RECNUM_GD21:        in, optional, type=lonarr
 ;                           A map between the EDI beam2 hits onto which the DFG magnetic
 ;                               field were interpolated, and the average magnetic field 
 ;                               that resulted from the interopolation. INDS_EDI_BEAM2[0]
@@ -110,6 +112,8 @@
 ;       2015/03/06  -   Accepting data instead of file names. Return secondary data via
 ;                           keywords. Removied view and file output capabilities. - MRA
 ;       2015/05/03  -   Remove keywords and return data structure instead. - MRA
+;       2015/06/19  -   Accept data from single gun. - MRA
+;       2015/06/19  -   Assign record numbers to the B-field for independent referencing. - MRA
 ;-
 function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 	compile_opt idl2
@@ -117,8 +121,9 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 	;Error hand1ling
 	catch, the_error
 	if the_error ne 0 then begin
-		catch, /cancel
+		catch, /CANCEL
 		void = cgErrorMsg(/QUIET)
+stop
 		return, -1
 	endif
 ;-----------------------------------------------------
@@ -154,13 +159,17 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 	nmax    = n_fg < n_beam1 < n_beam2
 	
 	;Allocate memory to output arrays
-	t_avg          = lon64arr(nmax)
-	b_avg          = fltarr(3, nmax)
-	b_stdev        = fltarr(3, nmax)
-	b_beam1_docs   = make_array(3, n_beam1, VALUE=-1e31, /FLOAT)
-	b_beam2_docs   = make_array(3, n_beam2, VALUE=-1e31, /FLOAT)
-	edi1_beam_inds = lonarr(n_beam1)
-	edi2_beam_inds = lonarr(n_beam2)
+	t_avg        = lon64arr(nmax)
+	b_avg        = fltarr(3, nmax)
+	b_stdev      = fltarr(3, nmax)
+	b_gd12       = fltarr(3, n_beam1)
+	b_gd21       = fltarr(3, n_beam2)
+	recnum       = lonarr(nmax)
+	recnum_gd12  = lonarr(n_beam1)
+	recnum_gd21  = lonarr(n_beam2)
+
+	used_indices1 = bytarr(n_beam1)
+	used_indices2 = bytarr(n_beam2)
 
 	;Initial conditions
 	;   - T_START:        Start at the first magnetometer data point.
@@ -194,21 +203,6 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 		it_beam1_interp = MrIndexRange(time_beam1, trange_interp, /RIGHT_EXCLUSIVE, STATUS=status_gd12)
 		it_beam2_interp = MrIndexRange(time_beam2, trange_interp, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
 		
-		;No values found?
-		if status_fg ne 0 then $
-			message, string(FORMAT='(%"No mag found in interval %f-%fs")', trange_interp[0], trange_interp[1]), /INFORMATIONAL
-		if status_gd12 ne 0 then $
-			message, string(FORMAT='(%"No gd12 beams found in interval %f-%fs")', trange_interp[0], trange_interp[1]), /INFORMATIONAL
-		if status_gd21 ne 0 then $
-			message, string(FORMAT='(%"No gd21 beams found in interval %f-%fs")', trange_interp[0], trange_interp[1]), /INFORMATIONAL
-
-		;Skip to next interval
-		if status_fg ne 0 || (status_gd12 ne 0 && status_gd21 ne 0) then begin
-			trange_avg    += dt
-			trange_interp += dt
-			continue
-		endif
-		
 		;Extract the time interval for ease
 		b_fg_temp = b_fg_docs[*, it_fg_interp[0]:it_fg_interp[1]]
 		t_fg_temp = time_fg[it_fg_interp[0]:it_fg_interp[1]]
@@ -235,6 +229,9 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 			;          { Avg }
 			it_beam1_avg = MrIndexRange(temporary(t_beam1_temp), trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd12)
 			if status_gd12 eq 0 then begin
+				iused = it_beam1_interp[0] + it_beam1_avg
+				used_indices1[ iused[0]:iused[1] ] = 1B
+			
 				;Magnetic field in averaging interval
 				b_fg_beam1  = b_fg_beam1[*, it_beam1_avg[0]:it_beam1_avg[1]]
 
@@ -246,6 +243,7 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 			endelse
 		endif else begin
 			n_beam1_avg = 0
+			message, string(FORMAT='(%"No gd12 beams found in interval %f-%fs")', trange_interp[0], trange_interp[1]), /INFORMATIONAL
 		endelse
 
 	;-----------------------------------------------------
@@ -268,8 +266,13 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 			;  --|-----{-----}-----|--
 			;    |  Interpolation  |
 			;          { Avg }
-			it_beam2_avg = MrIndexRange(temporary(t_beam2_temp), trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
+;			it_beam2_avg = MrIndexRange(temporary(t_beam2_temp), trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
+			it_beam2_avg = MrIndexRange(t_beam2_temp, trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
+if ~array_equal(it_beam2_avg, [-1,-1]) && status_gd21 eq 1 then stop
 			if status_gd21 eq 0 then begin
+				iused = it_beam2_interp[0] + it_beam2_avg
+				used_indices2[ iused[0]:iused[1] ] = 1B
+			
 				;Magnetic field in averaging interval
 				b_fg_beam2  = b_fg_beam2[*, it_beam2_avg[0]:it_beam2_avg[1]]
 
@@ -281,36 +284,49 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 			endelse
 		endif else begin
 			n_beam2_avg = 0
+			message, string(FORMAT='(%"No gd21 beams found in interval %f-%fs")', trange_interp[0], trange_interp[1]), /INFORMATIONAL
 		endelse
-
 		b_fg_temp = !Null
 
 	;-----------------------------------------------------
 	; Find Averaging Interval & Average \\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;Skip to the next interval?
-		if n_beam1_avg eq 0 && n_beam2_avg eq 0 then begin
-			trange_avg    += dt
-			trange_interp += dt
-			continue
-		endif
-
 		;Take the averge
 		;   - Convert time back to nanoseconds.
 		case 1 of
-			n_beam1_avg gt 0 && $
-			n_beam2_avg gt 0:   !Null = moment( [[b_fg_beam1], [b_fg_beam2]], DIMENSION=2, $
-			                                    MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
-			n_beam1_avg gt 0:   !Null = moment( b_fg_beam1, DIMENSION=2, $
-			                                    MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
-			n_beam2_avg gt 0:   !Null = moment( b_fg_beam2, DIMENSION=2, $
-			                                    MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
-			;Skip to the next interval
-			else: ;Taken care of above.
+			n_beam1_avg gt 0 && n_beam2_avg gt 0: begin
+				!Null = moment( [[b_fg_beam1], [b_fg_beam2]], DIMENSION=2, $
+				        MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
+			endcase
+			
+			n_beam1_avg gt 0: begin
+				dimension = n_beam1_avg eq 1 ? 1 : 2
+				!Null = moment( b_fg_beam1, DIMENSION=dimension, $
+				                MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
+			endcase
+			
+			n_beam2_avg gt 0: begin
+				dimension = n_beam2_avg eq 1 ? 1 : 2
+				!Null = moment( b_fg_beam2, DIMENSION=dimension, $
+				                MEAN=temp_mean, SDEV=temp_sdev, MAXMOMENT=2 )
+			endcase
+			
+			else: begin
+				; Do nothing
+				;  - This ensures that the Electric field, drift velocity,
+				;    and drift step calculated hereafter will have the same
+				;    number of points which occur at the same times as the
+				;    averaged magnetic field
+			endcase
 		endcase
-		b_avg[*,count]   = temporary(temp_mean)
-		b_stdev[*,count] = temporary(temp_sdev)
-		t_avg[count]     = long64(trange_avg[0] * 1d9) + t0
+		
+		;Record the averaged data
+		if n_beam1_avg gt 0 || n_beam2_avg gt 0 then begin
+			t_avg[count]     = long64(trange_avg[0] * 1d9) + t0
+			b_avg[*,count]   = temporary(temp_mean)
+			b_stdev[*,count] = temporary(temp_sdev)
+			recnum[count]    = count
+		endif
 
 	;-----------------------------------------------------
 	; Record B-Beam Relationship \\\\\\\\\\\\\\\\\\\\\\\\\
@@ -318,28 +334,30 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 		;Record the index of B associated with each beam in GD12.
 		if n_beam1_avg gt 0 then begin
 			;Store the associated B-field index
-			edi1_beam_inds[n_beam1_tot:n_beam1_tot+n_beam1_avg-1] = count
+			recnum_gd12[n_beam1_tot:n_beam1_tot+n_beam1_avg-1] = count
 			
 			;Keep the magnetic field value
-			b_beam1_docs[*, n_beam1_tot:n_beam1_tot+n_beam1_avg-1] = b_fg_beam1
+			b_gd12[*, n_beam1_tot:n_beam1_tot+n_beam1_avg-1] = b_fg_beam1
 		endif
 
 		;Record the index of B associated with each beam in GD21.
 		if n_beam2_avg gt 0 then begin
 			;Store the associated B-field index
-			edi2_beam_inds[n_beam2_tot:n_beam2_tot+n_beam2_avg-1] = count
-			
+			recnum_gd21[n_beam2_tot:n_beam2_tot+n_beam2_avg-1] = count
+
 			;Keep the magnetic field value
-			b_beam2_docs[*, n_beam2_tot:n_beam2_tot+n_beam2_avg-1] = b_fg_beam2
+			b_gd21[*, n_beam2_tot:n_beam2_tot+n_beam2_avg-1] = b_fg_beam2
 		endif
 
 	;-----------------------------------------------------
 	; Next Iteration \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;Next sample
-		count       += 1L
+		;Next average value
+		if n_beam1_avg gt 0 || n_beam2_avg gt 0 then count += 1L
+	
+		;Total number of points
 		n_beam1_tot += n_beam1_avg
-		n_beam2_tot += n_beam1_avg
+		n_beam2_tot += n_beam2_avg
 
 		;Move to next interval
 		trange_avg    += dt
@@ -349,15 +367,19 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 ;-----------------------------------------------------
 ; Prepare Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	if n_beam1_tot ne n_beam1 then message, 'Did not find all beam1 data. Check for duplicate timestamps.', /INFORMATIONAL
+	if n_beam2_tot ne n_beam2 then message, 'Did not find all beam2 data. Check for duplicate timestamps.', /INFORMATIONAL
+stop
 	;Trim data
-	avg = { t_avg:     t_avg[0:count-1], $
-	        b_avg:     b_avg[*, 0:count-1], $
-	        b_std:     b_stdev[*, 0:count-1], $
-	        t_err:     [0.0, dt], $
-	        b_gd12:    b_beam1_docs, $
-	        b_gd21:    b_beam2_docs, $
-	        inds_gd12: edi1_beam_inds, $
-	        inds_gd21: edi2_beam_inds $
+	avg = { t_avg:       t_avg[0:count-1], $
+	        b_avg:       b_avg[*, 0:count-1], $
+	        b_std:       b_stdev[*, 0:count-1], $
+	        t_err:       [0.0, dt], $
+	        b_gd12:      b_gd12, $
+	        b_gd21:      b_gd21, $
+	        recnum:      recnum[0:count-1], $
+	        recnum_gd12: recnum_gd12, $
+	        recnum_gd21: recnum_gd21 $
 	      }
 
 	return, avg

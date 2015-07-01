@@ -35,46 +35,42 @@
 ;+
 ;   Calculate the beam width in the plane perpendicular to the magnetic field.
 ;
-;   Method:                    y    /
-;                              |   / (x,y)
-;                    __________|__*_______                 ___
-;                  /           | / alpha   \                b
-;           -----(-------------|-------------)------ x     ___
-;                  \ _________/|__________ /
-;                            / |
-;                   b_perp  /  |
-;                          /   |------ a  ---|
-;
+;   Method:
 ;
 ;       We start by finding the semi-major and -minor axes of the uncertainty ellipse.
-;       These are the phi-hat and theta-hat spherical coordinate system axes at the
+;       These are the theta-hat and phi-hat spherical coordinate system axes at the
 ;       location of the beam, with r-hat being in the direction of the beam.
 ;
+;                  | -sin(phi) |                | cos(theta) cos(phi) |
+;          e_phi = |  cos(phi) |      e_theta = | cos(theta) sin(phi) |
+;                  |     0     |                |     -sin(theta)     |
+;
 ;       Next, we find the B-perp direction by crossing the firing vector with the
-;       magnetic field vector::
+;       magnetic field vector (assume B points into Quadrant II and the beam is
+;       fired perpendicular to e_phi and e_theta -- the beam cross-section)::
 ;
 ;             B_perp = v x B
 ;
 ;       Finally, we find the beam uncertainty in BPP using the equation of an ellipse and
 ;       that of distance::
 ;
-;             x^2 / a^2  +  y^2 / b^2 = 1
+;             x^2 / dPhi^2  +  y^2 / dTheta^2 = 1
 ;             d = sqrt( x^2 + y^2 )
 ;
-;       where a and b are the lengths of the semi-major and semi-minor axes, and
+;       where dPhi and dTheta are the lengths of the semi-major and semi-minor axes, and
 ;       (x,y) is the location at which B_perp intersects the edge of the ellipse.
-;       Solving the first equation for x^2, we get
+;       Solving the first equation for y^2, we get
 ;
-;             x^2 = ( 1/a^2 + tan(alpha)^2/b^2 )^-1
+;             y^2 = ( tan(alpha)/dPhi^2 + 1/dTheta^2 )^-1
 ;
 ;       where tan(alpha) = y / x, and alpha is the angle from the semi-major axes
-;       to B_perp. Then, we not that the beam width, sigma = 2*d, factor out an x^2,
+;       to B_perp. Then, we note that the beam width, width = 2*d, factor out an y^2,
 ;       and make substitutions
 ;
-;            sigma = 2 * x^2 * sqrt( 1 + y^2 / x^2 )
-;            sigma = 2 * x^2 * sqrt( 1 + tan(alpha)^2 )
-;            sigma = 2*sqrt( (1+tan(alpha)^2) / $
-;                            ( (1/a^2) + (tan(alpha)^2/b^2) ) )
+;            width = 2 * y^2 * sqrt( 1 + x^2 / y^2 )
+;            width = 2 * y^2 * sqrt( 1 + tan(alpha)^2 )
+;            width = 2*sqrt( (1+tan(alpha)^2) / $
+;                            ( (1/dTheta^2) + (tan(alpha)^2/dPhi^2) ) )
 ;
 ; :Categories:
 ;   MMS, EDI, Bestarg
@@ -86,15 +82,18 @@
 ;                       Three-component magnetic field.
 ;
 ; :Keywords:
-;       DPHI:           in, optional, type=float
+;       ALPHA:          out, optional, type=float
+;                       Angle between the B-perp vector and the semi-major axis of
+;                           the firing ellipse.
+;       SEMI_MIN:       in, optional, type=float
 ;                       Length of the minor axis of the uncertainty ellipse. This is the
 ;                           beam spread along the polar firing direction.
-;       DTHETA:         in, optional, type=float, default=varies linearly from 0.2 - 2
+;       SEMI_MAJ:       in, optional, type=float, default=varies linearly from 0.2 - 2
 ;                       Length of the major axis of the uncertainty ellipse. This is the
 ;                           beam spread along the azimuthal firing direction.
 ;
 ; :Returns:
-;       EDI:            Structure of EDI data. Fields are below. If zero beams are
+;       WIDTH:          Width of the beam in plane perpendicular to B.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -109,6 +108,7 @@
 ;       2015/05/08  -   Written by Matthew Argall
 ;-
 function mms_edi_beam_width, fv, b, $
+ALPHA=alpha, $
 DPHI=dPhi, $
 DTHETA=dTheta
 	compile_opt idl2
@@ -163,7 +163,7 @@ DTHETA=dTheta
 
 	;Direction perpendicular to both B and the firing vector.
 	e_perp = MrVector_Cross(fv, b)
-	e_perp = MrVector_Normalize(ep)
+	e_perp = MrVector_Normalize(e_perp)
 
 	;e_theta is a unit vector pointing in the polar direction along the
 	;spherical surface connecting z-hat with the firing vector.
@@ -176,8 +176,8 @@ DTHETA=dTheta
 	alpha = acos( MrVector_Dot(e_theta, e_perp) )
 
 	;Beam uncertainty width in BPP
-	sigma = 2.0 * sqrt( ( 1 + tan(alpha)^2 ) / $
+	width = 2.0 * sqrt( ( 1 + tan(alpha)^2 ) / $
 	                    ( (1 / semi_maj^2) + ( tan(alpha)^2 / semi_min^2 ) ) )
 
-	return, sigma
+	return, width
 end

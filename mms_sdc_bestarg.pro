@@ -60,11 +60,13 @@ function mms_sdc_bestarg
 ;MMS2: May 9, 2015  16:08 - 16:13
 ;MMS4: May 6, 2015  15:30 - 15:35
 
-	sc       = 'mms2'
-	tstart   = '2015-05-09T16:08:00Z'
-	tend     = '2015-05-09T16:13:00Z'
-	sdc_root = '/nfs/mmsa/sdc/'
-	quality  = 3
+	sc           = 'mms2'
+	tstart       = '2015-05-09T16:08:00Z'
+	tend         = '2015-05-09T16:13:00Z'
+	sdc_root     = '/nfs/'
+	hk_root      = '/nfs/hk/'
+	attitude_dir = '/nfs/ancillary/' + sc + '/defatt/'
+	quality      = 3
 
 ;-----------------------------------------------------
 ; Find Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -92,6 +94,33 @@ function mms_sdc_bestarg
 	                            TEND      = tend)
 	if count eq 0 then message, 'DFG Quick-Look (QL) files not found: "' + searchstr + '".'
 
+	;DSS
+	instr   = 'fields'
+	mode    = 'hk'
+	level   = 'l1b'
+	optdesc = '101'
+	dss_files = mms_find_file(sc, instr, mode, level, $
+	                          COUNT     = count, $
+	                          OPTDESC   = optdesc, $
+	                          SDC_ROOT  = hk_root, $
+	                          SEARCHSTR = searchstr, $
+	                          TSTART    = tstart, $
+	                          TEND      = tend)
+	if count eq 0 then message, 'DSS HK files not found: "' + searchstr + '".'
+
+	; Attitude file
+	;   - Do not throw errors for attitude files. They are used only
+	;     to rotate from BCS to SMPA, which is very nearly a unitary
+	;     transformation.
+	;   - Sunpulse times are used to despin data.
+	str = filepath( ROOT_DIR=attitude_dir, strupcase(sc) + '_DEFATT_%Y%D_%Y%D.V*' )
+	att_file = MrFile_Search( str, /CLOSEST, $
+	                          COUNT     = count, $
+	                          TSTART    = tstart, $
+	                          TEND      = tend, $
+	                          TIMEORDER = '%Y%D', $
+	                          VREGEX    = 'V([0-9]{2})' )
+
 	;EDI EFIELD
 	instr   = 'edi'
 	mode    = 'slow'
@@ -109,9 +138,10 @@ function mms_sdc_bestarg
 ;-----------------------------------------------------
 ; Call Bestarg \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	result = mms_edi_bestarg(edi_files, fg_l1b_files, fg_ql_files, $
-	                         TSTART = tstart, $
-	                         TEND   = tend)
+	result = mms_edi_bestarg(edi_files, fg_l1b_files, fg_ql_files, dss_files, $
+	                         QUALITY = quality, $
+	                         TSTART  = tstart, $
+	                         TEND    = tend)
 	
 	return, result
 end

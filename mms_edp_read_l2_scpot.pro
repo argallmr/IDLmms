@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_dss_read_sunpulse
+;       mms_edp_read_l2_scpot
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,33 +33,27 @@
 ;
 ; PURPOSE:
 ;+
-;   Read DSS housekeeping files (HK 0x101)
+;   Read EDP level 2 spacecraft potential data.
 ;
 ; :Categories:
-;   MMS, DSS
+;   MMS, EDP
 ;
 ; :Params:
-;       FILENAMES:          in, required, type=string
-;                           Name(s) of the sunpulse data files to read.
+;       FILES:          in, required, type=string/strarr
+;                       Name of the EDI e-field mode file or files to be read.
 ;
 ; :Keywords:
-;       UNIQ_PACKETS:       out, optional, type=struct, default=false
-;                           Select only the unique packets.
-;       UNIQ_PULSE:         out, optional, type=struct, default=false
-;                           Select only uniq sunpulse information. Setting this keyword
-;                               automatically sets `UNIQ_PACKETS` to true.
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
-;       HK_STRUCT:       Structure of sun pulse information. Tags are::
-;                           'hk_epoch' - TT2000 epoch times of each packet
-;                           'sunpulse' - TT2000 epoch times of each sun pulse
-;                           'flag'     - Period flags
-;                                          0: s/c sun pulse
-;                                          1: s/c pseudo sun pulse
-;                                          2: s/c CIDP generated speudo sun pulse
-;                           'period'   - Period (micro-sec) of revolution. Only
-;                                        returned when FLAG=0 and only on the second and
-;                                        subsequent received sun pulses from the s/c.
+;       EDI:            Structure of EDI data. Fields are below.
+;                             'TT2000'  -  TT2000 times
+;                             'SCPOT'   -  Spacecraft potential
+;                             'QUALITY' -  Quality flag.
+;
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -71,41 +65,42 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/02/15  -   Written by Matthew Argall
-;       2015/05/28  -   Take file names as input instead of searching for files. - MRA
+;       2015/06/25  -   Written by Matthew Argall
 ;-
-function mms_dss_read_sunpulse, filenames, $
-UNIQ_PACKETS=uniq_packets, $
-UNIQ_PULSE=uniq_pulse, $
+function mms_edp_read_l2_scpot, files, $
 TSTART=tstart, $
 TEND=tend
 	compile_opt idl2
-	on_error, 2
-
-	uniq_pulse   = keyword_set(uniq_pulse)
-	uniq_packets = keyword_set(uniq_packets) || uniq_pulse
-
+	
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if n_elements(cdfIDs) gt 0 then $
+			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
+		void = cgErrorMSG(/QUIET)
+		return, !Null
+	endif
+	
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Number of files given
-	nFiles = n_elements(filenames)
+	nFiles = n_elements(files)
 
 	;Dissect the file name
-	mms_dissect_filename, filenames, $
+	mms_dissect_filename, files, $
 	                      INSTR   = instr, $
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
 	                      SC      = sc
 	
-	;Do files exist?
-	if min(file_test(filenames, /READ)) eq 0 then message, 'Files must exist and be readable.'
-	
-	;Level, Mode
-	if min(instr eq 'fields') eq 0 then message, 'Only "fields" files are allowed.'
-	if min(mode  eq 'hk')     eq 0 then message, 'All files must be housekeeping (HK) files.'
-	if min(level eq 'l1b')    eq 0 then message, 'Only L1B files are allowed.'
+	;Ensure L1A EDI files were given
+	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
+	if min(instr   eq 'edp')   eq 0 then message, 'Only ED[ files are allowed.'
+	if min(level   eq 'l2')    eq 0 then message, 'Only L2 files are allowed.'
+	if min(optdesc eq 'scpot') eq 0 then message, 'Only spacecraft potential files are allowed.'
+	if min(mode    eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -114,52 +109,46 @@ TEND=tend
 		mode    = mode[0]
 		level   = level[0]
 		optdesc = optdesc[0]
-	endif
+	end
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-
-	;Create the variable names
-	sunpulse_name = mms_construct_varname(sc, '101', 'sunpulse')
-	flag_name     = mms_construct_varname(sc, '101', 'sunssps')
-	period_name   = mms_construct_varname(sc, '101', 'iifsunper')
-
-;-----------------------------------------------------
-; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-
-	;Read the data
-	sunpulse = MrCDF_nRead(filenames, sunpulse_name, $
-	                       DEPEND_0 = hk_epoch, $
-	                       TSTART   = tstart, $
-	                       TEND     = tend)
-	period = MrCDF_nRead(filenames, period_name, TSTART=tstart, TEND=tend)
-	flag   = MrCDF_nRead(filenames, flag_name,   TSTART=tstart, TEND=tend)
-
-;-----------------------------------------------------
-; Unique Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	if uniq_packets then begin
-		iUniq    = MrUniq(hk_epoch, /SORT)
-		hk_epoch = hk_epoch[iUniq]
-		sunpulse = sunpulse[iUniq]
-		period   = period[iUniq]
-		flag     = flag[iUniq]
-	endif
 	
-	if uniq_pulse then begin
-		iUniq    = MrUniq(sunpulse, /SORT)
-		sunpulse = sunpulse[iUniq]
-		period   = period[iUniq]
-		flag     = flag[iUniq]
-	endif
+	;Variable names for GDU1
+	scpot_vname = mms_construct_varname(sc, instr, 'scpot')
+	q_vname     = mms_construct_varname(sc, instr, optdesc, 'quality')
 
-	;Return a structure
-	hk_struct = { epoch:    hk_epoch, $
-	              sunpulse: sunpulse, $
-	              flag:     flag, $
-	              period:   period }
+;-----------------------------------------------------
+; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
-	return, hk_struct
+	;Open the files
+	cdfIDs = lonarr(nFiles)
+	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
+
+	;Read the data for GD12
+	scpot = MrCDF_nRead(cdfIDs, scpot_vname, $
+	                    DEPEND_0 = epoch, $
+	                    TSTART   = tstart, $
+	                    TEND     = tend)
+	quality = MrCDF_nRead(cdfIDs, q_vname,  TSTART=tstart, TEND=tend)
+	
+	;Close the files
+	for i = 0, nFiles - 1 do begin
+		cdf_close, cdfIDs[i]
+		cdfIDs[i] = 0L
+	endfor
+
+;-----------------------------------------------------
+; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;All data
+	edp_l2_scpot = { tt2000:  epoch, $
+	                 scpot:   scpot, $
+	                 quality: quality $
+	               }
+	
+	;Return the data
+	return, edp_l2_scpot
 end

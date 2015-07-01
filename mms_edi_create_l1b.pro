@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_read_efieldmode
+;       mms_edi_create_l1b
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,8 +33,8 @@
 ;
 ; PURPOSE:
 ;+
-;   Read EDI electric field mode data and transform it into the body coordinate
-;   system (BCS).
+;   Read EDI electric field mode level 1A data and turn it into level 1B data. L1B
+;   implies calibrated data in the spinning, spacecraft body coordinate system (BCS).
 ;
 ; :Categories:
 ;   MMS, EDI
@@ -78,8 +78,9 @@
 ;       2015/05/01  -   Written by Matthew Argall
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
+;       2015/06/22  -   Renamed from mms_edi_bcs to mms_edi_create_l1b. - MRA
 ;-
-function mms_edi_bcs, files, $
+function mms_edi_create_l1b, files, $
 CS_EDI=cs_edi, $
 CS_BCS=cs_bcs, $
 QUALITY=quality, $

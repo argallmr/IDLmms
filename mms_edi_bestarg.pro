@@ -53,11 +53,12 @@
 ;   Modification History::
 ;       2015/05/05  -   Written by Matthew Argall
 ;-
-function mms_edi_bestarg, edi_files, fg_l1b_files, fg_ql_files, $
+function mms_edi_bestarg, edi_files, fg_l1b_files, fg_ql_files, dss_files, $
+QUALITY=quality, $
 TSTART=tstart, $
 TEND=tend
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 
 ;-----------------------------------------------------
 ; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -67,11 +68,17 @@ TEND=tend
 	fg_l1b = mms_fg_read_l1b(fg_l1b_files, TSTART=tstart, TEND=tend)
 	fg_ql  = mms_fg_read_ql(fg_ql_files,   TSTART=tstart, TEND=tend)
 
+	;DSS data
+	dss_l1b = mms_dss_read_sunpulse(dss_files, /UNIQ_PULSE, $
+	                                TSTART = tstart, $
+	                                TEND   = tend)
+
 	;Get EDI data
-	edi = mms_edi_gse(sc, 'slow', tstart, tend, /DMPA, /EDI, $
-	                  DIRECTORY    = edi_dir, $
-	                  QUALITY      = quality, $
-	                  SUNPULSE_DIR = sunpulse_dir)
+	edi = mms_edi_create_l2(edi_files, /CS_DMPA, /CS_EDI, $
+	                        QUALITY  = quality, $
+	                        SUNPULSE = dss_l1b, $
+	                        TSTART   = tstart, $
+	                        TEND     = tend)
 
 ;-----------------------------------------------------
 ; Beam Widths \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -79,6 +86,7 @@ TEND=tend
 
 	;Interpolate the magnetic field in BCS onto beam times
 	;   - There will be a 1-to-1 correspondence between field and beams
+stop
 	avg = mms_edi_bavg(fg_l1b.epoch, fg_l1b.b_bcs, edi.epoch_gd12, edi.epoch_gd21)
 
 	;Rotate the firing vectors and magnetic field into the EDI CS
@@ -91,8 +99,8 @@ TEND=tend
 	avg    = !Null
 	
 	;Beam widths
-	beam_width_gd12 = mms_edi_beam_width(edi.fv_gd12, b_edi1, ALPHA=beam_alpha_gd12)
-	beam_width_gd21 = mms_edi_beam_width(edi.fv_gd21, b_edi2, ALPHA=beam_alpha_gd21)
+	beam_width_gd12 = mms_edi_beam_width(edi.fv_gd12_123, b_edi1, ALPHA=beam_alpha_gd12)
+	beam_width_gd21 = mms_edi_beam_width(edi.fv_gd21_123, b_edi2, ALPHA=beam_alpha_gd21)
 	
 	;Clear the data
 	fg_l1b = !Null
@@ -105,24 +113,23 @@ TEND=tend
 	;   - Interpolate the field onto beam times.
 	;   - Average over 5-second intervals.
 	;   - Keep track of which beams are associated with each averaged field.
-	avg = mms_edi_bavg(fg_ql.epoch, fg_ql.b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
+	avg = mms_edi_bavg(fg_ql.tt2000, fg_ql.b_dmpa, edi.epoch_gd12, edi.epoch_gd21)
 
 	;Look at each averaging interval
 	navg = n_elements(avg.t_avg)
 
 	;Figure out which beams correspond to which average value
-	hist1 = histogram(avg.inds_gd12, MIN=0, MAX=navg-1, BINSIZE=1, REVERSE_INDICES=ri1)
-	hist2 = histogram(avg.inds_gd21, MIN=0, MAX=navg-1, BINSIZE=1, REVERSE_INDICES=ri2)
+	hist1 = histogram(avg.recnum_gd12, MIN=0, MAX=navg-1, BINSIZE=1, REVERSE_INDICES=ri1)
+	hist2 = histogram(avg.recnum_gd21, MIN=0, MAX=navg-1, BINSIZE=1, REVERSE_INDICES=ri2)
 
 ;-----------------------------------------------------
 ; Draw Each Bavg Interval \\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-
 	;Step through each averaging interval
 	for i = 0, navg - 2 do begin
 		;Number of beams used to compute B_avg
-		n1 = ri1[ri1[i+1]] - ri1[ri1[i]]
-		n2 = ri2[ri2[i+1]] - ri2[ri1[i]]
+		n1 = ri1[i+1] - ri1[i]
+		n2 = ri2[i+1] - ri2[i]
 		
 		;If no beams, continue to next time interval.
 		if n1 eq 0 && n2 eq 0 then continue
@@ -137,7 +144,7 @@ TEND=tend
 	;-----------------------------------------------------
 		nBeams         = n1 + n2
 		beam_time      = lon64arr(nBeams)     ; Epoch time of beam
-		beam_b         = fltarr(nBeams)       ; Magnetic field vector associated with beam
+		beam_b         = fltarr(3,nBeams)     ; Magnetic field vector associated with beam
 		beam_gunid     = bytarr(nBeams)       ; Gun Number {1 | 2}
 		beam_xg        = fltarr(nBeams)       ; X-coordinate of gun in BPP
 		beam_yg        = fltarr(nBeams)       ; Y-Coordinate of gun in BPP
@@ -174,7 +181,7 @@ TEND=tend
 		if n1 gt 0 then begin
 			;Get the beam indices
 			inds1 = ri1[ri1[i]:ri1[i+1]-1]
-			
+
 			;Extract data
 			beam_time[0:n1-1]    = edi.epoch_gd12[inds1]
 			beam_b[*,0:n1-1]     = avg.b_gd12[*,inds1]
@@ -191,22 +198,22 @@ TEND=tend
 			num_chips[0:n1-1]    = edi.num_chips_gd12[inds1]
 			beam_tchip[0:n1-1]   = edi.chip_width_gd12[inds1]
 			beam_tcode[0:n1-1]   = edi.code_length_gd12[inds1]
-			erg[0:n1-1]          = edi_energy_gd12[inds1]
+			erg[0:n1-1]          = edi.energy_gd12[inds1]
 			rmax[0:n1-1]         = 15.0
 			flip[0:n1-1]         = 0B
 			poc[0:n1-1]          = 2B
-			
+
 			;Translate back to raw code type
-			beam_code_type[0:n1-1] = 0S * (num_chips eq  255S) + $
-			                              (num_chips eq  511S) + $
-			                         3S * (num_chips eq 1023S)
-			
+			beam_code_type[0:n1-1] = 0S * (num_chips[0:n1-1] eq  255S) + $
+			                              (num_chips[0:n1-1] eq  511S) + $
+			                         3S * (num_chips[0:n1-1] eq 1023S)
+
 			;Transformation to BPP
-			xyz2bpp = mms_edi_xxyz2bpp(b_gd12)
+			xyz2bpp = mms_edi_xxyz2bpp(avg.b_gd12[*,inds1])
 			
 			;Rotate to BPP
-			fv_gd12_bpp  = MrVector_Rotate(xyz2bpp, fv_gd12)
-			gun1_pos_bpp = MrVector_Rotate(xyz2bpp, gun1_pos_bpp)
+			fv_gd12_bpp  = MrVector_Rotate(xyz2bpp, edi.fv_gd12_dmpa[*,inds1])
+			gun1_pos_bpp = MrVector_Rotate(xyz2bpp, edi.gun_gd12_dmpa[*,inds1])
 		endif
 		
 	;-----------------------------------------------------
@@ -232,22 +239,22 @@ TEND=tend
 			num_chips[n1:n2-1]      = edi.num_chips_gd21[inds2]
 			beam_tchip[n1:n2-1]     = edi.chip_width_gd21[inds2]
 			beam_tcode[n1:n2-1]     = edi.code_length_gd21[inds2]
-			erg[n1:n2-1]            = edi_energy_gd21[inds2]
+			erg[n1:n2-1]            = edi.energy_gd21[inds2]
 			rmax[n1:n2-1]           = 15.0
 			flip[n1:n2-1]           = 0B
 			poc[n1:n2-1]            = 2B
 			
 			;Translate back to raw code type
-			beam_code_type[n1:n2-1] = 0S * (num_chips eq  255S) + $
-			                               (num_chips eq  511S) + $
-			                          3S * (num_chips eq 1023S)
+			beam_code_type[n1:n2-1] = 0S * (num_chips[n1:n2-1] eq  255S) + $
+			                               (num_chips[n1:n2-1] eq  511S) + $
+			                          3S * (num_chips[n1:n2-1] eq 1023S)
 			
 			;Transformation to BPP
-			xyz2bpp = mms_edi_xxyz2bpp(b_gd21)
+			xyz2bpp = mms_edi_xxyz2bpp(avg.b_gd21[*,inds2])
 			
 			;Rotate to BPP
-			fv_gd21_bpp  = MrVector_Rotate(xyz2bpp, fv_gd21)
-			gun2_pos_bpp = MrVector_Rotate(xyz2bpp, gun2_pos_bpp)
+			fv_gd21_bpp  = MrVector_Rotate(xyz2bpp, edi.fv_gd21_dmpa)
+			gun2_pos_bpp = MrVector_Rotate(xyz2bpp, edi.gun_gd21_dmpa)
 		endif
 		
 	;-----------------------------------------------------

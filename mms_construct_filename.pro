@@ -131,7 +131,7 @@ VERSION=version
 			'2':    _sc = 'mms2'
 			'3':    _sc = 'mms3'
 			'4':    _sc = 'mms4'
-			else: message, 'SC ("' + sc + '") must be {mms1 | mms2 | mms3 | mms4}.'
+			else: ;Assume the user knew what they were doing.
 		endcase
 	endif else begin
 		case sc of
@@ -139,7 +139,7 @@ VERSION=version
 			2: _sc = 'mms2'
 			3: _sc = 'mms3'
 			4: _sc = 'mms4'
-			else: message, 'SC ("' + strtrim(sc, 2) + '") must be {1 | 2 | 3 | 4}.'
+			else: ;Assume the user knew what they were doing.
 		endcase
 	endelse
 	

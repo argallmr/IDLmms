@@ -1,10 +1,10 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_xxyz2bpp
+;    mms_sdc_ql_BEfields
 ;
 ;*****************************************************************************************
-;   Copyright (c) 2015, University of New Hampshire                                      ;
+;   Copyright (c) 2014, Matthew Argall                                                   ;
 ;   All rights reserved.                                                                 ;
 ;                                                                                        ;
 ;   Redistribution and use in source and binary forms, with or without modification,     ;
@@ -16,7 +16,7 @@
 ;         this list of conditions and the following disclaimer in the documentation      ;
 ;         and/or other materials provided with the distribution.                         ;
 ;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may  be used to endorse or promote products derived from this     ;
+;         contributors may be used to endorse or promote products derived from this      ;
 ;         software without specific prior written permission.                            ;
 ;                                                                                        ;
 ;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
@@ -33,61 +33,44 @@
 ;
 ; PURPOSE:
 ;+
-;   Using the magnetic field, create a transformation matrix that transforms from
-;   the measurement coordinate system into one in which B is along the z-axis. The
-;   transformation is built as
-;       Z' = B / |B|       (negated if B[2] < 0)
-;       X' = Y x Z'
-;       Y' = Z' x X'
+;   Create a quick-look plot of the magnetic and electric fields.
 ;
 ; :Categories:
-;   MMS, EDI, Bestarg
+;    MMS, QL
 ;
 ; :Params:
-;       B:              in, required, type=3xN float
-;                       Vector magnetic field
 ;
-; :Returns:
-;       XYZ2BPP:        Transformation matrix from XYZ to BPP
+; :Keywords:
 ;
 ; :Author:
-;   Matthew Argall::
-;       University of New Hampshire
-;       Morse Hall, Room 348
-;       8 College Rd.
-;       Durham, NH, 03824
-;       matthew.argall@unh.edu
+;    Matthew Argall::
+;    University of New Hampshire
+;    Morse Hall Room 348
+;    8 College Road
+;    Durham, NH 03824
+;    matthew.argall@unh.edu
 ;
 ; :History:
-;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
-;       2015/06/22  -   Concatenate unit vectors into matrix correctly. - MRA
+;    Modification History::
+;       2015/03/15  -   Written by Matthew Argall
 ;-
-function mms_edi_xxyz2bpp, b
-	compile_opt idl2
+pro mms_sdc_ql_BEfields_script
+	compile_opt strictarr
 	on_error, 2
 	
-	;Make sure B is 3-element vector or 3xN
-	sz = size(b)
-	n  = sz[2]
-	if (sz[sz[0]+2] ne 3) && (sz[0] ne 2 || sz[1] ne 3) then message, 'B must be 3xN.'
+	sc       = ['mms1', 'mms2', 'mms3', 'mms4']
+	save_dir = '/home/argall/mms_figures/'
 	
-	;Normalize b to get the z-axis
-	z_bpp = mrvector_normalize(b)
-
-	;Make sure Z_BPP points toward +Z
-	idown = where(z_bpp[2,*] lt 0, ndown)
-	if ndown gt 0 then z_bpp[*,idown] = -z_bpp[*,idown]
+	;Single day intervals
+	days   = indgen(30) + 1
+	tstart = '2015-04-' + string(days, FORMAT='(i02)') + 'T00:00:00Z'
+	tend   = '2015-04-' + string(days, FORMAT='(i02)') + 'T24:00:00Z'
 	
-	;Create X
-	x_bpp = mrvector_cross([0, 1, 0], z_bpp)
-	x_bpp = mrvector_normalize(x_bpp)
-	
-	;Create Y
-	y_bpp = mrvector_cross(z_bpp, x_bpp)
-	
-	;Create Ouput matrix
-	return, [[reform(x_bpp, 3, 1, n)], $
-	         [reform(y_bpp, 3, 1, n)], $
-	         [reform(z_bpp, 3, 1, n)]]
+	;Loop through each day
+	for j = 2, 3 do begin
+		for i = 0, n_elements(tstart) - 1 do begin
+			win = mms_sdc_ql_BEfields(sc[j], tstart[i], tend[i], SAVE_DIR=save_dir)
+			obj_destroy, win
+		endfor
+	endfor
 end

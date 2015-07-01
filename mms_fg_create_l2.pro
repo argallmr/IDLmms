@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_dss_read_sunpulse
+;       mms_fg_create_l2
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,7 +33,9 @@
 ;
 ; PURPOSE:
 ;+
-;   Read fluxgate calibration files.
+;   Read AFG and DFG level 1A data and turn it into level 2 data.
+;   L2 implies calibrated data in despun spacecraft reference frame (no VxB removal)
+;   and in the GSE coordinate system.
 ;
 ; :Categories:
 ;   MMS, DFG, AFG
@@ -41,31 +43,38 @@
 ; :Params:
 ;       FILES:          in, required, type=string/strarr
 ;                       Name(s) of the AFG or DFG L1A file(s) to read.
+;       HICAL_FILES:    in, required, type=string/strarr
+;                       Name(s) of the AFG or DFG hi-range calibration file(s) to read.
+;       LOCAL_FILES:    in, required, type=string/strarr
+;                       Name(s) of the AFG or DFG lo-range calibration file(s) to read.
 ;
 ; :Keywords:
-;       BCS:            out, optional, type=boolean, default=1
-;                       If set, data in BCS will be included in `FG_BCS`.
-;       CAL_DIR:        in, optional, type=string, default=pwd
-;                       Directory in which to find fluxgate calibration files.
-;       OMB:            out, optional, type=boolean, default=0
-;                       If set, data in OMB will be included in `FG_BCS`.
-;       SENSOR:         out, optional, type=boolean, default=0
-;                       If set, data in sensor 123 will be included in `FG_BCS`.
-;       SMPA:           out, optional, type=boolean, default=0
-;                       If set, data in SMPA will be included in `FG_BCS`.
+;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find FDOA definitive attitude data.
+;       DMPA:           in, optional, type=boolean, default=0
+;                       If set, data in DMPA will be included in `FG_GSE`
+;       GSE:            in, optional, type=boolean, default=1
+;                       If set, data in GSE will be included in `FG_GSE`
+;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
+;                       Directory in which to find HK 0X101 sunpulse data.
 ;       TSTART:         in, optional, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, optional, type=string
 ;                       End time of the data interval to read, as an ISO-8601 string.
+;       _REF_EXTRA:     in, optional, type=string, default=pwd
+;                       Any keyword accepted by mms_fg_bcs is also accepted via keyword
+;                           inheritance.
 ;
 ; :Returns:
-;       FG_BCS:         Fluxgate magnetic field data structure. Fields include::
+;       FG_GSE:         Fluxgate magnetic field data structure. Possible fields include::
 ;                           'epoch'        - TT2000 epoch times for 'b_123'
 ;                           'epoch_stat'   - TT2000 epoch times for 'range' and 'sample_rate'
 ;                           'b_123'        - 4xN (Bx, By, Bz, |B|) in 123 coordinates
 ;                           'b_omb'        - 4xN (Bx, By, Bz, |B|) in OMB coordinates
 ;                           'b_smpa'       - 4xN (Bx, By, Bz, |B|) in SMPA coordinates
 ;                           'b_bcs'        - 4xN (Bx, By, Bz, |B|) in BCS coordinates
+;                           'b_dmpa'       - 4xN (Bx, By, Bz, |B|) in DMPA coordinates
+;                           'b_gse'        - 4xN (Bx, By, Bz, |B|) in GSE coordinates
 ;                           'range'        - Instrument range flag (1=hi, 0=lo)
 ;                           'sample_rate'  - sampling rate
 ;
@@ -79,78 +88,83 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
+;       2015/05/04  -   Written by Matthew Argall
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
+;       2015/06/22  -   renamed from mms_fg_gse to mms_fg_create_l2. - MRA
 ;-
-function mms_fg_bcs, files, hiCal_file, loCal_file, $
-CS_BCS=cs_bcs, $
-CS_OMB=cs_omb, $
-CS_SENSOR=cs_sensor, $
+function mms_fg_create_l2, files, hiCal_file, loCal_file, tstart, tend, $
+ATTITUDE=attitude, $
 CS_SMPA=cs_smpa, $
-TSTART=tstart, $
-TEND=tend
+CS_DMPA=cs_dmpa, $
+CS_GSE=cs_gse, $
+SUNPULSE=sunpulse, $
+_REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2
-
-	;Default directories
-	cs_bcs    = n_elements(cs_bcs) eq 0 ? 0 : keyword_set(cs_bcs)
-	cs_sensor = keyword_set(cs_sensor)
-	cs_smpa   = keyword_set(cs_smpa)
-	cs_omb    = keyword_set(cs_omb)
-	if n_elements(data_dir) eq 0 then cd, CURRENT=data_dir
-	if n_elements(cal_dir)  eq 0 then cal_dir = data_dir
-
-	if cs_bcs + cs_smpa + cs_omb eq 0 then cs_bcs = 1
-
-;-------------------------------------------------------
-; Read Calibration and Mag Data ////////////////////////
-;-------------------------------------------------------
-
-	;Calibrate hi-range
-	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend)
-	loCal = mms_fg_read_cal(loCal_file, tstart, tend)
-
-
-	;Read the data
-	fg_l1a = mms_fg_read_l1a(files, TSTART=tstart, TEND=tend)
-
-;-------------------------------------------------------
-; Calibrate Mag Data ///////////////////////////////////
-;-------------------------------------------------------
-	;Calibrate
-	b_omb = mms_fg_calibrate(fg_l1a.b_123, fg_l1a.epoch, fg_l1a.range, fg_l1a.epoch_stat, hiCal, loCal, MPA=mpa)
-
-;-------------------------------------------------------
-; OMB -> SMPA //////////////////////////////////////////
-;-------------------------------------------------------
-
-	;OMB -> SMPA
-	omb2smpa = mms_fg_xomb2smpa()
-	b_smpa   = MrVector_Rotate(omb2smpa, b_omb)
-
-;-------------------------------------------------------
-; SMPA -> BCS //////////////////////////////////////////
-;-------------------------------------------------------
-
-	;Build transformation from SMPA to BCS
-	smpa2bcs = mms_fg_xbcs2smpa(mpa, /INVERSE)
-
-	;Rotate to SMPA
-	b_bcs = MrVector_Rotate(smpa2bcs, b_smpa)
-
-;-------------------------------------------------------
-; Output Structure /////////////////////////////////////
-;-------------------------------------------------------
-	;Copy the l1a structure
-	fg_bcs = temporary(fg_l1a)
 	
-	;Add fields
-	fg_bcs = create_struct(fg_bcs, 'zmpa', mpa)
-	if ~cs_sensor then fg_bcs = remove_tags(fg_bcs, 'b_123')
-	if cs_bcs     then fg_bcs = create_struct(fg_bcs, 'b_bcs',  b_bcs)
-	if cs_omb     then fg_bcs = create_struct(fg_bcs, 'b_omb',  b_omb)
-	if cs_smpa    then fg_bcs = create_struct(fg_bcs, 'b_smpa', b_smpa)
+	;Defaults
+	cs_smpa = keyword_set(cs_smpa)
+	cs_dmpa = keyword_set(cs_dmpa)
+	cs_gse  = n_elements(cs_gse) eq 0 ? 0 : keyword_set(cs_gse)
+	
+;-----------------------------------------------------
+; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
-	return, fg_bcs
+	;Read data
+	fg_bcs = mms_fg_create_l1b(files, hiCal_file, loCal_file, /CS_SMPA, $
+	                           TSTART        = tstart, $
+	                           TEND          = tend, $
+	                           _STRICT_EXTRA = extra)
+
+;-----------------------------------------------------
+; Despin \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;
+	; Assume the principle axis of inertia (z-MPA)
+	; is the same as the angular momentum vector (L)
+	;
+
+	;Despin using definitive attitude
+	if n_elements(attitude) gt 0 then begin
+		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, fg_bcs.epoch, 'L')
+
+	;Despin using sun pulse times.
+	endif else if n_elements(sunpulse) gt 0 then begin
+		smpa2dmpa = mms_dss_xdespin( sunpulse, fg_bcs.epoch )
+	endif else begin
+		message, 'Either ATTITUDE or SUNPULSE must be given.'
+	endelse
+
+	;Transform
+	b_dmpa = mrvector_rotate( smpa2dmpa, fg_bcs.b_smpa )
+
+
+;-----------------------------------------------------
+; Rotate to GSE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	if n_elements(attitude) gt 0 then begin
+		message, 'Rotate to GSE not implemented yet.'
+		
+		;dmpa2gei
+		
+		;CXForm
+		b_gse = cxform(b_dmpa, 'GEI', 'GSE', sse)
+	endif else begin
+		message, 'No attitude data. Cannot rotate to GSE', /INFORMATIONAL
+		b_gse = !Null
+	endelse
+
+;-----------------------------------------------------
+; Return Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Copy the data structure
+	fg_gse = temporary(fg_bcs)
+	if ~cs_smpa then fg_gse = remove_tags(fg_gse, 'b_smpa')
+	if  cs_dmpa then fg_gse = create_struct(fg_gse, 'b_dmpa', b_dmpa)
+	if  cs_gse  then fg_gse = create_struct(fg_gse, 'b_gse',  b_gse)
+
+	return, fg_gse
 end

@@ -371,7 +371,7 @@ SUNPULSE=sunpulse
 			T2 = !values.f_nan
 		endif else begin
 			T2 = dPulse[idx+1]
-		endif
+		endelse
 		
 		;Determine the number of spins in the gap. Use the period
 		;before and after the gap. They should be the same.

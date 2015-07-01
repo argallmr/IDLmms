@@ -60,6 +60,7 @@
 ;                             'EPOCH_TIMETAGS' -  TT2000 times for PITCH_MODE and PACK_MODE
 ;                             'COUNTS_GDU1'    -  Electron counts from GDU1
 ;                             'ENERGY_GDU1'    -  Energy mode of GDU1
+;                                                   2:      500 eV
 ;                             'COUNTS_GDU2'    -  Electron counts from GDU2
 ;                             'ENERGY_GDU2'    -  Energy mode of GDU2
 ;                             'AZIMUTH'        -  Azimuthal look direction in GDU1 system
@@ -136,12 +137,10 @@ TEND=tend
 	
 	;Variable names for GDU1
 	counts1_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1')
-	counts2_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2')
 	energy_gdu1_name  = mms_construct_varname(sc, instr, optdesc, 'energy1')
 	
 	;Variable names for GDU2
 	counts1_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1')
-	counts2_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2')
 	energy_gdu2_name  = mms_construct_varname(sc, instr, optdesc, 'energy2')
 	
 	;Other variable names
@@ -159,26 +158,31 @@ TEND=tend
 	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
 
 	;Read the data for GD12
-	counts1_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
-	                           DEPEND_0 = epoch_gdu1, $
-	                           TSTART   = tstart, $
-	                           TEND     = tend)
-	counts2_gdu = MrCDF_nRead(cdfIDs, counts2_gdu1_name, TSTART=tstart, TEND=tend)
-	energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
-
-	;Read the data for GD21
-	counts1_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
-	                           DEPEND_0 = epoch_gdu2, $
-	                           TSTART   = tstart, $
-	                           TEND     = tend)
-	counts2_gdu2 = MrCDF_nRead(cdfIDs, counts2_gdu2_name, TSTART=tstart, TEND=tend)
-	energy_gdu2  = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
+	counts_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
+	                          DEPEND_0 = epoch_gdu1, $
+	                          STATUS   = status, $
+	                          TSTART   = tstart, $
+	                          TEND     = tend)
 	
-	;Read other data
-	phi        = MrCDF_nRead(cdfIDs, phi_name,   TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
-	theta      = MrCDF_nRead(cdfIDs, theta_name, TSTART=tstart, TEND=tend)
-	pitch_mode = MrCDF_nRead(cdfIDs, pitch_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
-	pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name, TSTART=tstart, TEND=tend)
+	;Read the rest of the variables?
+	if status eq 0 then begin
+		energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
+
+		;Read the data for GD21
+		counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
+		                          DEPEND_0 = epoch_gdu2, $
+		                          TSTART   = tstart, $
+		                          TEND     = tend)
+		energy_gdu2  = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
+		
+		;Read other data
+		phi        = MrCDF_nRead(cdfIDs, phi_name,   TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
+		theta      = MrCDF_nRead(cdfIDs, theta_name, TSTART=tstart, TEND=tend)
+		pitch_mode = MrCDF_nRead(cdfIDs, pitch_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
+		pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name, TSTART=tstart, TEND=tend)
+	endif else begin
+		message, /REISSUE_LAST
+	endelse
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
@@ -190,7 +194,8 @@ TEND=tend
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
-	edi_amb = { epoch:            epoch, $
+	edi_amb = { epoch_gdu1:       epoch_gdu1, $
+	            epoch_gdu2:       epoch_gdu2, $
 	            epoch_angle:      epoch_angle, $
 	            epoch_timetag:    epoch_timetag, $
 	            counts_gdu1:      counts_gdu1, $

@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_gse
+;       mms_edi_create_l2
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,8 +33,9 @@
 ;
 ; PURPOSE:
 ;+
-;   Read EDI electric field mode data and transform it into the body coordinate
-;   system (BCS).
+;   Read EDI electric field mode level 1A data and turn it into level 2 data.
+;   L2 implies calibrated data in despun spacecraft reference frame (no VxB removal)
+;   and in the GSE coordinate system.
 ;
 ; :Categories:
 ;   MMS, EDI
@@ -92,8 +93,9 @@
 ;       2015/05/01  -   Written by Matthew Argall
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
+;       2015/06/22  -   renamed from mms_edi_gse to mms_edi_create_l2. - MRA
 ;-
-function mms_edi_gse, filenames, $
+function mms_edi_create_l2, filenames, $
 ATTITUDE=attitude, $
 CS_GSE=cs_gse, $
 CS_BCS=cs_bcs, $
@@ -109,7 +111,7 @@ _REF_EXTRA=extra
 	;Defaults
 	cs_bcs  = keyword_set(cs_bcs)
 	cs_dmpa = keyword_set(cs_dmpa)
-	cs_gse  = n_elements(cs_gse) eq 0 ? 1 : keyword_set(cs_gse)
+	cs_gse  = keyword_set(cs_gse)
 	cs_smpa = keyword_set(cs_smpa)
 	
 	;Default to returning data in GSE
@@ -125,7 +127,7 @@ _REF_EXTRA=extra
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
 
 	;Read data
-	edi = mms_edi_bcs(filenames, /CS_BCS, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
+	edi = mms_edi_create_l1b(filenames, /CS_BCS, TSTART=tstart, TEND=tend, _STRICT_EXTRA=extra)
 
 ;-----------------------------------------------------
 ; Rotate to SMPA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -225,17 +227,17 @@ _REF_EXTRA=extra
 	if cs_smpa then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
-				                'fv_gd12_smpa', fv_gd12_smpa, $
-				                'gun_gd12_smpa', gun_gd12_smpa, $
-				                'det_gd12_smpa', det_gd12_smpa, $
+				                'fv_gd12_smpa',      fv_gd12_smpa, $
+				                'gun_gd12_smpa',     gun_gd12_smpa, $
+				                'det_gd12_smpa',     det_gd12_smpa, $
 				                'virtual_gun1_smpa', virtual_gun1_smpa )
 		endif
 		
 		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
-			                    'fv_gd21_smpa', fv_gd21_smpa, $
-			                    'gun_gd21_smpa', gun_gd21_smpa, $
-			                    'det_gd21_smpa', det_gd21_smpa, $
+			                    'fv_gd21_smpa',      fv_gd21_smpa, $
+			                    'gun_gd21_smpa',     gun_gd21_smpa, $
+			                    'det_gd21_smpa',     det_gd21_smpa, $
 			                    'virtual_gun2_smpa', virtual_gun2_smpa )
 		endif
 	endif
@@ -244,17 +246,17 @@ _REF_EXTRA=extra
 	if cs_dmpa then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
-				                'fv_gd12_dmpa', fv_gd12_dmpa, $
-				                'gun_gd12_dmpa', gun_gd12_dmpa, $
-				                'det_gd12_dmpa', det_gd12_dmpa, $
+				                'fv_gd12_dmpa',      fv_gd12_dmpa, $
+				                'gun_gd12_dmpa',     gun_gd12_dmpa, $
+				                'det_gd12_dmpa',     det_gd12_dmpa, $
 				                'virtual_gun1_dmpa', virtual_gun1_dmpa )
 		endif
 		
 		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
-			                    'fv_gd21_dmpa', fv_gd21_dmpa, $
-			                    'gun_gd21_dmpa', gun_gd21_dmpa, $
-			                    'det_gd21_dmpa', det_gd21_dmpa, $
+			                    'fv_gd21_dmpa',      fv_gd21_dmpa, $
+			                    'gun_gd21_dmpa',     gun_gd21_dmpa, $
+			                    'det_gd21_dmpa',     det_gd21_dmpa, $
 			                    'virtual_gun2_dmpa', virtual_gun2_dmpa )
 		endif
 	endif
@@ -263,17 +265,17 @@ _REF_EXTRA=extra
 	if cs_gse then begin
 		if edi.count_gd12 gt 0 then begin
 			edi = create_struct( edi, $
-				                'fv_gd12_gse', fv_gd12_gse, $
-				                'gun_gd12_gse', gun_gd12_gse, $
-				                'det_gd12_gse', det_gd12_gse, $
+				                'fv_gd12_gse',      fv_gd12_gse, $
+				                'gun_gd12_gse',     gun_gd12_gse, $
+				                'det_gd12_gse',     det_gd12_gse, $
 				                'virtual_gun1_gse', virtual_gun1_gse )
 		endif
 		
 		if edi.count_gd21 gt 0 then begin
 			edi = create_struct( edi, $
-			                    'fv_gd21_gse', fv_gd21_gse, $
-			                    'gun_gd21_gse', gun_gd21_gse, $
-			                    'det_gd21_gse', det_gd21_gse, $
+			                    'fv_gd21_gse',      fv_gd21_gse, $
+			                    'gun_gd21_gse',     gun_gd21_gse, $
+			                    'det_gd21_gse',     det_gd21_gse, $
 			                    'virtual_gun2_gse', virtual_gun2_gse )
 		endif
 	endif

@@ -96,7 +96,7 @@ TEND=tend
 	fpattern = ''
 	if n_elements(optdesc)   eq 0 then optdesc   = ''
 	if n_elements(timeorder) eq 0 then timeorder = '%Y%M%d'
-	if n_elements(sdc_root)  eq 0 then sdc_root = '/mmsa/sdc/'
+	if n_elements(sdc_root)  eq 0 then sdc_root = '/nfs/'
 
 ;-------------------------------------------------------
 ; Directory ////////////////////////////////////////////
@@ -142,15 +142,17 @@ TEND=tend
 	;the first file returned by MrFile_Search may not lie between
 	;TSTART and TEND. Here, we compare the date within the file name
 	;and ensure that it is within the same day as what was given
-	mms_dissect_filename, files[0], TSTART=fstart
-	if strmid(fstart, 0, 4) ne strmid(tstart, 0, 4) || $
-	   strmid(fstart, 4, 2) ne strmid(tstart, 5, 2) || $
-	   strmid(fstart, 6, 2) ne strmid(tstart, 8, 2) $
-	then begin
-		count -= 1
-		if count gt 1 $
-			then files = files[1:*] $
-			else files = ''
+	if count gt 0 then begin
+		mms_dissect_filename, files[0], TSTART=fstart
+		if strmid(fstart, 0, 4) ne strmid(tstart, 0, 4) || $
+		   strmid(fstart, 4, 2) ne strmid(tstart, 5, 2) || $
+		   strmid(fstart, 6, 2) ne strmid(tstart, 8, 2) $
+		then begin
+			if count gt 1 $
+				then files = files[1:*] $
+				else files = ''
+			count -= 1
+		endif
 	endif
 
 	;Return the results.
