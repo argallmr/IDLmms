@@ -86,10 +86,11 @@ SAVE_DIR=save_dir
 	              HOUR = hour, MINUTE = minute, SECOND = second
 	MrCDF_Epoch, trange, fix(year), fix(month), fix(day), $
 	                     fix(hour), fix(minute), fix(second), /TT2000, /COMPUTE_EPOCH
+	MrCDF_Epoch, t0, fix(year), fix(month), fix(day), /TT2000, /COMPUTE_EPOCH
 	
 	;Create a title
 	title = strupcase(sc) + ' ' + strmid(tstart, 0, 10)
-	xrange = MrCDF_epoch2sse(trange, trange[0])
+	xrange = MrCDF_epoch2sse(trange, t0)
 
 ;-------------------------------------------------------
 ; DFG //////////////////////////////////////////////////

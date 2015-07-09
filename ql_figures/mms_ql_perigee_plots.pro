@@ -61,7 +61,7 @@ pro mms_ql_perigee_plots
 	;Constants
 	sdc_dir  = '/nfs/'
 	edi_dir  = '/nfs/edi/'
-	save_dir = '/nfs/edi/orbit_plots/'
+	save_dir = '/nfs/edi/orbit_plots/4scfields/'
 
 ;-------------------------------------------------------
 ; Search For FDOA DefAtt files /////////////////////////
@@ -78,7 +78,7 @@ pro mms_ql_perigee_plots
 
 ;-------------------------------------------------------
 ; Extract Data Intervals ///////////////////////////////
-;-------------------------------------------------------	
+;-------------------------------------------------------
 	;Plot the data
 	for i = 0, nFiles - 1 do begin
 		;Dissect the file name
@@ -94,8 +94,8 @@ pro mms_ql_perigee_plots
 
 		;Create the plot
 ;		win = mms_ql_edi_efield(sc, trange[0], trange[1], SAVE_DIR=save_dir)
-;		win = mms_ql_4sc_befields(sc, trange[0], trange[1], SAVE_DIR=save_dir)
-		win = mms_sdc_ql_befields(sc, trange[0], trange[1], SAVE_DIR=save_dir)
+		win = mms_ql_4sc_befields(trange[0], trange[1], SAVE_DIR=save_dir)
+;		win = mms_sdc_ql_befields(sc, trange[0], trange[1], SAVE_DIR=save_dir)
 		if obj_valid(win) then obj_destroy, win
 	endfor
 	

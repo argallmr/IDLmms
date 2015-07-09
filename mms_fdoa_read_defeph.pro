@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_fdoa_read_defatt
+;    mms_fdoa_read_defeph
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -33,10 +33,10 @@
 ;
 ; PURPOSE:
 ;+
-;   Read the MMS definitive attitude files.
+;   Read the MMS definitive ephemeris files.
 ;
 ; :Categories:
-;    MMS, FDOA, ATTITUDE
+;    MMS, FDOA, Ephemeris
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -48,28 +48,23 @@
 ;
 ; :History:
 ;    Modification History::
-;       2015/06/29  -   Written by Matthew Argall
+;       2015/07/08  -   Written by Matthew Argall
 ;-
 ;*****************************************************************************************
 ;+
-;   Read MMS definitive attitude files.
+;   Read MMS definitive ephemeris files.
 ;
 ; :Examples:
 ;   Read data from two files::
-;       IDL> files = ['MMS1_DEFATT_2015174_2015175.V00', $
-;                     'MMS1_DEFATT_2015175_2015176.V00']
-;       IDL> data = mms_fdoa_read_defatt(files)
+;       IDL> files = ['MMS1_DEFEPH_2015170_2015171.V00', $
+;                     'MMS1_DEFEPH_2015171_2015172.V00']
+;       IDL> data = mms_fdoa_read_defeph(files)
 ;       IDL> help, data
-;       ** Structure <82ca8b8>, 8 tags, length=44561376, data length=44561376, refs=1:
-;          TT2000          LONG64    Array[464181]
-;          Q               FLOAT     Array[4, 464181]
-;          W               FLOAT     Array[4, 464181]
-;          Z               FLOAT     Array[3, 464181]
-;          L               FLOAT     Array[3, 464181]
-;          P               FLOAT     Array[3, 464181]
-;          NUT             FLOAT     Array[464181]
-;          QF              STRING    Array[464181]
-;
+;       ** Structure <213a088>, 4 tags, length=367680, data length=367680, refs=1:
+;          TT2000          LONG64    Array[5745]
+;          POSITION        DOUBLE    Array[3, 5745]
+;          VELOCITY        DOUBLE    Array[3, 5745]
+;          MASS            DOUBLE    Array[5745]
 ; :Params:
 ;       FILENAMES:      in, required, type=string/strarr
 ;                       Names of the files to read.
@@ -92,28 +87,20 @@
 ;
 ; :Returns:
 ;       ATTITUDE:       Structure of attitude data. Fields are::
-;                           'TT2000' - TT2000 CDF epoch times
-;                           'Q'      - quaternion (ECI-to-BCS), X,Y,Z rotation rate components (deg/s)
-;                                        (instantaneous spin axis in body frame)
-;                           'W'      - w-phase (Sun-to-body-X dihedral angle about rotation rate vector) (deg)
-;                           'Z'      - right ascension (deg) and declination (deg) of body Z-axis, 
-;                                        Z-phase (Sun-to-body-X dihedral angle about body Z-axis) (deg)
-;                           'L'      - right ascension (deg) and declination (deg) of angular momentum (L),
-;                                        L-phase (Sun-to-body-X dihedral angle about angular momentum vector L) (deg),
-;                           'P'      - right ascension (deg) and declination (deg) of major principal axis (P),
-;                                        P-phase (Sun-to-body-X dihedral angle about major principal axis P) (deg)
-;                           'Nut'    - nutation angle (deg)
-;                           'QF'     - quality flag: EKF=good extended Kalman filter solution with star tracker data
-;                                        CNV = filter not yet converged
-;                                        SUN = no tracker data; spin phase obtained from Sun sensor data
-;                                        INT = no tracker or Sun sensor data; phase interpolated from neighboring tracker data
-;                                        BAD = no tracker or Sun sensor data for a time span too large for interpolation
+;                           'TT2000'   - TT2000 CDF epoch times
+;                           'UTC'      - UTC time stamp of data
+;                           'TAI'      - TAI elapsed SI seconds since the mission
+;                                          reference epoch, 1958-001T00:00:00 UTC
+;                           'POSITION' - Spacecraft position (Km) in GEI J2000 coordinates
+;                           'VELOCITY' - Spacecraft velocity (Km/s) in GEI J2000 coordinates
+;                           'MASS'     - Spacecraft mass (Kg)
 ;-
-function mms_fdoa_read_defatt, filenames, tstart, tend, $
+function mms_fdoa_read_defeph, filenames, tstart, tend, $
 HEADER=header, $
 UTC=utc, $
 TAI=tai
 	compile_opt idl2
+	on_error, 2
 	
 	;Number of files given
 	nFiles = n_elements(filenames)
@@ -126,59 +113,45 @@ TAI=tai
 ; Read Headers \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
 	;Read the header from the first file
-	header = { att_err:      fltarr(3, nFIles), $
-	           nHeader:      lonarr(nFiles), $
-	           inertia_cal:  strarr(nFiles), $
-	           start_time:   strarr(nFiles), $
-	           stop_time:    strarr(nFiles), $
-	           rate_err:     fltarr(3, nFIles), $
-	           zMPA:         fltarr(3, nFIles) $
+	header = { nHeader:    lonarr(nFiles), $
+	           spacecraft: strarr(nFiles), $
+	           start_time: lon64arr(nFiles), $
+	           stop_time:  lon64arr(nFiles) $
 	         }
 	
 	;Read the rest of the headers
 	for i = 0, nFiles - 1 do begin
 		;Read the header
-		temp = mms_fdoa_read_defatt_header(filenames[0])
+		temp = mms_fdoa_read_defeph_header(filenames[0])
 		if temp eq !Null then return, !Null
 		
 		;Save the info
-		header.att_err[*,i]   = temp.att_err
-		header.nHeader[*]     = temp.nHeader
-		header.inertia_cal[i] = temp.inertia_cal
-		header.start_time[i]  = temp.start_time
-		header.stop_time[i]   = temp.stop_time
-		header.rate_err[*,i]  = temp.rate_err
-		header.zMPA[*,i]      = temp.zMPA
-		
-		;Make sure zMPA has not changed
-		if i gt 0 then $
-			if ~array_equal(temp.zMPA, header.zMPA[*,i-1]) $
-				then message, 'z-MPA has changed.', /INFORMATIONAL
+		header.nHeader[*]    = temp.nHeader
+		header.spacecraft[i] = temp.spacecraft
+		header.start_time[i] = temp.start_time
+		header.stop_time[i]  = temp.stop_time
 	endfor
 
 ;-------------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
 	;Names of the columns
-	groups       = [1, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 9]
-	column_names = ['UTC', 'TAI', 'q', 'q', 'q', 'q', 'w', 'w', 'w', 'w', $
-	                'z', 'z', 'z', 'L', 'L', 'L', 'P', 'P', 'P', 'Nut', 'QF']
-	column_types = ['String', 'Double', 'Float', 'Float', 'Float', 'Float', $
-	                'Float', 'Float', 'Float', 'Float', $
-	                'Float', 'Float', 'Float', 'Float', 'Float', 'Float', $
-	                'Float', 'Float', 'Float', 'Float', 'String']
-	
+	groups       = [1, 2, 3, 3, 3, 4, 4, 4, 5]
+	column_names = ['UTC', 'TAI', 'Position', 'Position', 'Position', $
+	                'Velocity', 'Velocity', 'Velocity', 'Mass']
+	column_types = ['String', 'Double', 'Double', 'Double', 'Double', $
+	                'Double', 'Double', 'Double', 'Double']
+
 	;Read the files
-	attitude = MrFile_Read_nAscii(filenames, $
-	                              COLUMN_NAMES = column_names, $
-	                              COLUMN_TYPES = column_types, $
-	                              COUNT        = count, $
-	                              GROUPS       = groups, $
-	                              NHEADER      = header.nHeader[0], $
-	                              NFOOTER      = 1)
+	ephemeris = MrFile_Read_nAscii(filenames, $
+	                               COLUMN_NAMES = column_names, $
+	                               COLUMN_TYPES = column_types, $
+	                               COUNT        = count, $
+	                               GROUPS       = groups, $
+	                               NHEADER      = header.nHeader[0])
 
 	;Convert TAI to TT2000
-	tt2000 = mms_fdoa_epoch2tt2000(attitude.tai, /TAI)
+	tt2000 = mms_fdoa_epoch2tt2000(ephemeris.tai, /TAI)
 	
 	;Remove TAI and UTC?
 	case 1 of
@@ -189,10 +162,10 @@ TAI=tai
 	endcase
 	
 	;Remove data
-	if tai || utc then attitude = remove_tags(attitude, to_remove)
+	if tai || utc then ephemeris = remove_tags(ephemeris, to_remove)
 	
 	;Append TT2000 times
-	attitude = create_struct('TT2000', tt2000, attitude)
+	ephemeris = create_struct('TT2000', tt2000, ephemeris)
 
 ;-------------------------------------------------------
 ; Unique Records \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -206,23 +179,19 @@ TAI=tai
 	; we have to remove repeats.
 	;
 	if nFiles gt 1 then begin
-		iuniq = uniq(attitude.tt2000, sort(attitude.tt2000))
+		iuniq = uniq(ephemeris.tt2000, sort(ephemeris.tt2000))
 		
 		;Create a new structure with trimmed data
-		temp = { tt2000: attitude.tt2000[iuniq], $
-		         q:      attitude.q[*,iuniq], $
-		         w:      attitude.w[*,iuniq], $
-		         z:      attitude.z[*,iuniq], $
-		         L:      attitude.L[*,iuniq], $
-		         P:      attitude.P[*,iuniq], $
-		         Nut:    attitude.Nut[iuniq], $
-		         QF:     attitude.QF[iuniq] $
+		temp = { tt2000:    ephemeris.tt2000[iuniq], $
+		         Position:  ephemeris.position[*,iuniq], $
+		         Velocity:  ephemeris.velocity[*,iuniq], $
+		         Mass:      ephemeris.mass[iuniq] $
 		       }
-		if utc then temp = create_struct('UTC', attitude.utc[iuniq], temp)
-		if tai then temp = create_struct('TAI', attitude.tai[iuniq], temp)
+		if utc then temp = create_struct('UTC', ephemeris.utc[iuniq], temp)
+		if tai then temp = create_struct('TAI', ephemeris.tai[iuniq], temp)
 		
 		;Replace the data
-		attitude = temporary(temp)
+		ephemeris = temporary(temp)
 	endif
 
 ;-------------------------------------------------------
@@ -238,21 +207,17 @@ TAI=tai
 		irange = MrIndexRange(attitude.tt2000, trange)
 		
 		;Create a new structure with trimmed data
-		temp = { tt2000: attitude.tt2000[irange[0]:irange[1]], $
-		         q:      attitude.q[*,irange[0]:irange[1]], $
-		         w:      attitude.w[*,irange[0]:irange[1]], $
-		         z:      attitude.z[*,irange[0]:irange[1]], $
-		         L:      attitude.L[*,irange[0]:irange[1]], $
-		         P:      attitude.P[*,irange[0]:irange[1]], $
-		         Nut:    attitude.Nut[irange[0]:irange[1]], $
-		         QF:     attitude.QF[irange[0]:irange[1]] $
+		temp = { tt2000:   ephemeris.tt2000[irange[0]:irange[1]], $
+		         Position: ephemeris.position[*,irange[0]:irange[1]], $
+		         Velocity: ephemeris.velocity[*,irange[0]:irange[1]], $
+		         Mass:     ephemeris.mass[irange[0]:irange[1]] $
 		       }
-		if utc then temp = create_struct('UTC', attitude.utc[irange[0]:irange[1]])
-		if tai then temp = create_struct('TAI', attitude.tai[irange[0]:irange[1]])
+		if utc then temp = create_struct('UTC', ephemeris.utc[irange[0]:irange[1]], temp)
+		if tai then temp = create_struct('TAI', ephemeris.tai[irange[0]:irange[1]], temp)
 		
 		;Replace the data
-		attitude = temporary(temp)
+		ephemeris = temporary(temp)
 	endif
 	
-	return, attitude
+	return, ephemeris
 end
