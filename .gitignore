@@ -1,3 +1,6 @@
 .DS_Store
 markc/
 test_data/
+*.sav
+scripts/
+test_data/
