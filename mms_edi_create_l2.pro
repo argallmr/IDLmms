@@ -47,15 +47,15 @@
 ; :Keywords:
 ;       ATTITUDE_DIR:   in, optional, type=string, default=pwd
 ;                       Directory in which to find FDOA definitive attitude data.
-;       BCS:            in, optional, type=boolean, default=0
+;       CS_BCS:         in, optional, type=boolean, default=0
 ;                       If set, data in BCS coordinates will be included in `EDI`.
-;       DMPA:           in, optional, type=boolean, default=0
+;       CS_DMPA:        in, optional, type=boolean, default=0
 ;                       If set, data in DMPA coordinates will be included in `EDI`.
-;       EDI:            in, optional, type=boolean, default=0
+;       CS_EDI:         in, optional, type=boolean, default=0
 ;                       If set, data in EDI coordinates will be included in `EDI`.
-;       GSE:            in, optional, type=boolean, default=1
+;       CS_GSE:         in, optional, type=boolean, default=1
 ;                       If set, data in GSE coordinates will be included in `EDI`.
-;       SMPA:           in, optional, type=boolean, default=0
+;       CS_SMPA:        in, optional, type=boolean, default=0
 ;                       If set, data in SMPA coordinates will be included in `EDI`.
 ;       SUNPULSE_DIR:   in, optional, type=string, default=pwd
 ;                       Directory in which to find HK 0X101 sunpulse data.
@@ -94,16 +94,15 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;       2015/06/22  -   renamed from mms_edi_gse to mms_edi_create_l2. - MRA
+;       2015/08/22  -   TSTART and TEND are prameters, not keywords. - MRA
 ;-
-function mms_edi_create_l2, filenames, $
+function mms_edi_create_l2, filenames, tstart, tend, $
 ATTITUDE=attitude, $
 CS_GSE=cs_gse, $
 CS_BCS=cs_bcs, $
 CS_DMPA=cs_dmpa, $
 CS_SMPA=cs_smpa, $
 SUNPULSE=sunpulse, $
-TSTART=tstart, $
-TEND=tend, $
 _REF_EXTRA=extra
 	compile_opt idl2
 	on_error, 2

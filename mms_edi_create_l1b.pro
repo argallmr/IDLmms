@@ -42,15 +42,19 @@
 ; :Params:
 ;       FILES:          in, required, type=string/strarr
 ;                       Name(s) of the L1A EDI efield-mode file(s) to read.
-;
-; :Keywords:
-;       QUALITY:        in, optional, type=integer/intarr, default=pwd
-;                       Quality of EDI beams to return. Can be a scalar or vector with
-;                           values [0, 1, 2, 3].
 ;       TSTART:         in, required, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, required, type=string
 ;                       End time of the data interval to read, as an ISO-8601 string.
+;
+; :Keywords:
+;       CS_123:         in, optional, type=boolean, default=0
+;                       If set, data in EDI coordinates will be included in `EDI`.
+;       CS_BCS:         in, optional, type=boolean, default=0
+;                       If set, data in BCS coordinates will be included in `EDI`.
+;       QUALITY:        in, optional, type=integer/intarr, default=pwd
+;                       Quality of EDI beams to return. Can be a scalar or vector with
+;                           values [0, 1, 2, 3].
 ;
 ; :Returns:
 ;       EDI:            Structure array of EDI data. In addition to fields returned by
@@ -79,17 +83,16 @@
 ;       2015/05/18  -   Require file names instead of search for files. TSTART and TEND
 ;                           are keywords, not parameters. - MRA
 ;       2015/06/22  -   Renamed from mms_edi_bcs to mms_edi_create_l1b. - MRA
+;       2015/08/22  -   TSTART and TEND are prameters, not keywords. - MRA
 ;-
-function mms_edi_create_l1b, files, $
-CS_EDI=cs_edi, $
+function mms_edi_create_l1b, files, tstart, tend, $
+CS_123=cs_123, $
 CS_BCS=cs_bcs, $
-QUALITY=quality, $
-TSTART=tstart, $
-TEND=tend
+QUALITY=quality
 	compile_opt idl2
 	on_error, 2
 	
-	cs_edi = keyword_set(cs_edi)
+	cs_123 = keyword_set(cs_123)
 	cs_bcs = n_elements(cs_bcs) eq 0 ? 1B : keyword_set(cs_bcs)
 	
 ;-----------------------------------------------------
@@ -100,39 +103,64 @@ TEND=tend
 	det_gd12_bcs = mms_instr_origins_ocs('EDI1_DETECTOR')
 	gun_gd21_bcs = mms_instr_origins_ocs('EDI2_GUN')
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')
+	
+	;Virtual gun positions in BCS
+	pos_vg1_bcs = gun_gd12_bcs - det_gd21_bcs
+	pos_vg2_bcs = gun_gd21_bcs - det_gd12_bcs
 
 	;Read data
-	edi = mms_edi_read_l1a_efield(files, $
-	                              QUALITY = quality, $
-	                              TSTART  = tstart, $
-	                              TEND    = tend)
+	edi = mms_edi_read_l1a_efield(files, tstart, tend, $
+	                              QUALITY = quality)
 
 ;-----------------------------------------------------
-; Rotate Firing Vectors to BCS \\\\\\\\\\\\\\\\\\\\\\\
+; Rotate 123 <-> BCS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Transformation matrices
+	;Transformation matrices from 123 to bcs
 	edi1_to_bcs = mms_instr_xxyz2ocs('EDI1')
 	edi2_to_bcs = mms_instr_xxyz2ocs('EDI2')
 
-	;Rotate CS
+	;Rotate 123 -> BCS
 	if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12_123)
 	if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21_123)
+	
+	;Rotate BCS -> 123
+	bcs_to_edi1 = transpose(edi1_to_bcs)
+	bcs_to_edi2 = transpose(edi2_to_bcs)
+	gun_gd12_123 = mrvector_rotate( bcs_to_edi1, gun_gd12_bcs )
+	det_gd12_123 = mrvector_rotate( bcs_to_edi1, gun_gd12_bcs )
+	gun_gd21_123 = mrvector_rotate( bcs_to_edi2, gun_gd21_bcs )
+	det_gd21_123 = mrvector_rotate( bcs_to_edi2, gun_gd21_bcs )
+	
+	;Virtual gun positions in 123
+	pos_vg1_123 = gun_gd12_123 - det_gd21_123
+	pos_vg2_123 = gun_gd21_123 - det_gd12_123
 
 ;-----------------------------------------------------
 ; Append Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Include data in EDI coordinates?
-	if cs_edi eq 0 then edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
+	if cs_123 then begin
+		edi = create_struct( edi, $
+		                     'gun_gd12_123',     gun_gd12_123, $
+		                     'det_gd12_123',     det_gd12_123, $
+		                     'gun_gd21_123',     gun_gd21_123, $
+		                     'det_gd21_123',     det_gd21_123, $
+		                     'virtual_gun1_123', pos_vg1_123, $
+		                     'virtual_gun2_123', pos_vg2_123 $
+		                   )
+	endif else begin
+		edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
+	endelse
 
 	;Positions on real and virtual spacecraft
 	if cs_bcs then begin
 		edi = create_struct( edi, $
-		                    'gun_gd12_bcs', gun_gd12_bcs, $
-		                    'det_gd12_bcs', det_gd12_bcs, $
-		                    'gun_gd21_bcs', gun_gd21_bcs, $
-		                    'det_gd21_bcs', det_gd21_bcs, $
-		                    'virtual_gun1_bcs', gun_gd12_bcs - det_gd21_bcs, $
-		                    'virtual_gun2_bcs', gun_gd21_bcs - det_gd12_bcs )
+		                    'gun_gd12_bcs',     gun_gd12_bcs, $
+		                    'det_gd12_bcs',     det_gd12_bcs, $
+		                    'gun_gd21_bcs',     gun_gd21_bcs, $
+		                    'det_gd21_bcs',     det_gd21_bcs, $
+		                    'virtual_gun1_bcs', pos_vg1_bcs, $
+		                    'virtual_gun2_bcs', pos_vg2_bcs )
 		
 		;Firing vectors
 		if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)

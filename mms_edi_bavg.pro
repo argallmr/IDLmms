@@ -114,8 +114,10 @@
 ;       2015/05/03  -   Remove keywords and return data structure instead. - MRA
 ;       2015/06/19  -   Accept data from single gun. - MRA
 ;       2015/06/19  -   Assign record numbers to the B-field for independent referencing. - MRA
+;       2015/06/19  -   Added the DT keyword. - MRA
 ;-
-function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
+function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2, $
+DT=dt
 	compile_opt idl2
 
 	;Error hand1ling
@@ -123,41 +125,33 @@ function mms_edi_bavg, t_fg, b_fg_docs, t_edi_beam1, t_edi_beam2
 	if the_error ne 0 then begin
 		catch, /CANCEL
 		void = cgErrorMsg(/QUIET)
-stop
 		return, -1
 	endif
 ;-----------------------------------------------------
 ;Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	test = keyword_set(test_case)
-	view = keyword_set(view)
-	if n_elements(directory) eq 0 then directory = ''
+	if n_elements(dt) eq 0 then dt = 5.0D
 	
 ;-----------------------------------------------------
 ; Prepare Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Find initial time
-	;   - Convert to UT
-	;   - Round down to the nearest 5-second interval 
-	;   - Convert back to CDF_TIME_TT2000
-	t0 = t_fg[0] < t_edi_beam1[0] < t_edi_beam2[0]
-	MrCDF_Epoch, temporary(t0), yr, mo, day, hr, mn, sec, /BREAKDOWN_EPOCH
-	sec -= sec mod 5
-	MrCDF_Epoch, t0, yr, mo, day, hr, mn, sec, /TT2000, /COMPUTE_EPOCH
+	;Times will be based on DFG epoch.
+	;   - If we do not have a magnetic field vector for a 5sec interval,
+	;     there is no way to determine beam orientation.
+	MrCDF_Epoch_Breakdown, [t_fg[0], t_fg[-1]], yr, mo, day, hr, mn, sec
 	
-	;SPLINE accepts only floats or doubles
-	;   - Subtract the initial time from all points and convert from nono-seconds to seconds
-	time_fg    = double(t_fg        - t0) * 1d-9
-	time_beam1 = double(t_edi_beam1 - t0) * 1d-9
-	time_beam2 = double(t_edi_beam2 - t0) * 1d-9
-	t_stop     = time_fg[-1] < time_beam1[-1] < time_beam2[-1]
+	;Round down to the nearest multiple of DT seconds and recompute
+	sec -= sec mod 5
+	MrCDF_Epoch_Compute, tedge, yr, mo, day, hr, mn, sec, /TT2000
+	t0 = tedge[0]
+	t1 = tedge[1] + long64(dt * 1d9)
 
 	;Number of elements in each array
 	n_fg    = n_elements(t_fg)
-	n_beam1 = n_elements(time_beam1)
-	n_beam2 = n_elements(time_beam2)
-	nmax    = n_fg < n_beam1 < n_beam2
-	
+	n_beam1 = n_elements(t_edi_beam1)
+	n_beam2 = n_elements(t_edi_beam2)
+	nmax    = n_fg > n_beam1 > n_beam2
+
 	;Allocate memory to output arrays
 	t_avg        = lon64arr(nmax)
 	b_avg        = fltarr(3, nmax)
@@ -171,6 +165,15 @@ stop
 	used_indices1 = bytarr(n_beam1)
 	used_indices2 = bytarr(n_beam2)
 
+;-----------------------------------------------------
+; Loop Through Each Averaging Interval \\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;SPLINE accepts only floats or doubles
+	;   - Subtract the initial time from all points and convert from nono-seconds to seconds
+	time_fg    = double(t_fg        - t0) * 1d-9
+	time_beam1 = double(t_edi_beam1 - t0) * 1d-9
+	time_beam2 = double(t_edi_beam2 - t0) * 1d-9
+
 	;Initial conditions
 	;   - T_START:        Start at the first magnetometer data point.
 	;   - DT:             Average over this many seconds.
@@ -178,19 +181,16 @@ stop
 	;   - TRANGE_AVG:     First time interval to be averaged.
 	;   - TRANGE_INTEPR:  First time interval to be interpolated.
 	;   - N_BEAM[12]_TOT: Total number of beams included throughout the averaging process.
-	t_start       = time_fg[0]
-	dt            = 5D
-	dt_interp     = 5D
-	trange_avg    = [t_start, t_start+dt]
-	trange_interp = [t_start-dt_interp, t_start+dt+dt_interp]
+	t_start       = t0
+	dt_interp     = dt
+	trange_avg    = [0, dt]
+	trange_interp = [-dt_interp, dt+dt_interp]
 	count         = 0L
 	n_beam1_tot   = 0L
 	n_beam2_tot   = 0L
-
-;-----------------------------------------------------
-; Loop Through Each Averaging Interval \\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	while trange_avg[0] le t_stop do begin
+	
+	;Loop through intervals
+	while trange_avg[0] le MrCDF_epoch2sse(t1, t0) do begin
 	;-----------------------------------------------------
 	; Find Interpolation Interval \\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
@@ -266,9 +266,9 @@ stop
 			;  --|-----{-----}-----|--
 			;    |  Interpolation  |
 			;          { Avg }
-;			it_beam2_avg = MrIndexRange(temporary(t_beam2_temp), trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
-			it_beam2_avg = MrIndexRange(t_beam2_temp, trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
-if ~array_equal(it_beam2_avg, [-1,-1]) && status_gd21 eq 1 then stop
+			it_beam2_avg = MrIndexRange(temporary(t_beam2_temp), trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
+;			it_beam2_avg = MrIndexRange(t_beam2_temp, trange_avg, /RIGHT_EXCLUSIVE, STATUS=status_gd21)
+;if ~array_equal(it_beam2_avg, [-1,-1]) && it_beam2_avg[0] lt it_beam2_avg[1] && status_gd21 eq 1 then stop
 			if status_gd21 eq 0 then begin
 				iused = it_beam2_interp[0] + it_beam2_avg
 				used_indices2[ iused[0]:iused[1] ] = 1B
@@ -369,7 +369,7 @@ if ~array_equal(it_beam2_avg, [-1,-1]) && status_gd21 eq 1 then stop
 ;-----------------------------------------------------
 	if n_beam1_tot ne n_beam1 then message, 'Did not find all beam1 data. Check for duplicate timestamps.', /INFORMATIONAL
 	if n_beam2_tot ne n_beam2 then message, 'Did not find all beam2 data. Check for duplicate timestamps.', /INFORMATIONAL
-stop
+
 	;Trim data
 	avg = { t_avg:       t_avg[0:count-1], $
 	        b_avg:       b_avg[*, 0:count-1], $

@@ -41,6 +41,10 @@
 ; :Params:
 ;       FILES:          in, required, type=string/strarr
 ;                       Name of the EDI e-field mode file or files to be read.
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
 ;       DIRECTORY:      in, optional, type=string, default=pwd
@@ -48,17 +52,13 @@
 ;       QUALITY:        in, optional, type=integer/intarr, default=pwd
 ;                       Quality of EDI beams to return. Can be a scalar or vector with
 ;                           values [0, 1, 2, 3].
-;       TSTART:         in, optional, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, optional, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
 ;       EDI:            Structure of EDI data. Fields are below. If zero beams are
 ;                           detected from a GD pair, its fields will be missing from
 ;                           the output structure. Use COUNT_GD12 and COUNT_GD21 to test.
 ;                             'COUNT_GD12'       -  Number of points returned
-;                             'EPOCH_GD12'       -  Time (cdf_time_tt2000)
+;                             'TT2000_GD12'      -  Time (cdf_time_tt2000)
 ;                             'AZIMUTH_GD12'     -  Azimuthal firing angle (degrees)
 ;                             'POLAR_GD12'       -  Polar firing angle (degrees)
 ;                             'FV_GD12'          -  Firing vectors
@@ -71,7 +71,7 @@
 ;                             'MAX_ADDR_GD12'    -  Max beam hit address
 ;
 ;                             'COUNT_GD21'       -  Number of points returned
-;                             'EPOCH_GD21'       -  Time (cdf_time_tt2000)
+;                             'TT2000_GD21'      -  Time (cdf_time_tt2000)
 ;                             'AZIMUTH_GD21'     -  Azimuthal firing angle (degrees)
 ;                             'POLAR_GD21'       -  Polar firing angle (degrees)
 ;                             'FV_GD21'          -  Firing vectors
@@ -100,11 +100,11 @@
 ;       2015/05/18  -   Accept file names instead of searching for files. TSTART and TEND
 ;                           parameters are now keywords. - MRA
 ;       2015/06/01  -   Renamed from mms_edi_read_efieldmode to mms_edi_read_l1a_efield. - MRA
+;       2015/08/22  -   EPOCH fields renamed to TT2000. TSTART and TEND now
+;                           parameters, not keywords. - MRA
 ;-
-function mms_edi_read_l1a_efield, files, $
-QUALITY=quality, $
-TSTART=tstart, $
-TEND=tend
+function mms_edi_read_l1a_efield, files, tstart, tend, $
+QUALITY=quality
 	compile_opt idl2
 	
 	catch, the_error
@@ -330,7 +330,7 @@ TEND=tend
 	;All data
 	if count_gd12 gt 0 then begin
 		edi_gd12 = { count_gd12:       count_gd12, $
-		             epoch_gd12:       epoch_gd12, $
+		             tt2000_gd12:      epoch_gd12, $
 		             azimuth_gd12:     phi_gd12, $
 		             polar_gd12:       theta_gd12, $
 		             fv_gd12_123:      fv_gd12, $
@@ -350,7 +350,7 @@ TEND=tend
 	;All data
 	if count_gd21 gt 0 then begin
 		edi_gd21 = { count_gd21:       count_gd21, $
-		             epoch_gd21:       epoch_gd21, $
+		             tt2000_gd21:      epoch_gd21, $
 		             azimuth_gd21:     phi_gd21, $
 		             polar_gd21:       theta_gd21, $
 		             fv_gd21_123:      fv_gd21, $

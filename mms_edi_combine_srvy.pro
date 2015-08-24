@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_xxyz2bpp
+;       mms_edi_combine_srvy
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,22 +33,20 @@
 ;
 ; PURPOSE:
 ;+
-;   Using the magnetic field, create a transformation matrix that transforms from
-;   the measurement coordinate system into one in which B is along the z-axis. The
-;   transformation is built as
-;       Z' = B / |B|       (negated if B[2] < 0)
-;       X' = Y x Z'
-;       Y' = Z' x X'
+;   Combine flow and fast survey structures returned by mms_edi_read_*.
 ;
 ; :Categories:
-;   MMS, EDI, Bestarg
+;   MMS, EDI
 ;
 ; :Params:
-;       B:              in, required, type=3xN float
-;                       Vector magnetic field
+;       SLOW:               in, required, type=struct
+;                           Data structure containing EDI slow survey data.
+;       FAST:               in, required, type=struct
+;                           Data structure containing EDI fast survey data.
 ;
 ; :Returns:
-;       XYZ2BPP:        Transformation matrix from XYZ to BPP
+;       SRVY:               Structure that is a combination of `SLOW` and `FAST`.
+;                             Fields are concatenated.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -60,37 +58,87 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/05/03  -   Written by Matthew Argall
-;       2015/06/22  -   Concatenate unit vectors into matrix correctly. - MRA
-;       2015/08/22  -   Input vector must be 3xN. - MRA
+;       2015/08/22  -   Written by Matthew Argall
 ;-
-function mms_edi_xxyz2bpp, b
+function mms_edi_combine_srvy, slow, fast
 	compile_opt idl2
 ;	on_error, 2
 	
-	;Make sure B is 3-element vector or 3xN
-	sz = size(b)
-	n = sz[0] eq 1 ? 1 : sz[sz[0]]
-	if (sz[0] gt 2 || sz[1] ne 3) then message, 'B must be 3xN.'
+;-----------------------------------------------------
+; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	nslow = n_elements(slow)
+	nfast = n_elements(fast)
+	if nslow + nfast eq 0 then message, 'Usage: srvy = mms_edi_combine_srvy(slow, fast)'
 	
-	;Normalize b to get the z-axis
-	z_bpp = mrvector_normalize(b)
-
-	;Make sure Z_BPP points toward +Z
-	idown = where(z_bpp[2,*] lt 0, ndown)
-	if ndown gt 0 then z_bpp[*,idown] = -z_bpp[*,idown]
+	;No fast survey data
+	if nfast eq 0 then begin
+		srvy = slow
+		
+	;No slow survey data
+	endif else if nslow eq 0 then begin
+		srvy = fast
+		
+	;Combine fast and slow
+	endif else begin
+		srvy = []
 	
-	;Create X
-	x_bpp = mrvector_cross([0, 1, 0], z_bpp)
-	x_bpp = mrvector_normalize(x_bpp)
+		;Get the time stamps so data can be sorted
+		tt2000_gd12 = [slow.tt2000_gd12, fast.tt2000_gd12]
+		tt2000_gd21 = [slow.tt2000_gd21, fast.tt2000_gd21]
+		
+		;Sort data
+		isort_gd12 = sort(tt2000_gd12)
+		isort_gd21 = sort(tt2000_gd21)
+		
+		;Find unique elements
+		iuniq_gd12 = uniq(tt2000_gd12, isort_gd12)
+		iuniq_gd21 = uniq(tt2000_gd21, isort_gd21)
+		
+		;Proper order
+		iorder_gd12 = isort_gd12[iuniq_gd12]
+		iorder_gd21 = isort_gd12[iuniq_gd21]
 	
-	;Create Y
-	y_bpp = mrvector_cross(z_bpp, x_bpp)
-
-	;Create Ouput matrix
-	xyz2bpp = [[reform(x_bpp, 3, 1, n)], $
-	           [reform(y_bpp, 3, 1, n)], $
-	           [reform(z_bpp, 3, 1, n)]]
+		;Get the names of all fields
+		;   - SLOW nad FAST should have the same fields
+		slow_fields = tag_names(slow)
+		fast_fields = tag_names(fast)
+		nfields     = n_elements(slow_fields)
+		
+		;Separate by guns
+		;   - Each gun should have the same fields
+		igd12 = where( stregex(slow_fields, '(gd12|gun1)', /BOOLEAN), ngd12, $
+		               COMPLEMENT=igd21, NCOMPLEMENT=ngd21)
+		
+		;Step through each field
+		for i = 0, nfields / 2 do begin
+			;
+			; Start with Gun1
+			;
+			
+			;Pick out the index of the common field
+			theField = slow_fields[igd12[i]]
+			islow    = where(slow_fields eq theField)
+			ifast    = where(fast_fields eq theField)
+			
+			;Combine the data
+			tmp_data = [[slow.(islow)], [fast.(ifast)]]
+			srvy     = create_struct(srvy, theField, temporary(tmp_data[*,iorder_gd12]))
+			
+			;
+			; Repeat for Gun2
+			;
+			
+			;Pick out the index of the common field
+			theField = slow_fields[igd21[i]]
+			islow    = where(slow_fields eq theField)
+			ifast    = where(fast_fields eq theField)
+			
+			;Combine the data
+			tmp_data = [[slow.(islow)], [fast.(ifast)]]
+			srvy     = create_struct(srvy, theField, (temporary(tmp_data))[*,iorder_gd121])
+		endfor
+	endelse
 	
-	return, xyz2bpp
+	return, srvy
 end

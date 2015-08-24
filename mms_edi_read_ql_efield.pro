@@ -66,10 +66,10 @@
 ; :History:
 ;   Modification History::
 ;       2015/06/15  -   Written by Matthew Argall
+;       2015/08/21  -   Added new variables from file version v0.2.0. TSTART
+;                       and TEND are now parameters, not keywords. - MRA
 ;-
-function mms_edi_read_ql_efield, files, $
-TSTART=tstart, $
-TEND=tend
+function mms_edi_read_ql_efield, files, tstart, tend
 	compile_opt idl2
 	
 	catch, the_error
@@ -119,16 +119,22 @@ TEND=tend
 
 	;Create the variable names
 	e_vname           = mms_construct_varname(sc, instr, 'E',            'dmpa')
-	b_vname           = mms_construct_varname(sc, instr, 'B',            'dmpa')
-	v_vname           = mms_construct_varname(sc, instr, 'v',            'ExB_dmpa')
+	v_vname           = mms_construct_varname(sc, instr, 'v_ExB',        'dmpa')
 	d_vname           = mms_construct_varname(sc, instr, 'd',            'dmpa')
+	e_bc_vname        = mms_construct_varname(sc, instr, 'E',            'bc_dmpa')
+	v_bc_vname        = mms_construct_varname(sc, instr, 'v_ExB',        'bc_dmpa')
+	d_bc_vname        = mms_construct_varname(sc, instr, 'd',            'bc_dmpa')
+	d_std_bc_vname    = mms_construct_varname(sc, instr, 'd_std',        'bc_dmpa')
+	q_bc_vname        = mms_construct_varname(sc, instr, 'quality',      'bc')
+	b_vname           = mms_construct_varname(sc, instr, 'B',            'dmpa')
+	b_std_vname       = mms_construct_varname(sc, instr, 'B_std',        'dmpa')
+	recnum_vname      = mms_construct_varname(sc, instr, 'recnum')
+	recnum_gd12_vname = mms_construct_varname(sc, instr, 'recnum',       'gd12')
+	recnum_gd21_vname = mms_construct_varname(sc, instr, 'recnum',       'gd21')
 	pos_vg1_vname     = mms_construct_varname(sc, instr, 'pos',          'virtual_gun1_dmpa')
 	pos_vg2_vname     = mms_construct_varname(sc, instr, 'pos',          'virtual_gun2_dmpa')
 	fv_gd12_vname     = mms_construct_varname(sc, instr, 'fv',           'gd12_dmpa')
 	fv_gd21_vname     = mms_construct_varname(sc, instr, 'fv',           'gd21_dmpa')
-	recnum_vname      = mms_construct_varname(sc, instr, 'recnum')
-	recnum_gd12_vname = mms_construct_varname(sc, instr, 'recnum',       'gd12')
-	recnum_gd21_vname = mms_construct_varname(sc, instr, 'recnum',       'gd21')
 	q_gd12_vname      = mms_construct_varname(sc, instr, 'beam_quality', 'gd12')
 	q_gd21_vname      = mms_construct_varname(sc, instr, 'beam_quality', 'gd21')
 
@@ -149,18 +155,24 @@ TEND=tend
 	
 	;Is it worth reading the rest?
 	if status eq 0 then begin
-		b_dmpa       = MrCDF_nRead(cdfIDs, b_vname,           TSTART=tstart, TEND=tend)
-		v_dmpa       = MrCDF_nRead(cdfIDs, v_vname,           TSTART=tstart, TEND=tend)
-		d_dmpa       = MrCDF_nRead(cdfIDs, d_vname,           TSTART=tstart, TEND=tend)
-		pos_vg1_dmpa = MrCDF_nRead(cdfIDs, pos_vg1_vname,     TSTART=tstart, TEND=tend, DEPEND_0=tt2000_gd12)
-		pos_vg2_dmpa = MrCDF_nRead(cdfIDs, pos_vg2_vname,     TSTART=tstart, TEND=tend, DEPEND_0=tt2000_gd21)
-		fv_gd12_dmpa = MrCDF_nRead(cdfIDs, fv_gd12_vname,     TSTART=tstart, TEND=tend)
-		fv_gd21_dmpa = MrCDF_nRead(cdfIDs, fv_gd21_vname,     TSTART=tstart, TEND=tend)
-		recnum       = MrCDF_nRead(cdfIDs, recnum_vname,      TSTART=tstart, TEND=tend)
-		recnum_gd12  = MrCDF_nRead(cdfIDs, recnum_gd12_vname, TSTART=tstart, TEND=tend)
-		recnum_gd21  = MrCDF_nRead(cdfIDs, recnum_gd21_vname, TSTART=tstart, TEND=tend)
-		q_gd12       = MrCDF_nRead(cdfIDs, q_gd12_vname,      TSTART=tstart, TEND=tend)
-		q_gd21       = MrCDF_nRead(cdfIDs, q_gd21_vname,      TSTART=tstart, TEND=tend)
+		v_dmpa        = MrCDF_nRead(cdfIDs, v_vname,           TSTART=tstart, TEND=tend)
+		d_dmpa        = MrCDF_nRead(cdfIDs, d_vname,           TSTART=tstart, TEND=tend)
+		e_bc_dmpa     = MrCDF_nRead(cdfIDs, e_bc_vname,        TSTART=tstart, TEND=tend)
+		v_bc_dmpa     = MrCDF_nRead(cdfIDs, v_bc_vname,        TSTART=tstart, TEND=tend)
+		d_bc_dmpa     = MrCDF_nRead(cdfIDs, d_bc_vname,        TSTART=tstart, TEND=tend)
+		q_bc          = MrCDF_nRead(cdfIDs, q_bc_vname,        TSTART=tstart, TEND=tend)
+		d_std_bc_dmpa = MrCDF_nRead(cdfIDs, d_std_bc_vname,    TSTART=tstart, TEND=tend)
+		b_dmpa        = MrCDF_nRead(cdfIDs, b_vname,           TSTART=tstart, TEND=tend)
+		b_std_dmpa    = MrCDF_nRead(cdfIDs, b_std_vname,       TSTART=tstart, TEND=tend)
+		recnum        = MrCDF_nRead(cdfIDs, recnum_vname,      TSTART=tstart, TEND=tend)
+		recnum_gd12   = MrCDF_nRead(cdfIDs, recnum_gd12_vname, TSTART=tstart, TEND=tend)
+		recnum_gd21   = MrCDF_nRead(cdfIDs, recnum_gd21_vname, TSTART=tstart, TEND=tend)
+		pos_vg1_dmpa  = MrCDF_nRead(cdfIDs, pos_vg1_vname,     TSTART=tstart, TEND=tend, DEPEND_0=tt2000_gd12)
+		pos_vg2_dmpa  = MrCDF_nRead(cdfIDs, pos_vg2_vname,     TSTART=tstart, TEND=tend, DEPEND_0=tt2000_gd21)
+		fv_gd12_dmpa  = MrCDF_nRead(cdfIDs, fv_gd12_vname,     TSTART=tstart, TEND=tend)
+		fv_gd21_dmpa  = MrCDF_nRead(cdfIDs, fv_gd21_vname,     TSTART=tstart, TEND=tend)
+		q_gd12        = MrCDF_nRead(cdfIDs, q_gd12_vname,      TSTART=tstart, TEND=tend)
+		q_gd21        = MrCDF_nRead(cdfIDs, q_gd21_vname,      TSTART=tstart, TEND=tend)
 	endif else begin
 		message, /REISSUE_LAST
 	endelse
@@ -174,22 +186,28 @@ TEND=tend
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	edi_ql = { tt2000:       tt2000, $
-	           tt2000_gd12:  tt2000_gd12, $
-	           tt2000_gd21:  tt2000_gd21, $
-	           e_dmpa:       e_dmpa, $
-	           b_dmpa:       b_dmpa, $
-	           v_ExB_dmpa:   v_dmpa, $
-	           d_dmpa:       d_dmpa, $
-	           pos_vg1_dmpa: pos_vg1_dmpa, $
-	           pos_vg2_dmpa: pos_vg2_dmpa, $
-	           fv_gd12_dmpa: fv_gd12_dmpa, $
-	           fv_gd21_dmpa: fv_gd21_dmpa, $
-	           recnum:       recnum, $
-	           recnum_gd12:  recnum_gd12, $
-	           recnum_gd21:  recnum_gd21, $
-	           q_gd12:       q_gd12, $
-	           q_gd21:       q_gd21 $
+	edi_ql = { tt2000:        tt2000, $
+	           e_dmpa:        e_dmpa, $
+	           v_ExB_dmpa:    v_dmpa, $
+	           d_dmpa:        d_dmpa, $
+	           e_bc_dmpa:     e_bc_dmpa, $
+	           v_ExB_bc_dmpa: v_bc_dmpa, $
+	           d_bc_dmpa:     d_bc_dmpa, $
+	           d_std_bc_dmpa: d_std_bc_dmpa, $
+	           q_bc:          q_bc, $
+	           b_dmpa:        b_dmpa, $
+	           b_std_dmpa:    b_std_dmpa, $
+	           recnum:        recnum, $
+	           recnum_gd12:   recnum_gd12, $
+	           recnum_gd21:   recnum_gd21, $
+	           tt2000_gd12:   tt2000_gd12, $
+	           tt2000_gd21:   tt2000_gd21, $
+	           pos_vg1_dmpa:  pos_vg1_dmpa, $
+	           pos_vg2_dmpa:  pos_vg2_dmpa, $
+	           fv_gd12_dmpa:  fv_gd12_dmpa, $
+	           fv_gd21_dmpa:  fv_gd21_dmpa, $
+	           q_gd12:        q_gd12, $
+	           q_gd21:        q_gd21 $
 	         }
 
 	return, edi_ql
