@@ -41,18 +41,16 @@
 ; :Params:
 ;       FILES:              in, required, type=string/strarr
 ;                           Name(s) of the AFG or DFG file(s) to be read.
-;
-; :Keywords:
 ;       TSTART:             in, optional, type=string
 ;                           Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:               in, optional, type=string
 ;                           End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Returns:
-;       FG_QL_STRUCT:       Structure of fluxgate quicklook data. Tags are::
-;                               'epoch'  - TT2000 epoch times
-;                               'b_bcs'  - 4xN (Bx, By, Bz, |B|) in BCS
-;                               'b_omb'  - 4xN (Bx, By, Bz, |B|) in OMB
+;       FG_L1B:             Structure of fluxgate quicklook data. Tags are::
+;                               'tt2000'  - TT2000 epoch times
+;                               'b_bcs'   - 4xN (Bx, By, Bz, |B|) in BCS
+;                               'b_omb'   - 4xN (Bx, By, Bz, |B|) in OMB
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -65,10 +63,10 @@
 ; :History:
 ;   Modification History::
 ;       2015/05/19  -   Written by Matthew Argall
+;       2015/08/22  -   TSTART and TEND are prameters, not keywords. Renamed
+;                           EPOCH field to TT2000. - MRA
 ;-
-function mms_fg_read_l1b, files, $
-TSTART=tstart, $
-TEND=tend
+function mms_fg_read_l1b, files, tstart, tend
 	compile_opt idl2
 	on_error, 2
 	
@@ -121,9 +119,9 @@ TEND=tend
 	b_omb = MrCDF_nRead(files, b_omb_name, TSTART=tstart, TEND=tend)
 
 	;Return a structure
-	fg_l1b = { epoch: fg_epoch, $
-	           b_bcs: b_bcs, $
-	           b_omb: b_omb  }
+	fg_l1b = { tt2000: fg_epoch, $
+	           b_bcs:  b_bcs, $
+	           b_omb:  b_omb  }
 
 	return, fg_l1b
 end

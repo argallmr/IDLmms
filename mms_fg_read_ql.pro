@@ -41,8 +41,6 @@
 ; :Params:
 ;       FILES:              in, required, type=string/strarr
 ;                           Name(s) of the AFG or DFG file(s) to be read.
-;
-; :Keywords:
 ;       TSTART:             in, optional, type=string
 ;                           Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:               in, optional, type=string
@@ -68,10 +66,9 @@
 ;   Modification History::
 ;       2015/05/03  -   Written by Matthew Argall
 ;       2015/05/19  -   Accept file names instead of searching for files. - MRA
+;       2015/08/21  -   TSTART and TEND are now parameters, not keywords. - MRA
 ;-
-function mms_fg_read_ql, files, $
-TSTART=tstart, $
-TEND=tend
+function mms_fg_read_ql, files, tstart, tend
 	compile_opt idl2
 	on_error, 2
 	
