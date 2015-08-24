@@ -114,13 +114,14 @@ HEADER=header, $
 UTC=utc, $
 TAI=tai
 	compile_opt idl2
+	on_error, 2
 	
 	;Number of files given
 	nFiles = n_elements(filenames)
 	utc    = keyword_set(utc)
 	tai    = keyword_set(tai)
 	if n_elements(tstart) eq 0 then tstart = ''
-	if n_elements(tstop)  eq 0 then tstop  = ''
+	if n_elements(tend)   eq 0 then tend   = ''
 
 ;-------------------------------------------------------
 ; Read Headers \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -228,11 +229,14 @@ TAI=tai
 ;-------------------------------------------------------
 ; Select Time Interval \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
-	if tstart ne '' || tstop ne '' then begin
+	if tstart ne '' || tend ne '' then begin
+		;Number of elements might have been reduced
+		n = n_elements(attitude.tt2000)
+	
 		;tt2000 range
 		if tstart eq '' then tstart = attitude.tt2000[0]
-		if tstop  eq '' then tstop  = attitude.tt2000[count-1]
-		trange = MrCDF_Epoch_Parse([tstart, tend], '%Y-%M-%dT%H:%m:%S', /TO_TT2000)
+		if tend   eq '' then tend   = attitude.tt2000[n-1]
+		trange = MrCDF_Epoch_Parse([tstart, tend], PATTERN='%Y-%M-%dT%H:%m:%S', /TO_TT2000)
 		
 		;Records to keep
 		irange = MrIndexRange(attitude.tt2000, trange)

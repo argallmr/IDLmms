@@ -107,7 +107,7 @@ TAI=tai
 	utc    = keyword_set(utc)
 	tai    = keyword_set(tai)
 	if n_elements(tstart) eq 0 then tstart = ''
-	if n_elements(tstop)  eq 0 then tstop  = ''
+	if n_elements(tend)   eq 0 then tend   = ''
 
 ;-------------------------------------------------------
 ; Read Headers \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -151,7 +151,7 @@ TAI=tai
 	                               NHEADER      = header.nHeader[0])
 
 	;Convert TAI to TT2000
-	tt2000 = mms_fdoa_epoch2tt2000(ephemeris.tai, /TAI)
+	tt2000 = mms_fdoa_epoch2tt2000(ephemeris.tai, /EPHEMERIS, /TAI)
 	
 	;Remove TAI and UTC?
 	case 1 of
@@ -197,14 +197,14 @@ TAI=tai
 ;-------------------------------------------------------
 ; Select Time Interval \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
-	if tstart ne '' || tstop ne '' then begin
+	if tstart ne '' || tend ne '' then begin
 		;tt2000 range
-		if tstart eq '' then tstart = attitude.tt2000[0]
-		if tstop  eq '' then tstop  = attitude.tt2000[count-1]
-		trange = MrCDF_Epoch_Parse([tstart, tend], '%Y-%M-%dT%H:%m:%S', /TO_TT2000)
-		
+		if tstart eq '' then tstart = ephemeris.tt2000[0]
+		if tend   eq '' then tend   = ephemeris.tt2000[count-1]
+		trange = MrCDF_Epoch_Parse([tstart, tend], PATTERN='%Y-%M-%dT%H:%m:%S', /TO_TT2000)
+
 		;Records to keep
-		irange = MrIndexRange(attitude.tt2000, trange)
+		irange = MrIndexRange(ephemeris.tt2000, trange)
 		
 		;Create a new structure with trimmed data
 		temp = { tt2000:   ephemeris.tt2000[irange[0]:irange[1]], $
