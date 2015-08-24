@@ -24,17 +24,16 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	sc       = 'mms2'
 	tstart   = '2015-05-09T16:08:00Z'
 	tend     = '2015-05-09T16:13:00Z'
-	edi_dir  = '/nfs/edi/'
+	edi_dir  = '/nfs/edi/temp/'
 	sdc_dir  = '/nfs/'
-	filename = ''
 	dt       = 5
-	save_dir = ''
+	save_dir = '/nfs/edi/beam_plots/'
 
 ;-------------------------------------------------------
 ; Find and Read EDI Files //////////////////////////////
 ;-------------------------------------------------------
 	instr   = 'edi'
-	mode    = 'slow'
+	mode    = 'srvy'
 	level   = 'ql'
 	optdesc = 'efield'
 	
@@ -52,7 +51,7 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	if nfiles_edi eq 0 then message, 'No EDI files found: "' + searchstr + '".'
 	
 	;Read files
-	edi_ql = mms_edi_read_ql_efield(files_edi, TSTART=tstart, TEND=tend)
+	edi_ql = mms_edi_read_ql_efield(files_edi, tstart, tend)
 
 ;-----------------------------------------------------
 ; Create Window \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -68,8 +67,8 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	corner = center + [-winx/2, -winy/2]
 	
 	;Create window
-	win    = window(DIMENSIONS=[winx, winy], LOCATION=corner, BUFFER=save_dir ne '')
-	win   -> Refresh, /DISABLE
+	win = window(DIMENSIONS=[winx, winy], LOCATION=corner, BUFFER=save_dir ne '')
+	win -> Refresh, /DISABLE
 
 ;-----------------------------------------------------
 ; Create S/C \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -84,15 +83,7 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	sc_xyz_ocs       = cv_coord(FROM_SPHERE=sc_sphr_ocs, /TO_RECT)
 
 ;-----------------------------------------------------
-; Associate Beams with B_avg \\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-
-	;Figure out which beams correspond to which average value
-	hist1 = histogram(edi_ql.recnum_gd12, MIN=0, BINSIZE=1, REVERSE_INDICES=ri1)
-	hist2 = histogram(edi_ql.recnum_gd21, MIN=0, BINSIZE=1, REVERSE_INDICES=ri2)
-
-;-----------------------------------------------------
-; Draw S/C, Guns, Fire Vectors, & Target \\\\\\\\\\\\\
+; Draw S/C, Guns, Fire Vectors, & Targets \\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Draw a set of axes 1.5 times bigger than the s/c
 	range = 1.75 * [-sc_sphr_ocs[2,0], sc_sphr_ocs[2,0]]
@@ -115,28 +106,39 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	                TARGET = gAxes)
 	
 	;Firing directions
-	gFire1 = Polyline(range, range, COLOR='Blue', /DATA, TARGET=gAxes, NAME='Firing Vectors GD12')
-	gFire2 = Polyline(range, range, COLOR='Red',  /DATA, TARGET=gAxes, NAME='Firing Vectors GD21')
+	gFire1 = Polyline(range, range, COLOR='Blue', /CLIP, /DATA, TARGET=gAxes, NAME='Firing Vectors GD12')
+	gFire2 = Polyline(range, range, COLOR='Red',  /CLIP, /DATA, TARGET=gAxes, NAME='Firing Vectors GD21')
 	
 	;Guns
 	gGun1 = Symbol(sc_xyz_ocs[0,0], sc_xyz_ocs[1,0], 'circle', $
 	               /DATA, $
-	               NAME     = 'Gun2', $
-	               SYM_SIZE = 2.0, $
-	               TARGET   = gAxes)
+	               NAME      = 'Gun1', $
+	               SYM_COLOR = 'Blue', $
+	               SYM_SIZE  = 2.0, $
+	               TARGET    = gAxes)
 	gGun2 = Symbol(sc_xyz_ocs[0,0], sc_xyz_ocs[1,0], 'circle', $
 	               /DATA, $
-	               NAME     = 'Gun1', $
-	               SYM_SIZE = 2.0, $
-	               TARGET   = gAxes)
+	               NAME      = 'Gun2', $
+	               SYM_COLOR = 'Red', $
+	               SYM_SIZE  = 2.0, $
+	               TARGET    = gAxes)
 	
-	;Draw drift step
-	gTarget = symbol(edi_ql.d_dmpa[0], edi_ql.d_dmpa[1], 'X', /DATA, $
-	                 NAME      = 'Target', $
-	                 TARGET    = gAxes, $
-	                 SYM_THICK = 2, $
-	                 SYM_SIZE  = 3.0)
-
+	;Draw drift step from CF
+	gTargetCF = symbol(edi_ql.d_dmpa[0], edi_ql.d_dmpa[1], 'X', /DATA, $
+	                   NAME      = 'Target', $
+	                   TARGET    = gAxes, $
+	                   SYM_COLOR = 'Black', $
+	                   SYM_THICK = 2, $
+	                   SYM_SIZE  = 3.0)
+	
+	;Draw drift step from BC
+	gTargetBC = symbol(edi_ql.d_dmpa[0], edi_ql.d_dmpa[1], 'o', /DATA, $
+	                   NAME      = 'Target', $
+	                   TARGET    = gAxes, $
+	                   SYM_COLOR = 'Green', $
+	                   SYM_THICK = 2, $
+	                   SYM_SIZE  = 3.0)
+	
 ;-----------------------------------------------------
 ; Draw Each Bavg Interval \\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -155,17 +157,20 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 	;-----------------------------------------------------
 	; Drift Step and BPP \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;Drift step
-		t     = edi_ql.tt2000[i]
-		d     = edi_ql.d_dmpa[*,i]
-		b_avg = edi_ql.b_dmpa[*,i]
+		;Virtual Source Point
+		;   - Negative of the drift step
+		t     =  edi_ql.tt2000[i]
+		d_cf  = -edi_ql.d_dmpa[*,i]
+		d_bc  = -edi_ql.d_bc_dmpa[*,i]
+		b_avg =  edi_ql.b_dmpa[*,i]
 
 		;Rotate the s/c into B_AVG bpp
 		xyz2bpp    = mms_instr_xb2bpp(b_avg)
 		sc_xyz_bpp = MrVector_Rotate(xyz2bpp, sc_xyz_ocs)
 		
 		;Rotate drift step into average BPP
-		d = MrVector_Rotate(xyz2bpp, d)
+		d_cf_bpp = MrVector_Rotate(xyz2bpp, d_cf)
+		d_bc_bpp = MrVector_Rotate(xyz2bpp, d_bc)
 
 	;-----------------------------------------------------
 	; GD12 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -173,29 +178,29 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		if n1 gt 0 then begin
 			;Gun positions and firing vectors
 			g1_pos = edi_ql.pos_vg1_dmpa[*,inds1]
-			g1_fire = edi_ql.fv_gd12_dmpa[*,inds1]
+			g1_fv  = edi_ql.fv_gd12_dmpa[*,inds1]
 			
 			;Rotate to BPP
-			g1_pos  = MrVector_Rotate(xyz2bpp, g1_pos)
-			g1_fire = MrVector_Rotate(xyz2bpp, g1_fire)
+			g1_pos_bpp = MrVector_Rotate(xyz2bpp, g1_pos)
+			g1_fv_bpp  = MrVector_Rotate(xyz2bpp, g1_fv)
 			
 			;Beam slope, y-intercept, (x1,x2) and (y1,y2)
 			;   - slope (m)       = rise / run
 			;   - y-intercept (b) = y1 - m * x1
 			;   - (x1,x2)         = range
 			;   - (y1,y2)         = m*x + b
-			m   = reform( g1_fire[1,*] / g1_fire[0,*] )
-			b   = reform( g1_pos[1,*] - g1_pos[0,*] * m )
-			g1x = rebin( [range[0], range[1]], 2, n1 )
-			g1y = transpose( [[m * g1x[0,*] + b], [m * g1x[1,*] + b]] )
-		
+			m     = reform( g1_fv_bpp[1,*] / g1_fv_bpp[0,*] )
+			b     = reform( g1_pos_bpp[1,*] - g1_pos_bpp[0,*] * m )
+			x_bpp = rebin( [range[0], range[1]], 2, n1 )
+			y_bpp = transpose( [[m * x_bpp[0,*] + b], [m * x_bpp[1,*] + b]] )
+
 			;Define connectivity
 			;   - Make (x1,x2) and (y1,y2) pairs adjacent
 			;   - Indicate connectivity: [2,       2,       2,
 			;                                0, 1,    2, 3,    4, 5, ...]
-			g1x = reform(g1x, 2 * n1)
-			g1y = reform(g1y, 2 * n1)
-			conn1 = reform([replicate(2,1,n1), lindgen(2,n1)], 3*n1)
+			g1_fv_xbpp = reform(x_bpp, 2 * n1)
+			g1_fv_ybpp = reform(y_bpp, 2 * n1)
+			g1_fv_conn = reform([replicate(2,1,n1), lindgen(2,n1)], 3*n1)
 		endif
 		
 	;-----------------------------------------------------
@@ -204,22 +209,22 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		if n2 gt 0 then begin
 			;Gun positions and firing vectors
 			g2_pos = edi_ql.pos_vg2_dmpa[*,inds2]
-			g2_fire = edi_ql.fv_gd21_dmpa[*,inds2]
+			g2_fv  = edi_ql.fv_gd21_dmpa[*,inds2]
 			
 			;Rotate to BPP
-			g2_pos  = MrVector_Rotate(xyz2bpp, g2_pos)
-			g2_fire = MrVector_Rotate(xyz2bpp, g2_fire)
+			g2_pos_bpp = MrVector_Rotate(xyz2bpp, g2_pos)
+			g2_fv_bpp  = MrVector_Rotate(xyz2bpp, g2_fv)
 		
 			;Beam slope, y-intercept, (x1,x2) and (y1,y2)
-			m   = reform( g2_fire[1,*] / g2_fire[0,*] )
-			b   = reform( g2_pos[1,*] - g2_pos[0,*] * m )
-			g2x = rebin( [range[0], range[1]], 2, n2)
-			g2y = transpose( [[m * g2x[0,*] + b], [m * g2x[1,*] + b]] )
+			m     = reform( g2_fv_bpp[1,*] / g2_fv_bpp[0,*] )
+			b     = reform( g2_pos_bpp[1,*] - g2_pos_bpp[0,*] * m )
+			x_bpp = rebin( [range[0], range[1]], 2, n2)
+			y_bpp = transpose( [[m * x_bpp[0,*] + b], [m * x_bpp[1,*] + b]] )
 			
 			;Connectivity
-			g2x = reform(g2x, 2 * n2)
-			g2y = reform(g2y, 2 * n2)
-			conn2 = reform([replicate(2,1,n2), lindgen(2,n2)], 3*n2)
+			g2_fv_xbpp = reform(x_bpp, 2 * n2)
+			g2_fv_ybpp = reform(y_bpp, 2 * n2)
+			g2_fv_conn = reform([replicate(2,1,n2), lindgen(2,n2)], 3*n2)
 		endif
 
 	;-----------------------------------------------------
@@ -232,7 +237,8 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		title = 'Beam intersections in $B_{Avg}$ BPP!C' + $
 		        string(FORMAT='(%"%s %04i-%02i-%02i %02i:%02i:%02i - %02i:%02i:%02i")', $
 		               sc, yr0, mo0, day0, hr0, min0, sec0, hr1, min1, sec1) + '!C' + $
-		        string(FORMAT='(%"d = [%0.2f, %0.2f, %0.2f]")', d) + '!C' + $
+		        string(FORMAT='(%"d_cf = [%0.2f, %0.2f, %0.2f]")', d_cf_bpp) + '!C' + $
+		        string(FORMAT='(%"d_bc = [%0.2f, %0.2f, %0.2f]")', d_bc_bpp) + '!C' + $
 		        string(FORMAT='(%"B = [%0.2f, %0.2f, %0.2f]")', b_avg)
 		gAxes.title = title
 		
@@ -246,8 +252,8 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 			gFire1.hide    = 0
 			
 			;SetData
-			gGun1  -> SetData, reform(g1_pos[0,*]), reform(g1_pos[1,*])
-			gFire1 -> SetData, g1x, g1y, CONNECTIVITY=conn1
+			gGun1  -> SetData, reform(g1_pos_bpp[0,*]), reform(g1_pos_bpp[1,*])
+			gFire1 -> SetData, g1_fv_xbpp, g1_fv_ybpp, CONNECTIVITY=g1_fv_conn
 		endif else begin
 			gGun1.sym_size = 0.0
 			gFire1.hide    = 1
@@ -259,17 +265,22 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 			gFire2.hide    = 0
 			
 			;Set Data
-			gGun2  -> SetData, reform(g2_pos[0,*]), reform(g2_pos[1,*])
-			gFire2 -> SetData, g2x, g2y, CONNECTIVITY=conn2
+			gGun2  -> SetData, reform(g2_pos_bpp[0,*]), reform(g2_pos_bpp[1,*])
+			gFire2 -> SetData, g2_fv_xbpp, g2_fv_ybpp, CONNECTIVITY=g2_fv_conn
 		endif else begin
 			gGun2.sym_size = 0.0
 			gFire2.hide    = 1
 		endelse
 		
 		;Draw the target
-		gTarget -> SetData, d[0], d[1]
-		gTarget.sym_size = 3.0
-		gTarget.sym_size = 2.0
+		gTargetCF -> SetData, d_cf_bpp[0], d_cf_bpp[1]
+		gTargetCF.sym_size = 3.0
+		gTargetCF.sym_size = 2.0
+		
+		;Draw the target
+		gTargetBC -> SetData, d_bc_bpp[0], d_bc_bpp[1]
+		gTargetBC.sym_size = 3.0
+		gTargetBC.sym_size = 2.0
 
 	;-----------------------------------------------------
 	; Next Iteration\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -280,24 +291,19 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		;Save?
 		if save_dir ne '' then begin
 			filename = filepath( ROOT_DIR=save_dir, $
-			                     strupcase(sc) + '_' + instr + '_' + mode + '_' + level + '_' + $
-			                     'driftstep-' + string(dt, format='(f1.0)') + 's' + $
+			                     sc + '_' + instr + '_' + mode + '_' + level + '_' + $
+			                     'driftstep-' + string(dt, format='(i1)') + 's_' + $
 			                     string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', $
 			                            yr0, mo0, day0, hr0, min0, sec0) + $
 			                     '.png' )
-		
-			if nPts le 2 then begin
-				gAxes -> Save, filename
-			endif else begin
-				if i eq nPts - 2 then close = 1 else close = 0
-				gAxes -> Save, filename, /APPEND, CLOSE=close
-			endelse
+
+			gAxes -> Save, filename
+			print, 'Image saved to "' + filename + '".'
 		endif else begin
 			wait, 0.5
 		endelse
 	
 		win -> Refresh, /DISABLE
-stop
 	endfor
 	win -> Refresh
 	return, win
