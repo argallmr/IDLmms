@@ -41,6 +41,10 @@
 ; :Params:
 ;       FILENAMES:          in, required, type=string
 ;                           Name(s) of the sunpulse data files to read.
+;       TSTART:             in, optional, type=string
+;                           Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:               in, optional, type=string
+;                           End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
 ;       UNIQ_PACKETS:       out, optional, type=struct, default=false
@@ -73,12 +77,11 @@
 ;   Modification History::
 ;       2015/02/15  -   Written by Matthew Argall
 ;       2015/05/28  -   Take file names as input instead of searching for files. - MRA
+;       2015/08/22  -   TSTART and TEND are prameters, not keywords. - MRA
 ;-
-function mms_dss_read_sunpulse, filenames, $
+function mms_dss_read_sunpulse, filenames, tstart, tend, $
 UNIQ_PACKETS=uniq_packets, $
-UNIQ_PULSE=uniq_pulse, $
-TSTART=tstart, $
-TEND=tend
+UNIQ_PULSE=uniq_pulse
 	compile_opt idl2
 	on_error, 2
 
