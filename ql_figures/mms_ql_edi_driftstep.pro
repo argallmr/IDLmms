@@ -179,7 +179,7 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 			;Gun positions and firing vectors
 			g1_pos = edi_ql.pos_vg1_dmpa[*,inds1]
 			g1_fv  = edi_ql.fv_gd12_dmpa[*,inds1]
-			
+
 			;Rotate to BPP
 			g1_pos_bpp = MrVector_Rotate(xyz2bpp, g1_pos)
 			g1_fv_bpp  = MrVector_Rotate(xyz2bpp, g1_fv)
@@ -290,7 +290,18 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 
 		;Save?
 		if save_dir ne '' then begin
-			filename = filepath( ROOT_DIR=save_dir, $
+			if i eq 0 then begin
+				;Get the file version
+				mms_dissect_filename, files_edi, VERSION=version
+
+				;Create a date directory if it does not exist
+				MrTimeParser, tstart, '%Y-%M-%d', '%Y%M%d', date
+				out_dir = filepath(ROOT_DIR=save_dir, date + '_v' + version)
+				if ~file_test(out_dir) then file_mkdir, out_dir
+			endif
+		
+			;Create the file name
+			filename = filepath( ROOT_DIR=out_dir, $
 			                     sc + '_' + instr + '_' + mode + '_' + level + '_' + $
 			                     'driftstep-' + string(dt, format='(i1)') + 's_' + $
 			                     string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', $

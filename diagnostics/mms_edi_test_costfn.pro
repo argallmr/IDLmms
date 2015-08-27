@@ -219,13 +219,19 @@ BUFFER=buffer
 ;-----------------------------------------------------
 ; Setup the Axes \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+
+	;Plot cananot set TITLE if window is /BUFFER
+	if buffer $
+		then title = '' $
+		else title = 'Beam intersections in $B_{Avg}$ BPP'
+
 	;Draw a set of axes 1.5 times bigger than the s/c
 	range = 1.75 * [-sc_sphr_ocs[2,0], sc_sphr_ocs[2,0]]
 	gAxes = plot(range, range, /NODATA, /CURRENT, $
 	             ASPECT_RATIO = 1.0, $
 	             MARGIN       = [0.13, 0.1, 0.04, 0.2], $
 	             NAME         = 'Beam Plot', $
-	             TITLE        = 'Beam intersections in $B_{Avg}$ BPP', $
+	             TITLE        = title, $
 	             XRANGE       = range, $
 	             XSTYLE       = 1, $
 	             XTITLE       = 'Distance (m)', $
@@ -312,8 +318,8 @@ function mms_edi_test_costFn, sc, tstart, tend
 	endif
 
 	sc       = 'mms2'                 ;Slow                            ;Fast
-	tstart   = '2015-05-09T15:30:00Z' ;01-Aug-2015 05:08:46.030963219  01-Aug-2015 00:41:57.83222159
-	tend     = '2015-05-09T16:30:00Z' ;01-Aug-2015 13:19:18.340386093  01-Aug-2015 05:07:01.822075718
+	tstart   = '2015-05-09T16:08:00Z' ;01-Aug-2015 05:08:46.030963219  01-Aug-2015 00:41:57.83222159
+	tend     = '2015-05-09T16:13:00Z' ;01-Aug-2015 13:19:18.340386093  01-Aug-2015 05:07:01.822075718
 	edi_dir  = '/nfs/edi/temp/'
 	sdc_dir  = '/nfs/'
 	hk_dir   = '/nfs/hk/'
@@ -630,7 +636,7 @@ function mms_edi_test_costFn, sc, tstart, tend
 			;Filename
 			if png_dir ne '' then begin
 				;Output do a daily file
-				png_out = filepath(ROOT_DIR=png_dir, string(FORMAT='(%"%04i%02i%02i")', yr0, mo0, day0))
+				png_out = filepath(ROOT_DIR=png_dir, string(FORMAT='(%"%04i%02i%02i-idl")', yr0, mo0, day0))
 				if ~file_test(png_out, /DIRECTORY) then file_mkdir, png_out
 			
 				;Create the file name
