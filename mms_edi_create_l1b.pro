@@ -36,6 +36,11 @@
 ;   Read EDI electric field mode level 1A data and turn it into level 1B data. L1B
 ;   implies calibrated data in the spinning, spacecraft body coordinate system (BCS).
 ;
+;   Steps:
+;       1) Read L1A data
+;       2) Define gun positions
+;       3) Rotate positions and firing vectors to BCS
+;
 ; :Categories:
 ;   MMS, EDI
 ;
@@ -88,12 +93,14 @@
 function mms_edi_create_l1b, files, tstart, tend, $
 CS_123=cs_123, $
 CS_BCS=cs_bcs, $
-QUALITY=quality
+QUALITY=quality, $
+STRUCTARR=structarr
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 	
-	cs_123 = keyword_set(cs_123)
-	cs_bcs = n_elements(cs_bcs) eq 0 ? 1B : keyword_set(cs_bcs)
+	tf_struct = keyword_set(structarr)
+	cs_123    = keyword_set(cs_123)
+	cs_bcs    = n_elements(cs_bcs) eq 0 ? 1B : keyword_set(cs_bcs)
 	
 ;-----------------------------------------------------
 ; Get the data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -110,7 +117,8 @@ QUALITY=quality
 
 	;Read data
 	edi = mms_edi_read_l1a_efield(files, tstart, tend, $
-	                              QUALITY = quality)
+	                              QUALITY   = quality, $
+	                              STRUCTARR = structarr)
 
 ;-----------------------------------------------------
 ; Rotate 123 <-> BCS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -120,8 +128,17 @@ QUALITY=quality
 	edi2_to_bcs = mms_instr_xxyz2ocs('EDI2')
 
 	;Rotate 123 -> BCS
-	if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12_123)
-	if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21_123)
+	if tf_struct then begin
+		igd12  = where(edi.gdu eq 1B, ngd12)
+		igd21  = where(edi.gdu eq 2B, ngd21)
+		fv_bcs = fltarr(3, ngd12+ngd21)
+		if ngd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi[igd12].fv_123)
+		if ngd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi[igd21].fv_123)
+	endif else begin
+		if edi.count_gd12 gt 0 then fv_gd12_bcs = mrvector_rotate(edi1_to_bcs, edi.fv_gd12_123)
+		if edi.count_gd21 gt 0 then fv_gd21_bcs = mrvector_rotate(edi2_to_bcs, edi.fv_gd21_123)
+	endelse
+	
 	
 	;Rotate BCS -> 123
 	bcs_to_edi1 = transpose(edi1_to_bcs)
@@ -136,37 +153,104 @@ QUALITY=quality
 	pos_vg2_123 = gun_gd21_123 - det_gd12_123
 
 ;-----------------------------------------------------
-; Append Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Array of Structures \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Include data in EDI coordinates?
-	if cs_123 then begin
-		edi = create_struct( edi, $
-		                     'gun_gd12_123',     gun_gd12_123, $
-		                     'det_gd12_123',     det_gd12_123, $
-		                     'gun_gd21_123',     gun_gd21_123, $
-		                     'det_gd21_123',     det_gd21_123, $
-		                     'virtual_gun1_123', pos_vg1_123, $
-		                     'virtual_gun2_123', pos_vg2_123 $
-		                   )
-	endif else begin
-		edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
-	endelse
-
-	;Positions on real and virtual spacecraft
-	if cs_bcs then begin
-		edi = create_struct( edi, $
-		                    'gun_gd12_bcs',     gun_gd12_bcs, $
-		                    'det_gd12_bcs',     det_gd12_bcs, $
-		                    'gun_gd21_bcs',     gun_gd21_bcs, $
-		                    'det_gd21_bcs',     det_gd21_bcs, $
-		                    'virtual_gun1_bcs', pos_vg1_bcs, $
-		                    'virtual_gun2_bcs', pos_vg2_bcs )
+	if tf_struct then begin
+		;
+		;Instead of adding new fields to all of the old structures
+		;individually, we will create a new structure array and copy
+		;values from old to new.
+		;
 		
-		;Firing vectors
-		if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
-		if edi.count_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
-	endif
+		beam_struct = edi[0]
+		if cs_123 then begin
+			beam_struct = create_struct( beam_struct, $
+			                             'gun_123', fltarr(3), $
+			                             'det_123', fltarr(3), $
+			                             'vg_123',  fltarr(3) )
+		endif
+		if cs_bcs then begin
+			beam_struct = create_struct( beam_struct, $
+			                             'gun_bcs', fltarr(3), $
+			                             'det_bcs', fltarr(3), $
+			                             'vg_bcs',  fltarr(3), $
+			                             'fv_bcs',  fltarr(3) )
+		endif
+		
+		;Copy into new structure array
+		edi_l1b = replicate(beam_struct, ngd12+ngd21)
+		struct_assign, temporary(edi), edi_l1b
+
+		;123
+		if cs_123 then begin
+			if ngd12 gt 0 then begin
+				edi_l1b[0:ngd12-1].gun_123 = temporary(gun_gd12_123)
+				edi_l1b[0:ngd12-1].det_123 = temporary(det_gd12_123)
+				edi_l1b[0:ngd12-1].vg_123  = temporary(pos_vg1_123)
+			endif
+		
+			if ngd21 gt 0 then begin
+				edi_l1b[ngd12:*].gun_123 = temporary(gun_gd21_123)
+				edi_l1b[ngd12:*].det_123 = temporary(det_gd21_123)
+				edi_l1b[ngd12:*].vg_123  = temporary(pos_vg2_123)
+			endif
+		endif
+		
+		;BCS
+		if cs_bcs then begin
+			if ngd12 gt 0 then begin
+				edi_l1b[0:ngd12-1].gun_bcs = temporary(gun_gd12_bcs)
+				edi_l1b[0:ngd12-1].det_bcs = temporary(det_gd12_bcs)
+				edi_l1b[0:ngd12-1].vg_bcs  = temporary(pos_vg1_bcs)
+				edi_l1b[0:ngd12-1].fv_bcs  = temporary(fv_gd12_bcs)
+			endif
+		
+			if ngd21 gt 0 then begin
+				edi_l1b[ngd12:*].gun_bcs = temporary(gun_gd21_bcs)
+				edi_l1b[ngd12:*].det_bcs = temporary(det_gd21_bcs)
+				edi_l1b[ngd12:*].vg_bcs  = temporary(pos_vg2_bcs)
+				edi_l1b[ngd12:*].fv_bcs  = temporary(fv_gd21_bcs)
+			endif
+		endif
+		
+		;rename
+		edi = temporary(edi_l1b)
+
+;-----------------------------------------------------
+; Structure of Arrays \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	endif else begin
+
+		;Include data in EDI coordinates?
+		if cs_123 then begin
+			edi = create_struct( edi, $
+			                     'gun_gd12_123',     gun_gd12_123, $
+			                     'det_gd12_123',     det_gd12_123, $
+			                     'gun_gd21_123',     gun_gd21_123, $
+			                     'det_gd21_123',     det_gd21_123, $
+			                     'virtual_gun1_123', pos_vg1_123, $
+			                     'virtual_gun2_123', pos_vg2_123 $
+			                   )
+		endif else begin
+			edi = remove_tags(edi, ['fv_gd12_123', 'fv_gd21_123'])
+		endelse
 	
+		;Positions on real and virtual spacecraft
+		if cs_bcs then begin
+			edi = create_struct( edi, $
+			                    'gun_gd12_bcs',     gun_gd12_bcs, $
+			                    'det_gd12_bcs',     det_gd12_bcs, $
+			                    'gun_gd21_bcs',     gun_gd21_bcs, $
+			                    'det_gd21_bcs',     det_gd21_bcs, $
+			                    'virtual_gun1_bcs', pos_vg1_bcs, $
+			                    'virtual_gun2_bcs', pos_vg2_bcs )
+			
+			;Firing vectors
+			if edi.count_gd12 gt 0 then edi = create_struct(edi, 'fv_gd12_bcs', fv_gd12_bcs)
+			if edi.count_gd21 gt 0 then edi = create_struct(edi, 'fv_gd21_bcs', fv_gd21_bcs)
+		endif
+	endelse
+		
 	;Return structure
 	return, edi
 end

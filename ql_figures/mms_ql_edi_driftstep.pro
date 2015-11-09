@@ -21,10 +21,10 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		return, obj_new()
 	endif
 
-	sc       = 'mms2'
-	tstart   = '2015-05-09T16:08:00Z'
-	tend     = '2015-05-09T16:13:00Z'
-	edi_dir  = '/nfs/edi/temp/'
+	sc       = 'mms1'
+	tstart   = '2015-08-20T02:45:00Z'
+	tend     = '2015-08-20T03:20:00Z'
+	edi_dir  = '/nfs/edi/'
 	sdc_dir  = '/nfs/'
 	dt       = 5
 	save_dir = '/nfs/edi/beam_plots/'
@@ -171,6 +171,13 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 		;Rotate drift step into average BPP
 		d_cf_bpp = MrVector_Rotate(xyz2bpp, d_cf)
 		d_bc_bpp = MrVector_Rotate(xyz2bpp, d_bc)
+		
+		;Update the size of the plot
+		d_mag = max( [sqrt(total(d_cf^2)), sqrt(total(d_bc^2))] )
+		if d_mag gt range[1] $
+			then prange = 1.1 * [-d_mag, d_mag] $
+			else prange = range
+		gAxes -> SetProperty, XRANGE=prange, YRANGE=prange
 
 	;-----------------------------------------------------
 	; GD12 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -191,7 +198,7 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 			;   - (y1,y2)         = m*x + b
 			m     = reform( g1_fv_bpp[1,*] / g1_fv_bpp[0,*] )
 			b     = reform( g1_pos_bpp[1,*] - g1_pos_bpp[0,*] * m )
-			x_bpp = rebin( [range[0], range[1]], 2, n1 )
+			x_bpp = rebin( [prange[0], prange[1]], 2, n1 )
 			y_bpp = transpose( [[m * x_bpp[0,*] + b], [m * x_bpp[1,*] + b]] )
 
 			;Define connectivity
@@ -218,7 +225,7 @@ function mms_ql_edi_driftstep, sc, tstart, tend
 			;Beam slope, y-intercept, (x1,x2) and (y1,y2)
 			m     = reform( g2_fv_bpp[1,*] / g2_fv_bpp[0,*] )
 			b     = reform( g2_pos_bpp[1,*] - g2_pos_bpp[0,*] * m )
-			x_bpp = rebin( [range[0], range[1]], 2, n2)
+			x_bpp = rebin( [prange[0], prange[1]], 2, n2)
 			y_bpp = transpose( [[m * x_bpp[0,*] + b], [m * x_bpp[1,*] + b]] )
 			
 			;Connectivity

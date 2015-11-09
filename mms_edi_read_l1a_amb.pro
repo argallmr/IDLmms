@@ -60,7 +60,10 @@
 ;                             'EPOCH_TIMETAGS' -  TT2000 times for PITCH_MODE and PACK_MODE
 ;                             'COUNTS_GDU1'    -  Electron counts from GDU1
 ;                             'ENERGY_GDU1'    -  Energy mode of GDU1
+;                                                   0:      0 eV
+;                                                   1:      250 eV
 ;                                                   2:      500 eV
+;                                                   3:      1000 eV
 ;                             'COUNTS_GDU2'    -  Electron counts from GDU2
 ;                             'ENERGY_GDU2'    -  Energy mode of GDU2
 ;                             'AZIMUTH'        -  Azimuthal look direction in GDU1 system
@@ -85,11 +88,10 @@
 ; :History:
 ;   Modification History::
 ;       2015/06/01  -   Written by Matthew Argall
+;       2015/10/15  -   Read burst data. - MRA
 ;-
-function mms_edi_read_l1a_amb, files, $
-QUALITY=quality, $
-TSTART=tstart, $
-TEND=tend
+function mms_edi_read_l1a_amb, files, tstart, tend, $
+QUALITY=quality
 	compile_opt idl2
 	
 	catch, the_error
@@ -105,7 +107,8 @@ TEND=tend
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Number of files given
-	nFiles = n_elements(files)
+	nFiles  = n_elements(files)
+	tf_sort = 0
 
 	;Dissect the file name
 	mms_dissect_filename, files, $
@@ -114,13 +117,17 @@ TEND=tend
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
 	                      SC      = sc
-	
+
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	if min(instr   eq 'edi')   eq 0 then message, 'Only EDI files are allowed.'
 	if min(level   eq 'l1a')   eq 0 then message, 'Only L1A files are allowed.'
 	if min(optdesc eq 'amb')   eq 0 then message, 'Only EDI ambient-mode files are allowed.'
-	if min(mode    eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
+	if min(mode    eq mode[0]) eq 0 then begin
+		if total((mode eq 'fast') + (mode eq 'slow')) ne n_elements(mode) $
+			then message, 'All files must have the same telemetry mode.' $
+			else tf_sort = 1
+	endif
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -137,17 +144,27 @@ TEND=tend
 	
 	;Variable names for GDU1
 	counts1_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1')
+	counts2_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2')
+	counts3_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts3')
+	counts4_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts4')
 	energy_gdu1_name  = mms_construct_varname(sc, instr, optdesc, 'energy1')
 	
 	;Variable names for GDU2
 	counts1_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1')
+	counts2_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2')
+	counts3_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts3')
+	counts4_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts4')
 	energy_gdu2_name  = mms_construct_varname(sc, instr, optdesc, 'energy2')
 	
 	;Other variable names
-	phi_name   = mms_construct_varname(sc, instr, optdesc, 'phi')
-	theta_name = mms_construct_varname(sc, instr, optdesc, 'theta')
-	pitch_name = mms_construct_varname(sc, instr, optdesc, 'pitchmode')
-	pacmo_name = mms_construct_varname(sc, instr, optdesc, 'pacmo')
+	phi_name        = mms_construct_varname(sc, instr, optdesc, 'phi')
+	theta_name      = mms_construct_varname(sc, instr, optdesc, 'theta')
+	pitch_gdu1_name = mms_construct_varname(sc, instr, 'pitch_gdu1')
+	pitch_gdu2_name = mms_construct_varname(sc, instr, 'pitch_gdu2')
+	dwell_name      = mms_construct_varname(sc, instr, optdesc, 'dwell')
+	pitch_name      = mms_construct_varname(sc, instr, optdesc, 'pitchmode')
+	pacmo_name      = mms_construct_varname(sc, instr, optdesc, 'pacmo')
+	optics_name     = mms_construct_varname(sc, instr, optdesc, 'optics')
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -167,6 +184,7 @@ TEND=tend
 	;Read the rest of the variables?
 	if status eq 0 then begin
 		energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
+		pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,   TSTART=tstart, TEND=tend)
 
 		;Read the data for GD21
 		counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
@@ -174,12 +192,24 @@ TEND=tend
 		                          TSTART   = tstart, $
 		                          TEND     = tend)
 		energy_gdu2  = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
+		pitch_gdu2   = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
 		
 		;Read other data
 		phi        = MrCDF_nRead(cdfIDs, phi_name,   TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
 		theta      = MrCDF_nRead(cdfIDs, theta_name, TSTART=tstart, TEND=tend)
 		pitch_mode = MrCDF_nRead(cdfIDs, pitch_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
 		pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name, TSTART=tstart, TEND=tend)
+		
+		;Burst data?
+		if mode eq 'brst' then begin
+			counts2_gdu1 = MrCDF_nRead(cdfIDs, counts2_gdu1_name,  TSTART=tstart, TEND=tend)
+			counts3_gdu1 = MrCDF_nRead(cdfIDs, counts3_gdu1_name,  TSTART=tstart, TEND=tend)
+			counts4_gdu1 = MrCDF_nRead(cdfIDs, counts4_gdu1_name,  TSTART=tstart, TEND=tend)
+			counts2_gdu2 = MrCDF_nRead(cdfIDs, counts2_gdu2_name,  TSTART=tstart, TEND=tend)
+			counts3_gdu2 = MrCDF_nRead(cdfIDs, counts3_gdu2_name,  TSTART=tstart, TEND=tend)
+			counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
+		endif
+			
 	endif else begin
 		message, /REISSUE_LAST
 	endelse
@@ -191,6 +221,16 @@ TEND=tend
 	endfor
 
 ;-----------------------------------------------------
+; Convert Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	energy_gdu1 = (energy_gdu1 eq 1) * 250US + $
+	              (energy_gdu1 eq 2) * 500US + $
+	              (energy_gdu1 eq 3) * 1000US
+	energy_gdu2 = (energy_gdu1 eq 1) * 250US + $
+	              (energy_gdu1 eq 2) * 500US + $
+	              (energy_gdu1 eq 3) * 1000US
+
+;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
@@ -198,15 +238,50 @@ TEND=tend
 	            epoch_gdu2:       epoch_gdu2, $
 	            epoch_angle:      epoch_angle, $
 	            epoch_timetag:    epoch_timetag, $
-	            counts_gdu1:      counts_gdu1, $
+	            counts1_gdu1:     counts_gdu1, $
+	            pitch_gdu1:       pitch_gdu1, $
 	            energy_gdu1:      energy_gdu1, $
-	            counts_gdu2:      counts_gdu2, $
+	            counts1_gdu2:     counts_gdu2, $
+	            pitch_gdu2:       pitch_gdu2, $
 	            energy_gdu2:      energy_gdu2, $
 	            azimuth:          phi, $
 	            polar:            theta, $
 	            pitch_mode:       pitch_mode, $
 	            pack_mode:        pack_mode $
 	          }
+	
+	;If fast and slow survey files were given, we need to sort in time.
+	if tf_sort then begin
+		igdu1  = sort(edi_amb.epoch_gdu1)
+		igdu2  = sort(edi_amb.epoch_gdu2)
+		iangle = sort(edi_amb.epoch_angle)
+		itt    = sort(edi_amb.epoch_timetag)
+		
+		edi_amb.epoch_gdu1    = edi_amb.epoch_gdu1[igdu1]
+		edi_amb.epoch_gdu2    = edi_amb.epoch_gdu2[igdu2]
+		edi_amb.epoch_angle   = edi_amb.epoch_angle[iangle]
+		edi_amb.epoch_timetag = edi_amb.epoch_timetag[itt]
+		edi_amb.counts1_gdu1  = edi_amb.counts1_gdu1[igdu1]
+		edi_amb.pitch_gdu1    = edi_amb.pitch_gdu1[iangle]
+		edi_amb.energy_gdu1   = edi_amb.energy_gdu1[itt]
+		edi_amb.counts1_gdu2  = edi_amb.counts1_gdu2[igdu2]
+		edi_amb.pitch_gdu2    = edi_amb.pitch_gdu2[iangle]
+		edi_amb.energy_gdu2   = edi_amb.energy_gdu2[itt]
+		edi_amb.azimuth       = edi_amb.azimuth[iangle]
+		edi_amb.polar         = edi_amb.polar[iangle]
+		edi_amb.pitch_mode    = edi_amb.pitch_mode[itt]
+		edi_amb.pack_mode     = edi_amb.pack_mode[itt]
+	endif
+	
+	;Burst data
+	if mode eq 'brst' then begin
+		edi_amb = create_struct(edi_amb, 'counts2_gdu1', counts2_gdu1, $
+		                                 'counts3_gdu1', counts3_gdu1, $
+		                                 'counts4_gdu1', counts4_gdu1, $
+		                                 'counts2_gdu2', counts2_gdu2, $
+		                                 'counts3_gdu2', counts3_gdu2, $
+		                                 'counts4_gdu2', counts4_gdu2)
+	endif
 	
 	;Return the data
 	return, edi_amb
