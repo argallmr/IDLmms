@@ -118,6 +118,7 @@
 ;                           consistent with other programs. - MRA
 ;       2015/05/04  -   Added the DIRECTORY keyword. Accept full file paths. - MRA
 ;       2015/06/15  -   Version numbers can be greater than 9. - MRA
+;       2015/10/21  -   Burst mode dates not longer get caught by OPTDESC. - MRA
 ;-
 pro mms_dissect_filename, filename, $
 DIRECTORY=directory, $
@@ -141,13 +142,13 @@ VERSION=version
 ;-----------------------------------------------------
 ;DISSECT FILENAMES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	str = stregex(fname, '(mms[1-4])_'       + $                ;Spacecraft ID
-	                     '([a-z-]+)_'        + $                ;Instrument ID
-	                     '([a-z0-9]+)_'      + $                ;Mode
-	                     '([a-z0-4]+)_'      + $                ;Data Level
-	                     '([a-zA-Z0-9-]*)_?' + $                ;Optional Descriptor
-	                     '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_' + $ ;Start Time
-	                     'v([0-9]+\.[0-9]+\.[0-9]+)\.cdf', $     ;Version
+	str = stregex(fname, '(mms[1-4])_'       + $                  ;Spacecraft ID
+	                     '([a-z-]+)_'        + $                  ;Instrument ID
+	                     '([a-z0-9]+)_'      + $                  ;Mode
+	                     '([a-z0-4]+)_'      + $                  ;Data Level
+	                     '(([a-zA-Z0-9-]*)_)?' + $                ;Optional Descriptor
+	                     '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_' + $  ;Start Time
+	                     'v([0-9]+\.[0-9]+\.[0-9]+)\.cdf', $      ;Version
 	                     /EXTRACT, /SUBEXP)
 
 	;Find non-matches
@@ -159,13 +160,13 @@ VERSION=version
 	if nPass eq 0 then return
 
 	;Extract the subexpressions
-	sc      = str[1,iPass]
-	instr   = str[2,iPass]
-	mode    = str[3,iPass]
-	level   = str[4,iPass]
-	optdesc = str[5,iPass]
-	tstart  = str[6,iPass]
-	version = str[7,iPass]
+	sc      = reform(str[1,iPass])
+	instr   = reform(str[2,iPass])
+	mode    = reform(str[3,iPass])
+	level   = reform(str[4,iPass])
+	optdesc = reform(str[6,iPass])
+	tstart  = reform(str[7,iPass])
+	version = reform(str[8,iPass])
 	
 	;Return scalars?
 	if nPass eq 1 then begin

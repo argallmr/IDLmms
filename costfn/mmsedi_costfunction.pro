@@ -5,7 +5,9 @@
 ; ***************************************************************************
 
 ; ===========================================================================
-  FUNCTION MMSEDI_CostFunction, gfx, gfy, gpx, gpy, beamwidth, grid
+FUNCTION MMSEDI_CostFunction, gfx, gfy, gpx, gpy, beamwidth, grid
+	compile_opt idl2
+	on_error, 2
 ; ===========================================================================
 ; Parameters
 ;   gfx         array   gun firing direction x-component in BPP (Bperp plane)
@@ -33,10 +35,7 @@
        n_elements(beamwidth) ne N_BEAMS then begin
 
         msg = 'Inconsistent number of elememts (gfx,gfy,gpx,gpy,beamwidth)'
-        message, msg, /cont
-        message, 'Stopping for inspection', /cont
-        stop
-        retall
+        message, msg
     endif
 
     ;

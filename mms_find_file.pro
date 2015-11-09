@@ -79,46 +79,32 @@
 ; :History:
 ;    Modification History::
 ;       2015/05/14  -   Written by Matthew Argall
+;       2015/10/22  -   Properly report COUNT when searching for more than one
+;                           file type. - MRA
 ;-
 function mms_find_file, sc, instr, mode, level, $
-COUNT=count, $
+COUNT=nfiles, $
 DIRECTORY=directory, $
 OPTDESC=optdesc, $
+RELAXED_TSTART=relaxed_tstart, $
 SDC_ROOT=sdc_root, $
 SEARCHSTR=fpattern, $
 TIMEORDER=timeorder, $
 TSTART=tstart, $
-TEND=tend
+TEND=tend, $
+UNIFORM=uniform
 	compile_opt idl2
 	on_error, 2
 
 	;Defaults
 	fpattern = ''
-	if n_elements(optdesc)   eq 0 then optdesc   = ''
-	if n_elements(timeorder) eq 0 then timeorder = '%Y%M%d'
-	if n_elements(sdc_root)  eq 0 then sdc_root = '/nfs/'
-
-;-------------------------------------------------------
-; Directory ////////////////////////////////////////////
-;-------------------------------------------------------
-
-	;Build the directory
-	if n_elements(directory) eq 0 then begin
-		sdc_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=[sc, instr, mode, level, optdesc])
-	
-		;Test the directory
-		if ~file_test(sdc_dir, /DIRECTORY) then $
-			message, 'SDC directory does not exist: "' + sdc_dir + '".'
-
-		;Now append the year, month, and day
-		sdc_dir = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['%Y', '%M'])
-		
-	;Use the directory given
-	endif else begin
-		if ~file_test(directory, /DIRECTORY) then $
-			message, 'SDC directory does not exist: "' + directory + '".'
-		sdc_dir = directory
-	endelse
+	relaxed_tstart = keyword_set(relaxed_tstart)
+	uniform = n_elements(uniform) eq 0 ? 1 : keyword_set(uniform)
+	if n_elements(directory) eq 0 then directory = ''
+	if n_elements(sdc_root)  eq 0 then sdc_root  = ''
+	if n_elements(timeorder) eq 0 then timeorder = ''
+;	if n_elements(tstart)    eq 0 then tstart    = ''
+	if sdc_root eq '' && directory eq '' then sdc_root = '/nfs'
 
 ;-------------------------------------------------------
 ; Filename  ////////////////////////////////////////////
@@ -126,35 +112,60 @@ TEND=tend
 
 	;Create the file name
 	fpattern = mms_construct_filename(sc, instr, mode, level, $
-	                                  OPTDESC   = optdesc, $
-	                                  DIRECTORY = sdc_dir, $
-	                                  TSTART    = timeorder)
+	                                  OPTDESC   = optdesc,    $
+	                                  DIRECTORY = directory,  $
+	                                  SDC_ROOT  = sdc_root,   $
+;	                                  TSTART    = tstart, $
+	                                  UNIFORM   = uniform)
 
 	;Search for the file name
-	files = MrFile_Search(fpattern, $
-	                      /CLOSEST, $
-	                      COUNT     = count, $
-	                      TIMEORDER = timeorder, $
-	                      TSTART    = tstart, $
-	                      TEND      = tend)
+	nfiles = 0
+	for i = 0, n_elements(fpattern) - 1 do begin
+		;Extract the time from the file
+		ftime = stregex(fpattern[i], '([0-9]{8}[0-9]{0,6})', /SUBEXP, /EXTRACT)
+		ftime = ftime[1]
+		
+		;Extract the mode
+		mode = (strsplit(fpattern[i], '_', /EXTRACT))[2]
+		if timeorder eq '' $
+			then torder = mode eq 'brst' ? '%Y%M%d%H%m%S' : '%Y%M%d' $
+			else torder = timeorder
 
-	;Because MMS file names contain a start time, but no end time,
-	;the first file returned by MrFile_Search may not lie between
-	;TSTART and TEND. Here, we compare the date within the file name
-	;and ensure that it is within the same day as what was given
-	if count gt 0 then begin
-		mms_dissect_filename, files[0], TSTART=fstart
-		if strmid(fstart, 0, 4) ne strmid(tstart, 0, 4) || $
-		   strmid(fstart, 4, 2) ne strmid(tstart, 5, 2) || $
-		   strmid(fstart, 6, 2) ne strmid(tstart, 8, 2) $
-		then begin
-			if count gt 1 $
-				then files = files[1:*] $
-				else files = ''
-			count -= 1
+		;Search for the file
+		files = MrFile_Search(fpattern[i], $
+		                      /CLOSEST, $
+		                      COUNT     = count, $
+		                      TIMEORDER = torder, $
+		                      TSTART    = tstart, $
+		                      TEND      = tend)
+
+		;Because MMS file names contain a start time, but no end time,
+		;the first file returned by MrFile_Search may not lie between
+		;TSTART and TEND. Here, we compare the date within the file name
+		;and ensure that it is within the same day as what was given
+		if ~relaxed_tstart && count gt 0 then begin
+			mms_dissect_filename, files[0], TSTART=fstart
+			if strmid(fstart, 0, 4) ne strmid(tstart, 0, 4) || $
+			   strmid(fstart, 4, 2) ne strmid(tstart, 5, 2) || $
+			   strmid(fstart, 6, 2) ne strmid(tstart, 8, 2) $
+			then begin
+				if count gt 1 $
+					then files = files[1:*] $
+					else files = ''
+				count -= 1
+			endif
 		endif
-	endif
 
+		;Append
+		if nfiles eq 0 $
+			then fnames = files $
+			else if count gt 0 then fnames = [fnames, files]
+			
+		;Keep count
+		nfiles += count
+	endfor
+		
 	;Return the results.
-	return, files
+	if nfiles eq 0 then fnames = ''
+	return, fnames
 end

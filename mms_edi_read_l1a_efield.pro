@@ -35,6 +35,16 @@
 ;+
 ;   Read EDI electric field mode data.
 ;
+;   Steps:
+;       1) Read data from file
+;       2) Filter by quality
+;       3) Sort by time (only if "slow" and "fast" files were given)
+;       4) Compute firing vectors from firing angles
+;       5) Compute chip and code periods
+;       6) Determine time of flight overflow
+;       7) Expand GDU energies to have same time tags as COUNTS1
+;       7) Return structure or array of structures
+;
 ; :Categories:
 ;   MMS, EDI, Bestarg
 ;
@@ -102,9 +112,12 @@
 ;       2015/06/01  -   Renamed from mms_edi_read_efieldmode to mms_edi_read_l1a_efield. - MRA
 ;       2015/08/22  -   EPOCH fields renamed to TT2000. TSTART and TEND now
 ;                           parameters, not keywords. - MRA
+;       2015/10/18  -   Added the STRUCTARR keyword. - MRA
+;       2015/10/22  -   If slow and fast mode files are given, combine into srvy product. - MRA
 ;-
 function mms_edi_read_l1a_efield, files, tstart, tend, $
-QUALITY=quality
+QUALITY=quality, $
+STRUCTARR=structarr
 	compile_opt idl2
 	
 	catch, the_error
@@ -112,7 +125,7 @@ QUALITY=quality
 		catch, /CANCEL
 		if n_elements(cdfIDs) gt 0 then $
 			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
-		void = cgErrorMSG(/QUIET)
+		MrPrintF, 'LogErr'
 		return, !Null
 	endif
 	
@@ -120,7 +133,9 @@ QUALITY=quality
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Number of files given
-	nFiles = n_elements(files)
+	nFiles    = n_elements(files)
+	tf_struct = keyword_set(structarr)
+	tf_sort   = 0B
 
 	;Dissect the file name
 	mms_dissect_filename, files, $
@@ -132,10 +147,15 @@ QUALITY=quality
 	
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
+	if min(sc      eq sc[0])    eq 0 then message, 'All files must be from the same spacecraft.'
 	if min(instr   eq 'edi')    eq 0 then message, 'Only EDI files are allowed.'
 	if min(level   eq 'l1a')    eq 0 then message, 'Only L1A files are allowed.'
 	if min(optdesc eq 'efield') eq 0 then message, 'Only EDI eField-mode files are allowed.'
-	if min(mode    eq mode[0])  eq 0 then message, 'All files must have the same telemetry mode.'
+	if min(mode    eq mode[0])  eq 0 then begin
+		if total( (mode eq 'fast') + (mode eq 'slow') ) eq n_elements(mode) $
+			then tf_sort = 1 $
+			else message, 'All files must have the same MODE.'
+	endif
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -151,9 +171,10 @@ QUALITY=quality
 ;-----------------------------------------------------
 	
 	;Variable names for GD12
+	;   - TOF is a detector quantity, the rest are gun quantities
 	phi_gd12_name       = mms_construct_varname(sc, instr, 'phi_gd12')
 	theta_gd12_name     = mms_construct_varname(sc, instr, 'theta_gd12')
-	tof_gd12_name       = mms_construct_varname(sc, instr, 'tof1_us')
+	tof_gd12_name       = mms_construct_varname(sc, instr, 'tof2_us')
 	q_gd12_name         = mms_construct_varname(sc, instr, 'sq_gd12')
 	e_gd12_name         = mms_construct_varname(sc, instr, 'e_gd12')
 	num_chips_gd12_name = mms_construct_varname(sc, instr, 'numchips_gd12')
@@ -164,10 +185,10 @@ QUALITY=quality
 	;Variable names for GD21
 	phi_gd21_name       = mms_construct_varname(sc, instr, 'phi_gd21')
 	theta_gd21_name     = mms_construct_varname(sc, instr, 'theta_gd21')
-	tof_gd21_name       = mms_construct_varname(sc, instr, 'tof2_us')
+	tof_gd21_name       = mms_construct_varname(sc, instr, 'tof1_us')
 	q_gd21_name         = mms_construct_varname(sc, instr, 'sq_gd21')
 	e_gd21_name         = mms_construct_varname(sc, instr, 'e_gd21')
-	num_chips_gd21_name = mms_construct_varname(sc, instr, 'numchips_gd12')
+	num_chips_gd21_name = mms_construct_varname(sc, instr, 'numchips_gd21')
 	m_gd21_name         = mms_construct_varname(sc, instr, 'm_gd21')
 	n_gd21_name         = mms_construct_varname(sc, instr, 'n_gd21')
 	max_addr_gd21_name  = mms_construct_varname(sc, instr, 'max_addr_gd21')
@@ -188,7 +209,7 @@ QUALITY=quality
 	theta_gd12     = MrCDF_nRead(cdfIDs, theta_gd12_name,     TSTART=tstart, TEND=tend)
 	tof_gd12       = MrCDF_nRead(cdfIDs, tof_gd12_name,       TSTART=tstart, TEND=tend)
 	q_gd12         = MrCDF_nRead(cdfIDs, q_gd12_name,         TSTART=tstart, TEND=tend)
-	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend)
+	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
 	num_chips_gd12 = MrCDF_nRead(cdfIDs, num_chips_gd12_name, TSTART=tstart, TEND=tend)
 	m_gd12         = MrCDF_nRead(cdfIDs, m_gd12_name,         TSTART=tstart, TEND=tend)
 	n_gd12         = MrCDF_nRead(cdfIDs, n_gd12_name,         TSTART=tstart, TEND=tend)
@@ -218,27 +239,27 @@ QUALITY=quality
 ; Filter by Quality? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	if n_elements(quality) gt 0 then begin
-		void = MrIsMember(quality, q_gd12, iq_gd12, COUNT=count_gd12)
-		void = MrIsMember(quality, q_gd21, iq_gd21, COUNT=count_gd21)
+		void = MrIsMember(quality, q_gd12, it_gd12, COUNT=count_gd12, NCOMPLEMENT=nbad_gd12)
+		void = MrIsMember(quality, q_gd21, iq_gd21, COUNT=count_gd21, NCOMPLEMENT=nbad_gd21)
 		
 		;GD12
-		if count_gd12 gt 0 then begin
-			epoch_gd12     = epoch_gd12[iq_gd12]
-			phi_gd12       = phi_gd12[iq_gd12]
-			theta_gd12     = theta_gd12[iq_gd12]
-			tof_gd12       = tof_gd12[iq_gd12]
-			q_gd12         = q_gd12[iq_gd12]
-			e_gd12         = e_gd12[iq_gd12]
-			num_chips_gd12 = num_chips_gd12[iq_gd12]
-			m_gd12         = m_gd12[iq_gd12]
-			n_gd12         = n_gd12[iq_gd12]
-			max_addr_gd12  = max_addr_gd12[iq_gd12]
+		if nbad_gd12 gt 0 && count_gd12 gt 0 then begin
+			epoch_gd12     = epoch_gd12[it_gd12]
+			phi_gd12       = phi_gd12[it_gd12]
+			theta_gd12     = theta_gd12[it_gd12]
+			tof_gd12       = tof_gd12[it_gd12]
+			q_gd12         = q_gd12[it_gd12]
+			e_gd12         = e_gd12[it_gd12]
+			num_chips_gd12 = num_chips_gd12[it_gd12]
+			m_gd12         = m_gd12[it_gd12]
+			n_gd12         = n_gd12[it_gd12]
+			max_addr_gd12  = max_addr_gd12[it_gd12]
 		endif else begin
 			message, 'No beams of desired quality for GD12.', /INFORMATIONAL
 		endelse
 		
 		;GD21
-		if count_gd21 gt 0 then begin
+		if nbad_gd21 gt 0 && count_gd21 gt 0 then begin
 			epoch_gd21     = epoch_gd21[iq_gd21]
 			phi_gd21       = phi_gd21[iq_gd21]
 			theta_gd21     = theta_gd21[iq_gd21]
@@ -261,6 +282,42 @@ QUALITY=quality
 		count_gd12 = n_elements(epoch_gd12)
 		count_gd21 = n_elements(epoch_gd21)
 	endelse
+
+;-----------------------------------------------------
+; Survey Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;Do we want to make srvy data from fast and slow?
+	;   - Must sort in time.
+	if tf_sort then begin
+		if count_gd12 gt 0 then begin
+			it_gd12        = sort(epoch_gd12)
+			epoch_gd12     = epoch_gd12[it_gd12]
+			phi_gd12       = phi_gd12[it_gd12]
+			theta_gd12     = theta_gd12[it_gd12]
+			tof_gd12       = tof_gd12[it_gd12]
+			q_gd12         = q_gd12[it_gd12]
+			e_gd12         = e_gd12[it_gd12]
+			num_chips_gd12 = num_chips_gd12[it_gd12]
+			m_gd12         = m_gd12[it_gd12]
+			n_gd12         = n_gd12[it_gd12]
+			max_addr_gd12  = max_addr_gd12[it_gd12]
+		endif
+		
+		if count_gd21 gt 0 then begin
+			it_gd21        = sort(epoch_gd21)
+			epoch_gd21     = epoch_gd21[it_gd21]
+			phi_gd21       = phi_gd21[it_gd21]
+			theta_gd21     = theta_gd21[it_gd21]
+			tof_gd21       = tof_gd21[it_gd21]
+			q_gd21         = q_gd21[it_gd21]
+			e_gd21         = e_gd21[it_gd21]
+			num_chips_gd21 = num_chips_gd21[it_gd21]
+			m_gd21         = m_gd21[it_gd21]
+			n_gd21         = n_gd21[it_gd21]
+			max_addr_gd21  = max_addr_gd21[it_gd21]
+		endif
+	endif
 
 ;-----------------------------------------------------
 ; Firing Vectors \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -325,48 +382,143 @@ QUALITY=quality
 	endif
 
 ;-----------------------------------------------------
-; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Overflow Time of Flight \\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;All data
-	if count_gd12 gt 0 then begin
-		edi_gd12 = { count_gd12:       count_gd12, $
-		             tt2000_gd12:      epoch_gd12, $
-		             azimuth_gd12:     phi_gd12, $
-		             polar_gd12:       theta_gd12, $
-		             fv_gd12_123:      fv_gd12, $
-		             tof_gd12:         tof_gd12, $
-		             quality_gd12:     q_gd12, $
-		             energy_gd12:      e_gd12, $
-		             chip_width_gd12:  chip_width_gd12, $
-		             code_length_gd12: code_length_gd12, $
-		             num_chips_gd12:   num_chips_gd12, $
-		             m_gd12:           m_gd12, $
-		             n_gd12:           n_gd12, $
-		             max_addr_gd12:    max_addr_gd12 $
-		           }
-	;Number of points found
-	endif else edi_gd12 = {count_gd21: count_gd21}
+	tof_ovrflw_gd12 = tof_gd12 eq -1e31
+	tof_ovrflw_gd21 = tof_gd21 eq -1e31
+
+;-----------------------------------------------------
+; Expand Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; Expand energy to have the same time tags as EPOCH_GD12
+	;
+	if n_elements(epoch_timetag) ne n_elements(epoch_gd12) then begin
+		;Issue warning -- time stamps do not always agree
+		MrPrintF, 'LogWarn', 'Expanding EDI L1A energy array.'
 	
-	;All data
-	if count_gd21 gt 0 then begin
-		edi_gd21 = { count_gd21:       count_gd21, $
-		             tt2000_gd21:      epoch_gd21, $
-		             azimuth_gd21:     phi_gd21, $
-		             polar_gd21:       theta_gd21, $
-		             fv_gd21_123:      fv_gd21, $
-		             tof_gd21:         tof_gd21, $
-		             quality_gd21:     q_gd21, $
-		             energy_gd21:      e_gd21, $
-		             chip_width_gd21:  chip_width_gd21, $
-		             code_length_gd21: code_length_gd21, $
-		             num_chips_gd21:   num_chips_gd21, $
-		             m_gd21:           m_gd21, $
-		             n_gd21:           n_gd21, $
-		             max_addr_gd21:    max_addr_gd21 $
-		           }
-	;Number of points found
-	endif else edi_gd12 = {count_gd21: count_gd21}
+		;Expand
+		ienergy = value_locate(epoch_timetag, epoch_gd12)
+		e_gd12  = e_gd12[ienergy]
+		e_gd21  = e_gd21[ienergy]
+	endif
+
+;-----------------------------------------------------
+; Array of Structures \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Array of structures
+	if tf_struct then begin
+		beam_struct = { tt2000:    0LL, $
+		                azimuth:   0.0, $
+		                energy:    0US, $
+		                fv_123:    fltarr(3), $
+		                gdu:       0B, $
+		                polar:     0.0, $
+		                quality:   0B, $
+		                tof:       0.0, $
+		                tof_ovfl:  0B, $
+		                tChip:     0.0D, $
+		                tCode:     0.0D, $
+		                numchips:  0US, $
+		                m:         0B, $
+		                n:         0B, $
+		                max_addr:  0B $
+		              }
+		
+		;Create an array of beam structures
+		edi_l1a = replicate(beam_struct, count_gd12 + count_gd21)
+		
+		;GD12
+		if count_gd12 gt 0 then begin
+			edi_l1a[0:count_gd12-1].tt2000    = reform(temporary(epoch_gd12))
+			edi_l1a[0:count_gd12-1].gdu       = 1B
+			edi_l1a[0:count_gd12-1].azimuth   = reform(temporary(azimuth_gd12))
+			edi_l1a[0:count_gd12-1].polar     = reform(temporary(polar_gd12))
+			edi_l1a[0:count_gd12-1].fv_123    = temporary(fv_gd12)
+			edi_l1a[0:count_gd12-1].quality   = reform(temporary(q_gd12))
+			edi_l1a[0:count_gd12-1].energy    = reform(temporary(e_gd12))
+			edi_l1a[0:count_gd12-1].tChip     = reform(temporary(chip_width_gd12))
+			edi_l1a[0:count_gd12-1].tCode     = reform(temporary(code_length_gd12))
+			edi_l1a[0:count_gd12-1].numchips  = reform(temporary(num_chips_gd12))
+			edi_l1a[0:count_gd12-1].m         = reform(temporary(m_gd12))
+			edi_l1a[0:count_gd12-1].n         = reform(temporary(n_gd12))
+			edi_l1a[0:count_gd12-1].max_addr  = reform(temporary(max_addr_gd12))
+			edi_l1a[0:count_gd12-1].tof       = reform(temporary(tof_gd12))
+			edi_l1a[0:count_gd12-1].tof_ovfl  = reform(temporary(tof_ovrflw_gd12))
+		endif
+		
+		;GD21
+		if count_gd21 gt 0 then begin
+			edi_l1a[count_gd12:*].tt2000    = reform(temporary(epoch_gd21))
+			edi_l1a[count_gd12:*].gdu       = 2B
+			edi_l1a[count_gd12:*].azimuth   = reform(temporary(azimuth_gd21))
+			edi_l1a[count_gd12:*].polar     = reform(temporary(polar_gd21))
+			edi_l1a[count_gd12:*].fv_123    = temporary(fv_gd21)
+			edi_l1a[count_gd12:*].quality   = reform(temporary(q_gd21))
+			edi_l1a[count_gd12:*].energy    = reform(temporary(e_gd21))
+			edi_l1a[count_gd12:*].tChip     = reform(temporary(chip_width_gd21))
+			edi_l1a[count_gd12:*].tCode     = reform(temporary(code_length_gd21))
+			edi_l1a[count_gd12:*].numchips  = reform(temporary(num_chips_gd21))
+			edi_l1a[count_gd12:*].m         = reform(temporary(m_gd21))
+			edi_l1a[count_gd12:*].n         = reform(temporary(n_gd21))
+			edi_l1a[count_gd12:*].max_addr  = reform(temporary(max_addr_gd21))
+			edi_l1a[count_gd12:*].tof       = reform(temporary(tof_gd21))
+			edi_l1a[count_gd12:*].tof_ovfl  = reform(temporary(tof_ovrflw_gd21))
+		endif
+		
+		;Sort the results
+;		if count_gd12 gt 0 && count_gd21 gt 0 then begin
+;			isort = sort(edi_l1a.tt2000)
+;			edi_l1a = edi_l1a[isort]
+;		endif
+
+;-----------------------------------------------------
+; Structure of Arrays \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	endif else begin
+		if count_gd12 gt 0 then begin
+			edi_gd12 = { count_gd12:       count_gd12, $
+			             tt2000_gd12:      epoch_gd12, $
+			             azimuth_gd12:     phi_gd12, $
+			             polar_gd12:       theta_gd12, $
+			             fv_gd12_123:      fv_gd12, $
+			             tof_gd12:         tof_gd12, $
+			             quality_gd12:     q_gd12, $
+			             energy_gd12:      e_gd12, $
+			             chip_width_gd12:  chip_width_gd12, $
+			             code_length_gd12: code_length_gd12, $
+			             num_chips_gd12:   num_chips_gd12, $
+			             m_gd12:           m_gd12, $
+			             n_gd12:           n_gd12, $
+			             max_addr_gd12:    max_addr_gd12 $
+			           }
+		;Number of points found
+		endif else edi_gd12 = {count_gd21: count_gd21}
+		
+		;All data
+		if count_gd21 gt 0 then begin
+			edi_gd21 = { count_gd21:       count_gd21, $
+			             tt2000_gd21:      epoch_gd21, $
+			             azimuth_gd21:     phi_gd21, $
+			             polar_gd21:       theta_gd21, $
+			             fv_gd21_123:      fv_gd21, $
+			             tof_gd21:         tof_gd21, $
+			             quality_gd21:     q_gd21, $
+			             energy_gd21:      e_gd21, $
+			             chip_width_gd21:  chip_width_gd21, $
+			             code_length_gd21: code_length_gd21, $
+			             num_chips_gd21:   num_chips_gd21, $
+			             m_gd21:           m_gd21, $
+			             n_gd21:           n_gd21, $
+			             max_addr_gd21:    max_addr_gd21 $
+			           }
+		;Number of points found
+		endif else edi_gd12 = {count_gd21: count_gd21}
+		
+		;Combine structures
+		edi_l1a = create_struct(temporary(edi_gd12), temporary(edi_gd21))
+	endelse
 	
 	;Return the data
-	return, create_struct(edi_gd12, edi_gd21)
+	return, edi_l1a
 end

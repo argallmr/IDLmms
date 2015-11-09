@@ -66,7 +66,7 @@
 ;-
 function mms_edi_xxyz2bpp, b
 	compile_opt idl2
-;	on_error, 2
+	on_error, 2
 	
 	;Make sure B is 3-element vector or 3xN
 	sz = size(b)

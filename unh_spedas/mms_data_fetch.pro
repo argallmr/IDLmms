@@ -62,7 +62,7 @@ OPTIONAL_DESCRIPTOR = optdesc, $
 RELOAD              = reload, $
 SC_ID               = sc
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 	
 	;Defaults
 	_optdesc = n_elements(optdesc) eq 0 ? '' : optdesc
@@ -81,28 +81,50 @@ SC_ID               = sc
 	tend   = strjoin(tend[0:2])
 
 ;------------------------------------
+; Same Number of Elements \\\\\\\\\\\
+;------------------------------------
+	nsc  = n_elements(sc) 
+	nins = n_elements(instr)
+	nlev = n_elements(level)
+	nmod = n_elements(mode)
+	nopt = n_elements(_optdesc)
+	nmax = max( [nsc, nins, nlev, nmod, nopt] )
+	
+	_sc      = nsc   eq 1 ? replicate(sc,      nmax) : sc
+	_instr   = nins  eq 1 ? replicate(instr,   nmax) : instr
+        _level   = nlev  eq 1 ? replicate(level,   nmax) : level
+	_mode    = nmod  eq 1 ? replicate(mode,    nmax) : mode
+	_optdesc = nopt  eq 1 ? replicate(_optdesc, nmax) : _optdesc
+
+;------------------------------------
 ; Search For Files \\\\\\\\\\\\\\\\\\
 ;------------------------------------
-	if instr eq 'edi' and _optdesc eq 'efield' then begin
-		dirname = filepath('', $
-		                   ROOT_DIR     = !mms.local_data_dir, $
-		                   SUBDIRECTORY = 'edi' )
-	endif else begin
-		dirname = filepath('', $
-		                   ROOT_DIR     = !mms.local_data_dir, $
-		                   SUBDIRECTORY = [sc, instr, mode, level, _optdesc] )
-	endelse
-	
-	;Build the file name
-	;   mms#_instr_mode_level_optdesc_tstart_v#.#.#.cdf
-	basename = sc + '_' + instr + '_' + mode + '_' + level
-	if _optdesc ne '' then basename += '_' + _optdesc
-	basename += '_*_v*.cdf'
-	
 	;Recursively search through all /YEAR/MONTH/[DAY/] directories
-	files = file_search(dirname, basename, COUNT=count)
-	if count eq 0 then $
-		message, 'No files found under "' + dirname + '" matching "' + basename + '".'
+	files = [];
+	count = 0;
+	for i = 0, nmax-1 do begin
+		;Build the directory name
+		if _instr[i] eq 'edi' && _optdesc[i] eq 'efield' then begin
+			dirname = filepath('', $
+			                   ROOT_DIR     = !mms.local_data_dir, $
+			                   SUBDIRECTORY = 'edi')
+		endif else begin
+			dirname = filepath('', $
+			                   ROOT_DIR     = !mms.local_data_dir, $
+			                   SUBDIRECTORY = [_sc[i], _instr[i], _mode[i], _level[i], _optdesc[i]] )
+		endelse
+
+		;Build the base name
+		;   mms#_instr_mode_level_optdesc_tstart_v#.#.#.cdf
+		basename  = _sc[i] + '_' + _instr[i] + '_' + _mode[i] + '_' + _level[i]
+		if _optdesc[i] ne '' then basename += '_' + _optdesc[i]
+		basename += '_*_v*.cdf'
+
+		;Search for files
+		files = [files, file_search(dirname, basename, COUNT=c)]
+		count += c
+	endfor
+	if count eq 0 then message, 'No files found,'
 
 ;------------------------------------
 ; Filter by Date Range \\\\\\\\\\\\\\

@@ -82,7 +82,7 @@ function mms_fdoa_test_bcs2gei, sc, tstart, tend
 ;-----------------------------------------------------
 	
 	;Turn times into doubles (seconds)
-	t0    = defatt.tt2000[0]
+	t0    = min( [defatt.tt2000[0], fg_l1b.tt2000[0]] )
 	t_att = double(defatt.tt2000 - t0) * 1e-9
 	t_fg  = double(fg_l1b.tt2000 - t0) * 1e-9
 
@@ -103,6 +103,6 @@ function mms_fdoa_test_bcs2gei, sc, tstart, tend
 	          YTITLE = 'B!C(nT)' )
 	py = plot(t_fg, b_gei[1,*], /CURRENT, OVERPLOT=px, COLOR='Green')
 	pz = plot(t_fg, b_gei[2,*], /CURRENT, OVERPLOT=px, COLOR='Red')
-
+stop
 	return, px.window
 end

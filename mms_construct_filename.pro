@@ -98,108 +98,220 @@
 ; :History:
 ;   Modification History::
 ;       2015/02/06  -   Written by Matthew Argall
+;-
+;*****************************************************************************************
+;+
 ;
-function mms_construct_filename, sc, instrument, mode, level, $
+;-
+function mms_construct_filename_dir, root, sc, instr, mode, level, optdesc, subdir
+	compile_opt idl2
+	on_error, 2
+
+	;Append the SDC directory structure to the file name.
+	dirname = filepath('', $
+	                   ROOT_DIR     = root,      $
+	                   SUBDIRECTORY = [ sc,      $
+	                                    instr,   $
+	                                    mode,    $
+	                                    level,   $
+	                                    optdesc  $
+	                                  ]          $
+	                  )
+	dirname = filepath('', ROOT_DIR=dirname, SUBDIRECTORY=subdir)
+	
+	return, dirname
+end
+
+
+;+
+;
+;-
+function mms_construct_filename_join, sc, instr, mode, level, optdesc, tstart, version
+	compile_opt idl2
+	on_error, 2
+
+	;Build the file name
+	filename = sc         + '_' + $
+	           instr      + '_' + $
+	           mode       + '_' + $
+	           level      + '_' + $
+	           optdesc          + $
+	           tstart     + '_' + $
+	           'v' + version    + $
+	           '.cdf'
+	
+	return, filename
+end
+
+
+;+
+;
+;-
+function mms_construct_filename, sc, instr, mode, level, $
 TSTART=tstart, $
 OPTDESC=optdesc, $
 DIRECTORY=directory, $
-TOKENS=tokens, $
+SDC_ROOT=sdc_root, $
+;SUBDIR=subdir, $
+;TOKENS=tokens, $
+UNIFORM=uniform, $
 VERSION=version
 	compile_opt strictarr
-	on_error, 2
+;	on_error, 2
 	
-	tokens = keyword_set(tokens)
-	if tokens $
-		then tstart = '%Y%M%d' $
-		else if n_elements(tstart) eq 0 then tstart = '*'
 	
 	;if no directory was supplied, get the current directory
 	;if no base was chosen, go with the complete base
-	if n_elements(directory)   eq 0 then directory = ''
-	if n_elements(version)     eq 0 then version   = '*'
-	desc = n_elements(optdesc) eq 0 || optdesc eq '' ? '' : optdesc + '_'
+	tf_uniform = keyword_set(uniform)
+;	tokens     = keyword_set(tokens)
+	if n_elements(sdc_root)  eq 0 then sdc_root  = ''
+	if n_elements(directory) eq 0 then directory = ''
 	
-	;Spacecraft ID
-	if size(sc, /TNAME) eq 'STRING' then begin
-		_sc = strlowcase(sc)
-		case _sc of
-			'mms1': ;Ok
-			'mms2': ;Ok
-			'mms3': ;Ok
-			'mms4': ;Ok
-			'1':    _sc = 'mms1'
-			'2':    _sc = 'mms2'
-			'3':    _sc = 'mms3'
-			'4':    _sc = 'mms4'
-			else: ;Assume the user knew what they were doing.
-		endcase
+	;Conflicts
+	if sdc_root ne '' && directory ne '' then $
+		message, 'SDC_ROOT and DIRECTORY are mutually exclusive.'
+	
+	nSC      = n_elements(sc)
+	nInstr   = n_elements(instr)
+	nMode    = n_elements(mode)
+	nLevel   = n_elements(level)
+	nDesc    = n_elements(optdesc)
+	nTStart  = n_elements(tstart)
+	nVersion = n_elements(version)
+	nnn      = [nSC, nInstr, nMode, nLevel, nDesc, nTStart, nVersion]
+	nmax     = max(nnn)
+	
+	;Avoid loops if possible
+	if total( (nnn eq 1) + (nnn eq nmax) ) eq n_elements(nnn) $
+		then tf_uniform = 1
+	
+;-----------------------------------------------------
+; Uniform Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	if tf_uniform then begin
+		if (nTStart eq 0) && $
+		   (min(mode ne 'brst') eq 1) && $
+		   (instr eq 'fpi' || instr eq 'edp') $
+		then begin
+			tstart = '%Y%M%d%H%m%S'
+			nTStart = 1
+		endif
+
+		_sc    = nSC    eq nmax ? sc    : replicate(sc,    nmax)
+		_instr = nInstr eq nmax ? instr : replicate(instr, nmax)
+		_mode  = nMode  eq nmax ? mode  : replicate(mode,  nmax)
+		_level = nLevel eq nmax ? level : replicate(level, nmax)
+		
+		;TStart defined?
+		_tstart = nTStart eq 0 ? '%Y%M%d' : tstart
+		_tstart = n_elements(_tstart) eq nmax ? _tstart : replicate(_tstart, nmax)
+		ibrst   = where(mode eq 'brst', nbrst)
+		if nbrst gt 0 then _tstart[ibrst] = '%Y%M%d%H%m%S'
+
+		;Optional descriptor
+		dirdesc = nDesc                gt 0   ? optdesc : replicate('', nmax)
+		dirdesc = n_elements(dirdesc) eq nMax ? dirdesc : replicate(dirdesc, nmax)
+		fdesc   = dirdesc
+		iopt = where(fdesc ne '', nopt)
+		if nopt gt 0 then fdesc[iopt] += '_'
+		
+		;Version
+		if nVersion eq 0 $
+			then _version = replicate('*', nmax) $
+			else _version = nVersion eq nmax ? version : replicate(version, nmax)
+		
+		;Subdirs are different for burst data.
+		if directory eq '' $
+			then subdir = mode[0] eq 'brst' ? ['%Y', '%M', '%d'] : ['%Y', '%M'] $
+			else subdir  = ''
+
+		;Create the file name(s)
+		fname = mms_construct_filename_join(_sc, _instr, _mode, _level, fdesc, _tstart, _version)
+		
+		;Create the directory
+		if directory ne '' then begin
+			for i = 0, nmax do fname[i] = filepath(fname[i], ROOT_DIR=directory)
+		endif else begin
+			dir = strarr(nmax)
+			for i=0, nmax-1 do begin
+				dir = mms_construct_filename_dir(sdc_root, _sc[i], _instr[i], _mode[i], $
+				                                 _level[i], dirdesc[i], subdir)
+				fname[i] = filepath(fname[i], ROOT_DIR=dir)
+			endfor
+		endelse
+
+;-----------------------------------------------------
+; Non-Uniform Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 	endif else begin
-		case sc of
-			1: _sc = 'mms1'
-			2: _sc = 'mms2'
-			3: _sc = 'mms3'
-			4: _sc = 'mms4'
-			else: ;Assume the user knew what they were doing.
-		endcase
+		;Allocate memory to output
+		fname = strarr(nSC*nInstr*nMode*nLevel*nDesc)
+		n     = 0
+		
+		;Is TSTART defined?
+		if nTStart  eq 0 then tstart  = ''
+		if nDesc    eq 0 then optdesc = ''
+		if nVersion eq 0 then version = '*'
+	
+		;Create the MMS filename
+		;   - Must use loops because:
+		;   - Replicate does not work with arrays.
+		;   - Rebin does not work with strings.
+		for i = 0, nSC    - 1 do $
+		for j = 0, nInstr - 1 do $
+		for k = 0, nMode  - 1 do $
+		for l = 0, nLevel - 1 do $
+		for m = 0, nDesc  - 1 do begin
+	
+			;Start time
+			if tstart[0] eq '' then begin
+				_tstart = mode[k] eq 'brst' ? '%Y%M%d%H%m%S' : '%Y%M%d'
+			endif else begin
+				_tstart = strmid(tstart, 0, 4) + strmid(tstart, 5, 2) + strmid(tstart, 8, 2)
+				if mode[k] eq 'brst' then _tstart += strmid(tstart, 11, 2) + strmid(tstart, 14, 2) + strmid(tstart, 17, 2)
+			endelse
+
+			fdesc = optdesc[m] eq '' ? '' : optdesc[m] + '_'
+
+			;Subdirs are different for burst data.
+			if n_elements(subdir) eq 0 $
+				then _subdir = mode[0] eq 'brst' ? ['%Y', '%M', '%d'] : ['%Y', '%M'] $
+				else _subdir = subdir
+			
+			;Filename
+			fname[n] = mms_construct_filename_join(sc[i], instr[j], mode[k], level[l], fdesc, $
+			                                       _tstart, version)
+			
+			;Directory
+			if directory eq '' $
+				then dir = mms_construct_filename_dir(dir, root, sc[i], instr[j], mode[k], level[l], optdesc[m], _subdir) $
+				else dir = directory
+			
+			;Append the directory name
+			if dir ne '' then fname[n] = filepath(fname[n], ROOT_DIR=dir)
+			
+			;Number of files
+			n += 1
+		endfor ;Loop over m
 	endelse
 	
-	;Instrument IDs
-;	inst_ids = ['hpca', 'aspoc', 'epd', 'epd-eis', 'epd-feeps', 'fpi', $
-;	            'des', 'dis', 'des-dis', 'fields', 'edi', 'adp', 'sdp', 'adp-sdp', $
-;	            'afg', 'dfg', 'dsp', 'afg-dfg', 'scm']
-;	if max(strlowcase(instrument) eq inst_ids) eq 0 $
-;		then message, 'Invalid instrument ID: "' + instrument + '".'
-;
-;	;Level
-;	data_modes = ['fast', 'slow', 'brst', 'srvy']
-;	if max(strlowcase(mode) eq data_modes) eq 0 $
-;		then message, 'Invalid data mode: "' + mode + '".'
-;
-;	;Mode
-;	data_levels = ['l1a', 'l1b', 'ql', 'l2', 'l2pre', 'l2plus']
-;	if max(strlowcase(level) eq data_levels) eq 0 $
-;		then message, 'Invalid data level: "' + level + '".'
-	
-	;Start Time
-;	if tokens eq 0 && tstart ne '*' then begin
-;		if stregex(tstart, '[0-9]{8}[0-9]*', /BOOLEAN) eq 0 $
-;			then message, 'Invalid start time: "' + tstart + '".'
-;	endif
-	
-	;Version
-	if version ne '*' then begin
-		if stregex(version, '[0-9]+\.[0-9]+\.[0-9]+', /BOOLEAN) eq 0 $
-			then message, 'Invalid version: "' + version + '".'
-	endif
-
-	;Create the MMS filename
-	filename = _sc        + '_' + $
-	           instrument + '_' + $
-	           mode       + '_' + $
-	           level      + '_' + $
-	           desc       + $
-	           tstart    + '_' + $
-	           'v' + version + $
-	           '.cdf'
-
-	;Add the directory
-	if directory ne '' then filename = filepath(filename, ROOT_DIR=directory)
-	
-	return, filename
+	;Return a scalar
+	if n_elements(fname) eq 1 then fname = fname[0]
+	return, fname
 end
 
 ;MAIN level program to see how mms_construct_file.pro works.
 ;To test,
 ;      IDL> .run mms_construct_file
-sc         = 1
-instrument = 'afg'
-mode       = 'srvy'
-level      = 'l2pre'
-optdesc    = 'duration-1h1m'
-start_time = '20150313'
-version    = '1.1.2'
-
-filename = mms_construct_filename(sc, instrument, mode, level, OPTDESC=optdesc, $
-                                  START_TIME=start_time, VERSION=version)
-print, filename
-end
+;sc         = 1
+;instrument = 'afg'
+;mode       = 'srvy'
+;level      = 'l2pre'
+;optdesc    = 'duration-1h1m'
+;start_time = '20150313'
+;version    = '1.1.2'
+;
+;filename = mms_construct_filename(sc, instrument, mode, level, OPTDESC=optdesc, $
+;                                  TSTART=start_time, VERSION=version)
+;print, filename
+;end
