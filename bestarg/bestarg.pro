@@ -165,11 +165,28 @@ pro bestarg, $
 ; ******************************************************************
 
 common ep_envar_con_cb, $
-  pp_eV2joule, pp_eV2erg, pp_emass_mks, pp_deg2rad, $
-  pp_clight_cgs, pp_svpcm2mvpm, pp_nt2gauss, pp_cm2m, pp_p2f, pp_echarge_mks, $
-  pp_rfill, pp_bfill, pp_i4fill, pp_i2fill, $
+  ;CONSTANTS & UNIT CONVERSION
+  pp_eV2joule,    $            ;Scalar float: convert eV to Joules
+  pp_eV2erg,      $            ;Scalar float: convert eV to erg
+  pp_emass_mks,   $            ;Scalar float: electron mass in MKS system
+  pp_deg2rad,     $            ;Scalar float: convert degrees to radians
+  pp_clight_cgs,  $            ;Scalar float: Seed of light in CGS system
+  pp_svpcm2mvpm,  $            ;
+  pp_nt2gauss,    $            ;Scalar float: convert nT to gauss
+  pp_cm2m,        $            ;Scalar float: convert cm to m
+  pp_p2f,         $            ;
+  pp_echarge_mks, $            ;Scalar float: electron charge in MKS system
+  
+  ;FILL VALUES
+  pp_rfill,       $            ;Scalar float: fill value used below
+  pp_bfill,       $            ;Scalar short: fill value used below and in ep_richmans_tof_sa
+  pp_i4fill,      $
+  pp_i2fill,      $
   $
-  pp_phase0, pp_sc_base, pp_eindex2keV, pp_ptime_atime_offset, $
+  pp_phase0, $         ;Angular dispacement (degrees) of sun sensor from X-axis: edi_piso_onechunk
+  pp_sc_base, $        ;Diameter of spacecraft (meters): edi_piso_onechunk, edi_piso (whatech)
+  pp_eindex2keV, $     ;2x1 float; Beam energy in keV - 0=0.5keV, 1=1.0keV: edi_piso (whatech)
+  pp_ptime_atime_offset, $
   pp_hour_delta, pp_checkmsg_array, pp_tri_ang_thresh_1, pp_tri_ang_thresh_2, $
   pp_tri_ang_thresh_3, pp_tof_tdiff_thresh, pp_rmax_con, $
   $
@@ -177,9 +194,15 @@ common ep_envar_con_cb, $
   $
   $                             ; ADDING A NEW CONTROL PARAMETER?  HERE!
   pp_nchunk, pp_method, pp_curve_traj, pp_order_assign, pp_acfir_assign, $
-  pp_acfir, pp_acfir_rad, pp_gunid, pp_nbeam_min, pp_qual_min, $
-  pp_maxorder, pp_maxchan_min, $
-  pp_maxchan_max, pp_outlier_removal, pp_outlier_maxperc, $
+  pp_acfir, $                   ;Nominal beam uncertainty (1.0 degrees): ep_envarcon_defaults.txt
+  pp_acfir_rad, $               ;PP_ACFIR in radians: ep_prep_order.pro
+  pp_gunid, $                   ;0=GDU1&2, 1=GDU1, 2=GDU2: edi_piso_onechunk
+  pp_nbeam_min, $               ;Minimum number of beams for a single chunk: edi_piso_onechunk
+  pp_qual_min, $                ;Minimum beam quality to use: edi_piso_onechunk
+  pp_maxorder, $                ;Maximum allowed runner order: ep_prep_order
+  pp_maxchan_min, $             ;Minimum MAXCHAN value to use: edi_piso
+  pp_maxchan_max, $             ;Maximum MAXCHAN value to use: edi_piso
+  pp_outlier_removal, pp_outlier_maxperc, $
   pp_outlier_nbeam_min, pp_cg_phires, pp_cg_phires_rad, $
   pp_fg_phires, pp_fg_phires_rad, pp_cg_minresr, pp_cg_minresr_m, $
   pp_fg_minresr, pp_fg_minresr_m, pp_cg_acgdu, pp_cg_acgdu_m, $
@@ -187,13 +210,17 @@ common ep_envar_con_cb, $
   pp_fg_logpr, pp_fg_logpr_f, $
   pp_actof_con, pp_acgdu, pp_acgdu_m, $
   pp_order_use_unrun1, pp_order_use_unrun2, pp_order_use_hrb, $
-  pp_maxorder_runest, pp_para_anglim, pp_para_anglim_rad, $
+  pp_maxorder_runest, $         ;Maximum allowed runner order: ep_prep_order
+  pp_para_anglim, $
+  pp_para_anglim_rad, $         ;Maximum angle (radians) still considered parallel: ep_method_logic_rmt_sa
   pp_dtof_ambiguity_factor, $
   pp_qstat_minperc, pp_tofclass_nbeam_min, pp_rchi2_abortlim, $
   pp_rchi2_outlim, pp_bmag_toflim, pp_reorder_anglim, pp_reorder_anglim_rad, $
   pp_noclassc_pmt, pp_pmt_dtof_error, pp_noclassc_tri, pp_runest_sfac, $
   pp_dt_smt, pp_dt_smt_sec, pp_npair_min_smt, pp_smt_dtof_error, pp_rmax, $
-  pp_noclassc_rmt, pp_rmt_dtof_error, pp_runest_smooth, pp_bmag_trilim, $
+  pp_noclassc_rmt, $
+  pp_rmt_dtof_error, $         ;Confidence interval to use with ToF results: ep_richmans_tof_sa
+  pp_runest_smooth, pp_bmag_trilim, $
   pp_ediefw_out, pp_runner_penalty_meth, $
   pp_qual_assign_meth, pp_qa_nbeam_min, pp_qa_drat_cb, pp_qa_drat_gc, $
   pp_qa_dlim, pp_qa_dlim_m, pp_qa_deld_cb, pp_qa_deld_cb_m, $
@@ -212,7 +239,9 @@ common ep_envar_con_cb, $
   pp_actof_con_def, pp_acgdu_def, $
   pp_order_use_unrun1_def, pp_order_use_unrun2_def, pp_order_use_hrb_def, $
   pp_maxorder_runest_def, pp_para_anglim_def, pp_dtof_ambiguity_factor_def, $
-  pp_qstat_minperc_def, pp_tofclass_nbeam_min_def, pp_rchi2_abortlim_def, $
+  pp_qstat_minperc_def, $
+  pp_tofclass_nbeam_min_def, $        ;Minimum number of beams from a single gun for which we can still use ToF
+  pp_rchi2_abortlim_def, $
   pp_rchi2_outlim_def, pp_bmag_toflim_def, pp_reorder_anglim_def, $
   pp_noclassc_pmt_def, pp_pmt_dtof_error_def, pp_noclassc_tri_def, $
   pp_runest_sfac_def, $
@@ -237,7 +266,7 @@ common ep_envar_con_cb, $
   pp_write_aux, pp_dmdef_file, pp_qstat_file, $
   pp_keyplot3, pp_keyplot4, pp_long_iffname, pp_long_ppplusname, $
   $
-  pp_pstat, $
+  pp_pstat, $           ;Pre-defined status messages. 14,17,25,26 Defined in ep_method_logic_rmt_sa
   pp_edi_cdfbin_path, pp_write_cdf, $
   $
   pp_iff_hourly
@@ -259,52 +288,52 @@ common ep_envar_con_cb, $
 		poc = 2.
 
 	; Predefined in case of early return before being filled.
-	rmax_out = rmax
-	beam_class_out = make_array(nBeams,/string,value='F') ; 'F'ill
+	rmax_out            = rmax
+	beam_class_out      = make_array(nBeams,/string,value='F') ; 'F'ill
 	beam_class_init_out = make_array(nBeams,/string,value='F') ; 'F'ill
-	beam_penalty_out = make_array(nBeams,/float,value=pp_rfill)
+	beam_penalty_out    = make_array(nBeams,/float,value=pp_rfill)
 
-	method_out = 0
-	edi6_out = make_array(6,/float,value=pp_rfill)
-	ambig_180_out = -1
-	mean_angle_out = pp_rfill
+	method_out      = 0
+	edi6_out        = make_array(6,/float,value=pp_rfill)
+	ambig_180_out   = -1
+	mean_angle_out  = pp_rfill
 	stdev_angle_out = pp_rfill
-	out_out = make_array(nBeams,/int,value=pp_bfill)
-	bestord_out = make_array(nBeams,/int,value=pp_bfill)
-	classA_towards = pp_bfill
-	nonA_towards = pp_bfill
-	classA_away = pp_bfill
-	nonA_away = pp_bfill
-	beam_used_out = make_array(nBeams,/int,value=pp_bfill)
-	perr3_out = pp_rfill
+	out_out         = make_array(nBeams,/int,value=pp_bfill)
+	bestord_out     = make_array(nBeams,/int,value=pp_bfill)
+	classA_towards  = pp_bfill
+	nonA_towards    = pp_bfill
+	classA_away     = pp_bfill
+	nonA_away       = pp_bfill
+	beam_used_out   = make_array(nBeams,/int,value=pp_bfill)
+	perr3_out       = pp_rfill
 
-	method_meth9 = 3
-	edi6_meth9 = make_array(6,/float,value=pp_rfill)
-	ambig_180_meth9 = -1
-	mean_angle_meth9 = pp_rfill
-	stdev_angle_meth9 = pp_rfill
-	out_meth9 = make_array(nBeams,/int,value=pp_bfill)
-	bestord_meth9 = make_array(nBeams,/int,value=pp_bfill)
+	method_meth9         = 3
+	edi6_meth9           = make_array(6,/float,value=pp_rfill)
+	ambig_180_meth9      = -1
+	mean_angle_meth9     = pp_rfill
+	stdev_angle_meth9    = pp_rfill
+	out_meth9            = make_array(nBeams,/int,value=pp_bfill)
+	bestord_meth9        = make_array(nBeams,/int,value=pp_bfill)
 	classA_towards_meth9 = pp_bfill
-	nonA_towards_meth9 = pp_bfill
-	classA_away_meth9 = pp_bfill
-	nonA_away_meth9 = pp_bfill
-	beam_used_meth9 = make_array(nBeams,/int,value=pp_bfill)
-	perr3_meth9 = pp_rfill
+	nonA_towards_meth9   = pp_bfill
+	classA_away_meth9    = pp_bfill
+	nonA_away_meth9      = pp_bfill
+	beam_used_meth9      = make_array(nBeams,/int,value=pp_bfill)
+	perr3_meth9          = pp_rfill
 
-	rchi2_CG = pp_rfill
-	chi2_CG = pp_rfill
-	ndegfree_CG = pp_bfill
-	rchi2_unpen_CG = pp_rfill
+	rchi2_CG          = pp_rfill
+	chi2_CG           = pp_rfill
+	ndegfree_CG       = pp_bfill
+	rchi2_unpen_CG    = pp_rfill
 	ndegfree_unpen_CG = pp_bfill
-	rchi2_FG = pp_rfill
-	chi2_FG = pp_rfill
-	ndegfree_FG = pp_bfill
-	rchi2_unpen_FG = pp_rfill
+	rchi2_FG          = pp_rfill
+	chi2_FG           = pp_rfill
+	ndegfree_FG       = pp_bfill
+	rchi2_unpen_FG    = pp_rfill
 	ndegfree_unpen_FG = pp_bfill
-	derr2_out = pp_rfill
-	perr2_out = pp_rfill
-	tgerr2_out = pp_rfill
+	derr2_out         = pp_rfill
+	perr2_out         = pp_rfill
+	tgerr2_out        = pp_rfill
 
 	; Prep the beam order information (if any)
 	ep_prep_order, $
@@ -318,43 +347,43 @@ common ep_envar_con_cb, $
 	;******************************************************************
 	beam = { $
 		; beams, $
-		vb:vb, $                ; meters/microsec
-		mm:nBeams, $
-		maxorder:maxorder_pos, $
-		siggdu:pp_acgdu_m, $    ; Meters
-		class:beam_class_init, $
-		class_init:beam_class_init, $
-		gunid:beam_gunid, $
-		maxchan:beam_maxchan, $
-		code_type:beam_code_type, $
-		out:beam_out, $
-		pmt_ok:make_array(nBeams,/int,value=0), $ ; Defined later
-		tri_ok:make_array(nBeams,/int,value=0), $ ; Defined later
-		xg:beam_xg, $
-		yg:beam_yg, $
-		alpha:beam_alpha*!dtor, $
-		qual:beam_qual, $
-		tof:beam_tof, $
-		bestord:make_array(nBeams,/int,value=0), $ ; Defined later
-		toaw_init:make_array(nBeams,/int,value=0), $ ; Def. later, 1=to, -1=aw, RMT
-		toaw_final:make_array(nBeams,/int,value=0), $ ; Def. later, 1=to, -1=aw, RMT
-		n_posord:n_posord, $
-		posord:posord, $
-		btime:beam_btime, $
-		sigfir:beam_bwidth, $
-		fa_error_renorm:make_array(nBeams,/float,value=pp_rfill), $ ; Def. later
+		vb:              vb, $                ; beam velocity: meters/microsec
+		mm:              nBeams, $
+		maxorder:        maxorder_pos, $
+		siggdu:          pp_acgdu_m, $    ; Meters
+		class:           beam_class_init, $
+		class_init:      beam_class_init, $
+		gunid:           beam_gunid, $
+		maxchan:         beam_maxchan, $
+		code_type:       beam_code_type, $
+		out:             beam_out, $
+		pmt_ok:          make_array(nBeams,/int,value=0), $ ; Use Poor Man's ToF: Defined later
+		tri_ok:          make_array(nBeams,/int,value=0), $ ; Use triangulation:  Defined later
+		xg:              beam_xg, $
+		yg:              beam_yg, $
+		alpha:           beam_alpha*!dtor, $                ; Beam angle in BPP
+		qual:            beam_qual, $                       ; Beam quality
+		tof:             beam_tof, $                        ; Beam ToF
+		bestord:         make_array(nBeams,/int,value=0), $ ; ???: Defined later
+		toaw_init:       make_array(nBeams,/int,value=0), $ ; Initial guess of toward/away beams: 1=to, -1=aw, RMT
+		toaw_final:      make_array(nBeams,/int,value=0), $ ; Final determination of toward/away: 1=to, -1=aw, RMT
+		n_posord:        n_posord, $
+		posord:          posord, $
+		btime:           beam_btime, $                      ; Times beams were fired
+		sigfir:          beam_bwidth, $                     ; Width of beam in BPP
+		fa_error_renorm: make_array(nBeams,/float,value=pp_rfill), $ ; Def. later
 		$
 		$                       ; RunEst.pro information
 		$ ; Not used anywhere   runest_order:reform(beam_runstat(0,*)), $
 		$ ; Not used anywhere   runest_flag:beam_runstat(1:pp_maxorder_runest,*), $
-		runest_estof:beam_runstat(pp_maxorder_runest+1:2*pp_maxorder_runest,*), $ ; Used in ep_poormans_tof.pro and ep_richmans_tof_sa.pro
-		runest_estg:reform(beam_runstat(2*pp_maxorder_runest+1,*)), $ ; Used several places
+		runest_estof:    beam_runstat(pp_maxorder_runest+1:2*pp_maxorder_runest,*), $ ; Used in ep_poormans_tof.pro and ep_richmans_tof_sa.pro
+		runest_estg:     reform(beam_runstat(2*pp_maxorder_runest+1,*)), $ ; Used several places
 		$ ;Not used anywhere    runest_prob:beam_runstat(2*pp_maxorder_runest+2: $
 		$ ;                                           3*pp_maxorder_runest+1,*), $
-		runest_penalty:beam_penalty, $ ; Used several places
+		runest_penalty:  beam_penalty, $ ; Used several places
 		$
-		correlatorChipPeriod:beam_tchip, $     ; Correlator chip length, microsecs
-		correlatorCodePeriod:beam_tcode}       ; Correlator code length, microsecs
+		correlatorChipPeriod: beam_tchip, $     ; Correlator chip length, microsecs
+		correlatorCodePeriod: beam_tcode}       ; Correlator code length, microsecs
 
 	out_out = beam_out
 	beam_class_out = beam_class_init

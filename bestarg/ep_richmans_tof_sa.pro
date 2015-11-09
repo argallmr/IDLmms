@@ -25,9 +25,9 @@ function ep_richmans_tof_sa, $
 
 	; Pre-define some output numbers
 	classA_towards = pp_bfill
-	nonA_towards = pp_bfill
-	classA_away = pp_bfill
-	nonA_away = pp_bfill
+	nonA_towards   = pp_bfill
+	classA_away    = pp_bfill
+	nonA_away      = pp_bfill
 
 	;================================================
 	; Extract only the 'good' beams which will be used.
