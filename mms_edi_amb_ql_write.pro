@@ -1,29 +1,97 @@
+; docformat = 'rst'
 ;
-; Name
-;   mms_edi_l2_q0_write
+; NAME:
+;    mms_edi_amb_ql_write
 ;
-; Purpose
-;   Create a MATLAB save file of inputs needed for Bestarg.
+;*****************************************************************************************
+;   Copyright (c) 2015, Matthew Argall                                                   ;
+;   All rights reserved.                                                                 ;
+;                                                                                        ;
+;   Redistribution and use in source and binary forms, with or without modification,     ;
+;   are permitted provided that the following conditions are met:                        ;
+;                                                                                        ;
+;       * Redistributions of source code must retain the above copyright notice,         ;
+;         this list of conditions and the following disclaimer.                          ;
+;       * Redistributions in binary form must reproduce the above copyright notice,      ;
+;         this list of conditions and the following disclaimer in the documentation      ;
+;         and/or other materials provided with the distribution.                         ;
+;       * Neither the name of the University of New Hampshire nor the names of its       ;
+;         contributors may be used to endorse or promote products derived from this      ;
+;         software without specific prior written permission.                            ;
+;                                                                                        ;
+;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
+;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
+;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
+;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
+;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
+;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
+;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
+;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
+;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
+;   DAMAGE.                                                                              ;
+;*****************************************************************************************
 ;
-; Calling Sequence
-;   EDI_QL_FILE = mms_edi_ql_efield_write(EDI_QL)
-;     Write EDI quick-look data constained in the structure EDI_QL
-;     and created by mms_edi_create_ql_efield.m to a CDF file named
-;     EDI_QL_FILE.
+; PURPOSE:
+;+
+;   Process EDI ambient mode data to produce a quick-look data product with counts
+;   sorted by 0 and 180 degree pitch angle.
 ;
-; Parameters
-;   EDI_QL:         in, required, type=string
+;   Calling Sequence::
+;       FILES = mms_edi_ql_amb_process(AMB_DATA)
+;       FILES = mms_edi_ql_amb_process(AMB_DATA, FILENAME)
+;       FILES = mms_edi_ql_amb_process(AMB_DATA, METADATA)
 ;
-; Returns
-;   EDI_QL_FILE     out, required, type=string
+; :Categories:
+;    MMS, EDI, QL, Ambient
 ;
-; MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
-; Required Products None
+; :Params:
+;       AMB_DATA:       in, optional, type=struct
+;                       EDI ambient data structure with the following fields::
+;                           TT2000_0    - TT2000 time tags for 0-pitch angle sorted data
+;                           TT2000_180  - TT2000 time tags for 180-pitch angle sorted data
+;                           TT2000_TT   - TT2000 time tags for packet-resolution data
+;                           ENERGY_GDU1 - Electron energy for GDU1
+;                           ENERGY_GDU2 - Electron energy for GDU2
+;                           PACK_MODE   - Packing mode
+;                           COUNTS1_0   - Counts1 data sorted by 0-degree pitch mode
+;                           COUNTS1_180 - Counts1 data sorted by 180-degree pitch mode
+;                           COUNTS2_0   - Counts2 data sorted by 0-degree pitch mode (brst only)
+;                           COUNTS2_180 - Counts2 data sorted by 180-degree pitch mode (brst only)
+;                           COUNTS3_0   - Counts3 data sorted by 0-degree pitch mode (brst only)
+;                           COUNTS3_180 - Counts3 data sorted by 180-degree pitch mode (brst only)
+;                           COUNTS4_0   - Counts4 data sorted by 0-degree pitch mode (brst only)
+;                           COUNTS4_180 - Counts4 data sorted by 180-degree pitch mode (brst only)
+;       META:           in, optional, type=string/struct, default='[pwd]/mms_edi_amb.cdf'
+;                       Either a file name or a structure of metadata. If a filename is
+;                           given that does not conform to the MMS file naming conventions,
+;                           metadata will be generic. If META is a structure, it must have
+;                           the following tags::
+;                               SC         - MMS spacecraft ID
+;                               INSTR      - MMS instrument ID
+;                               MODE       - MMS telemetry mode
+;                               LEVEL      - Data product level
+;                               OPTDESC    - Optional descriptor
+;                               TSTART     - Start time
+;                               DIRECTORY  - Directory in which to save the file
+;                               MODS       - Version history array
+;                               PARENTS    - Names of files used to produce `AMB_DATA`
 ;
-; History:
-;   2015-09-10      Written by Matthew Argall
+; :Returns:
+;       AMB_FILE:       Name of the file created.
 ;
-function mms_edi_ql_amb_write, meta, amb_data
+; :Author:
+;    Matthew Argall::
+;        University of New Hampshire
+;        Morse Hall Room 348
+;        8 College Road
+;        Durham, NH 03824
+;        matthew.argall@unh.edu
+;
+; :History:
+;    Modification History::
+;       2015/10/26  -   Written by Matthew Argall
+;-
+function mms_edi_amb_ql_write, amb_data, meta
 	compile_opt idl2
 	
 	catch, the_error
@@ -35,18 +103,67 @@ function mms_edi_ql_amb_write, meta, amb_data
 		return, ''
 	endif
 
+;------------------------------------;
+; Check Metadata                     ;
+;------------------------------------;
+	;Extract metadata from structure
+	if size(meta, /TNAME) eq 'STRUCT' then begin
+		sc        = meta.sc
+		instr     = meta.instr
+		mode      = meta.mode
+		level     = meta.level
+		optdesc   = meta.optdesc
+		tstart    = meta.tstart
+		directory = meta.directory
+		mods      = meta.mods
+		parents   = meta.parents
+	
+		; Describe the modifications to each version
+		version = stregex( mods[-1], '^v([0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT )
+		version = version[1]
+
+		; Create the output filename
+		amb_file = mms_construct_filename( sc, instr, mode, level,     $
+		                                   DIRECTORY = meta.directory, $
+		                                   OPTDESC   = optdesc,        $
+		                                   TSTART    = tstart,         $
+		                                   VERSION   = version )
+	
+	;Filename Given
+	endif else if size(meta, /TNAME) eq 'STRING' then begin
+		amb_file = meta
+	
+		;Try to dissect the file name
+		mms_dissect_filename, amb_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level, $
+		                                TSTART=tstart, OPTDESC=optdesc, VERSION=version, $
+		                                DIRECTORY=directory
+	
+		;Could not dissect
+		if sc eq '' then MrPrintF, 'LogErr', 'Filename does not meet MMS standards: "' + meta + '".'
+	
+	;Create file name
+	endif else begin
+		sc = ''
+		cd, CURRENT=directory
+		amb_file = filepath('mms_edi_amb.cdf', ROOT_DIR=directory)
+		MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
+	endelse
+	
+	;Create fake metadata
+	if sc eq '' then begin
+		sc      = 'mms#'
+		instr   = 'edi'
+		mode    = 'mode'
+		level   = 'level'
+		optdesc = 'amb'
+		tstart  = 'YYYYMMDD'
+		version = 'X.Y.Z'
+		parents = ' '
+	endif
 
 ;------------------------------------;
-; Create CDF File                    ;
+; Check Data                         ;
 ;------------------------------------;
-	; Extract for ease of use
-	sc      = meta.sc
-	instr   = meta.instr
-	mode    = meta.mode
-	level   = 'ql'
-	optdesc = meta.optdesc
-	tstart  = meta.tstart
-
 	;
 	; Check sizes
 	;
@@ -68,23 +185,6 @@ function mms_edi_ql_amb_write, meta, amb_data
 		if ~isa(amb_data.counts3_180,  'UINT')   then message, 'amb_data.counts3_180 must be UINT.'
 		if ~isa(amb_data.counts4_180,  'UINT')   then message, 'amb_data.counts4_180 must be UINT.'
 	endif
-	
-	; Describe the modifications to each version
-	if mode eq 'srvy' then begin
-		mods = [ 'v0.0.0 -- First version.', $
-		       ]
-	endif else begin
-		mods = [ 'v0.0.0 -- First version.']
-	endelse
-	version = stregex( mods[-1], '^v([0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT )
-	version = version[1]
-
-	; Create the output filename
-	amb_file = mms_construct_filename( sc, instr, mode, level,     $
-	                                   DIRECTORY = meta.directory, $
-	                                   OPTDESC   = optdesc,        $
-	                                   TSTART    = tstart,         $
-	                                   VERSION   = version )
 
 	;Open the CDF file
 	oamb = MrCDF_File(amb_file, /CREATE, /CLOBBER)
@@ -125,7 +225,7 @@ function mms_edi_ql_amb_write, meta, amb_data
 	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'J. Burch, R. Torbert'
 	oamb -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oamb -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
-	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. Instrument papers ' + $
+	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. The instrument paper ' + $
 	                                                                'for EDI can be found at: ' + $
 	                                                                'http://link.springer.com/article/10.1007%2Fs11214-015-0182-7'
 	oamb -> WriteGlobalAttr, /CREATE, 'HTTP_LINK',                  ['http://mms-fields.unh.edu/', $
@@ -135,7 +235,7 @@ function mms_edi_ql_amb_write, meta, amb_data
 	oamb -> WriteGlobalAttr, /CREATE, 'MODS',                       mods
 	oamb -> WriteGlobalAttr, /CREATE, 'Acknowledgements',           ' '
 	oamb -> WriteGlobalAttr, /CREATE, 'Generated_by',               'University of New Hampshire'
-	oamb -> WriteGlobalAttr, /CREATE, 'Parents',                    meta.parents
+	oamb -> WriteGlobalAttr, /CREATE, 'Parents',                    parents
 	oamb -> WriteGlobalAttr, /CREATE, 'Skeleton_version',           ' '
 	oamb -> WriteGlobalAttr, /CREATE, 'Rules_of_use',               ' '
 	oamb -> WriteGlobalAttr, /CREATE, 'Time_resolution',            ' '
@@ -146,14 +246,14 @@ function mms_edi_ql_amb_write, meta, amb_data
 	; Variable naming convention
 	;   scId_instrumentId_paramName_optionalDescriptor
 	
-	t_0_vname             = 'epoch_pa0'
-	t_180_vname           = 'epoch_pa180'
+	t_0_vname             = 'epoch_0'
+	t_180_vname           = 'epoch_180'
 	t_tt_vname            = 'epoch_timetag'
 	e_gdu1_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu1')
 	e_gdu2_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu2')
 	gdu_0_vname           = mms_construct_varname(sc, instr, 'gdu',     '0')
 	gdu_180_vname         = mms_construct_varname(sc, instr, 'gdu',     '180')
-	pack_mode_vname       = mms_construct_varname(sc, instr, 'pack'     'mode')
+	pack_mode_vname       = mms_construct_varname(sc, instr, 'pack',    'mode')
 	counts1_0_vname       = mms_construct_varname(sc, instr, 'counts1', '0')
 	counts2_0_vname       = mms_construct_varname(sc, instr, 'counts2', '0')
 	counts3_0_vname       = mms_construct_varname(sc, instr, 'counts3', '0')

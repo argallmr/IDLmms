@@ -63,7 +63,7 @@
 ;                           This pattern is recognized by MrTokens and can be used
 ;                           to find files with year, month, and day in the file name.
 ;       TSTART:         in, optional, type=string, default='*'
-;                       Start time of the data interval formatted as yyyymmddhhmmss,
+;                       Start time of the data interval formatted as yyyy-mm-ddThh:mm:ss,
 ;                           with irrelevant, least significant, fields dropped
 ;                           when files start on regular hourly or minute boundaries.
 ;       VERSION:        in, optional, type=string, default='*'

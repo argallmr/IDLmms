@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_ql_amb_create
+;    mms_edi_amb_create
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -1648,95 +1648,62 @@ end
 ;                   Directory in which to save data.
 ;
 ; :Returns:
-;       FILENAME:   The name of the file produced.
+;       EDI_OUT:    Structure of processed data. Fields are::
+;                       TT2000_0    - TT2000 time tags for 0-pitch angle sorted data
+;                       TT2000_180  - TT2000 time tags for 180-pitch angle sorted data
+;                       TT2000_TT   - TT2000 time tags for packet-resolution data
+;                       ENERGY_GDU1 - Electron energy for GDU1
+;                       ENERGY_GDU2 - Electron energy for GDU2
+;                       PACK_MODE   - Packing mode
+;                       COUNTS1_0   - Counts1 data sorted by 0-degree pitch mode
+;                       COUNTS1_180 - Counts1 data sorted by 180-degree pitch mode
+;                       COUNTS2_0   - Counts2 data sorted by 0-degree pitch mode (brst only)
+;                       COUNTS2_180 - Counts2 data sorted by 180-degree pitch mode (brst only)
+;                       COUNTS3_0   - Counts3 data sorted by 0-degree pitch mode (brst only)
+;                       COUNTS3_180 - Counts3 data sorted by 180-degree pitch mode (brst only)
+;                       COUNTS4_0   - Counts4 data sorted by 0-degree pitch mode (brst only)
+;                       COUNTS4_180 - Counts4 data sorted by 180-degree pitch mode (brst only)
+;                       PA1_0       - Pitch angle associated with COUNTS1_0 (L2 only)
+;                       PA1_180     - Pitch angle associated with COUNTS1_180 (L2 only)
+;                       PA2_0       - Pitch angle associated with COUNTS2_0 (L2 only)
+;                       PA2_180     - Pitch angle associated with COUNTS2_180 (L2 only)
+;                       PA3_0       - Pitch angle associated with COUNTS3_0 (L2 only)
+;                       PA3_180     - Pitch angle associated with COUNTS3_180 (L2 only)
+;                       PA4_0       - Pitch angle associated with COUNTS4_0 (L2 only)
+;                       PA4_180     - Pitch angle associated with COUNTS4_180 (L2 only)
 ;-
-function mms_edi_ql_amb_create, sc, mode, tstart, tend, $
-OUTDIR=outdir, $
-CREATE_LOG=create_log
+function mms_edi_amb_create, amb_files, tstart, tend, $
+FGM_FILES=fgm_files
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
 		MrPrintF, 'LogErr'
-		return, ''
+		return, !Null
 	endif
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Defaults
-	create_log = keyword_set(create_log)
-	if n_elements(outdir) eq 0 then outdir = '/nfs/edi/amb/'
-
-	;Number of parameters with data
-	nparams = n_elements(sc)         eq 0 ? 0 : $
-	              n_elements(mode)   eq 0 ? 1 : $
-	              n_elements(tstart) eq 0 ? 2 : $
-	              n_elements(tend)   eq 0 ? 3 : $
-	              4
+	;Total number of files given
+	nEDI = n_elements(amb_files)
+	nFGM = n_elements(fgm_files)
 	
-	;How was the program called?
-	;   1: mms_edi_ql_amb_create, edi_file
-	;   2: mms_edi_ql_amb_create, edi_file, fgm_file
-	;   4: mms_edi_ql_amb_create, sc, mode, tstart, tend
-	case nparams of
-		1: begin
-			file_edi       = sc
-			mms_dissect_filename, file_edi, SC=_sc, MODE=_mode
-			if _mode[0] ne 'brst' then begin
-				if total((_mode eq 'fast') + (_mode eq 'slow')) ne n_elements(_mode) $
-					then message, 'Files must be "brst" or ["slow", "fast"] mode.'
-			endif
-			tf_pitch_angle = 0B
-		endcase
-		2: begin
-			file_edi       = sc
-			file_fgm       = mode
-			mms_dissect_filename, file_edi, SC=_sc, MODE=_mode
-			if _mode[0] ne 'brst' then begin
-				if total((_mode eq 'fast') + (_mode eq 'slow')) ne n_elements(_mode) $
-					then message, 'Files must be "brst" or ["slow", "fast"] mode.'
-			endif
-			tf_pitch_angle = 1B
-		endcase
-		4: begin
-			_sc = sc
-			if ~(mode eq 'srvy' || mode eq 'brst') then message, 'MODE must be "brst" or "srvy".'
-			_mode          = mode eq 'srvy' ? ['slow', 'fast'] : mode
-			tf_pitch_angle = 1B
-		endcase
-		else:   message, 'Incorrect number of parameters'
-	endcase
-	tf_brst = _mode[0] eq 'brst'
-
-	;Check inputs
-	if tf_brst then begin
-		if ~isa(file_edi, /SCALAR, 'STRING') then message, 'Only one EDI file allowed.'
-		if ~file_test(file_edi)              then message, 'EDI file does not exist: "' + file_edi + '".'
-	endif else begin
-		if ~isa(_sc,    /SCALAR, 'STRING') then message, 'SC must be a scalar string.'
-		if ~isa(tstart, /SCALAR, 'STRING') then message, 'TSTART must be a scalar string.'
-		if ~isa(tend,   /SCALAR, 'STRING') then message, 'TEND must be a scalar string.'
-	endelse  
+	;Check if files exist and are readable
+	if nEDI eq 0 then message, 'No EDI files given'
+	if min(file_test(amb_files, /READ, /REGULAR)) eq 0 $
+		then message, 'EDI files must exist and be readable.'
+	
+	;Burst mode flag
+	tf_brst =stregex(amb_files[0], 'brst', /BOOLEAN)
 
 ;-----------------------------------------------------
 ; Sort into 0 and 180 Degree PA \\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	
-	;EDI QL FAST file
-	if n_elements(file_edi) eq 0 then begin
-		file_edi = mms_find_file(_sc, 'edi', _mode, 'l1a', $
-		                         COUNT     = nedi, $
-		                         OPTDESC   = 'amb', $
-		                         SEARCHSTR = searchstr, $
-		                         TSTART    = tstart, $
-		                         TEND      = tend)
-		if nedi eq 0 then message, 'EDI files not found: "' + searchstr[0] + '".'
-	endif
-
 	;Read Data
-	edi = mms_edi_read_l1a_amb(file_edi, tstart, tend)
+	;   - Automatically comines slow and fast survey data
+	edi = mms_edi_read_l1a_amb(amb_files, tstart, tend)
 
 	;Sort by 0 and 180 pitch angles
 	if tf_brst $
@@ -1744,83 +1711,74 @@ CREATE_LOG=create_log
 		else counts_0_180 = edi_amb_srvy_0_180(edi)
 
 ;-----------------------------------------------------
-; Burst Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Search for the fgm file
-	nfgm = n_elements(file_fgm)
-	if tf_pitch_angle && nfgm eq 0 then begin
-		;Try L2PRE first
-		fg_mode  = tf_brst ? 'brst' : 'srvy'
-		file_fgm = mms_find_file(_sc, 'dfg', fg_mode, 'l2pre', $
-		                         COUNT     = nfgm, $
-		                         SEARCHSTR = searchstr, $
-		                         TSTART    = tstart, $
-		                         TEND      = tend)
+; Pitch Angles (L2) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------	
+	;If an error occurs while calculating pitch angles,
+	;make a note and move on.
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		MrPrintF, 'LogText', '--------------------------------------------'
+		MrPrintF, 'LogText', '|      Error Calculating Pitch Angles      |'
+		MrPrintF, 'LogText', '--------------------------------------------'
+		MrPrintF, 'LogErr'
+		nFGM = 0
 		
-		;Try L1B
-		if nfgm eq 0 then begin
-			file_fgm = mms_find_file(_sc, 'dfg', fg_mode, 'l1b', $
-			                         COUNT     = nfgm, $
-			                         SEARCHSTR = searchstr, $
-			                         TSTART    = tstart, $
-			                         TEND      = tend)
-		endif
-	endif
-	
-	;Do we have FGM data?
-	if nfgm eq 0 then begin
-		MrPrintF, 'LogErr', 'Cannot determine pitch angles. No FGM data.'
-		tf_pitch_angle = 0B
-	endif else begin
+	;Calculate pitch angles
+	endif else if nFGM gt 0 then begin
+		mms_dissect_filename, fgm_files, LEVEL=level_fgm
+		
 		;Read FGM data
-		if tf_brst then begin
-			fgm      = mms_fg_read_l1b(file_fgm, tstart, tend)
-			pa_0_180 = edi_amb_brst_pa(edi, temporary(fgm))
-		endif else begin
-			fgm      = mms_fg_read_l2pre(file_fgm, tstart, tend)
-			pa_0_180 = edi_amb_srvy_pa(edi, temporary(fgm))
-		endelse
-	endelse
-
+		;   - L2 is preferred
+		;   - Send warning about any other level
+		case level_fgm[0] of
+			'l2': fgm = mms_fg_read_l2(fgm_files, tstart, tend)
+			'l2pre': begin
+				MrPrintF, 'LogWarn', 'FGM L2PRE data provided. Expected L2.'
+				fgm = mms_fg_read_l2pre(fgm_files, tstart, tend)
+			endcase
+			'ql': begin
+				MrPrintF, 'LogWarn', 'FGM quick-look data provided. Expected L2.'
+				fgm = mms_fg_read_ql(fgm_files, tstart, tend)
+			endcase
+			'l1b': begin
+				MrPrintF, 'LogWarn', 'FGM L1B data provided. Expected L2.'
+				fgm = mms_fg_read_l1b(fgm_files, tstart, tend)
+			endcase
+			else: message, 'Unexpected FGM data level: "' + level_fgm[0] + '".'
+		endcase
+		
+		;Calculate pitch angles
+		if tf_brst $
+			then pa_0_180 = edi_amb_brst_pa(edi, temporary(fgm)) $
+			else pa_0_180 = edi_amb_srvy_pa(edi, temporary(fgm))
+	endif
+	catch, /CANCEL
+	
 ;-----------------------------------------------------
 ; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Establish a new error handler
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		MrPrintF, 'LogErr'
+		return, ''
+	endif
+	
 	;Create the output structure
-	edi_out = { tt2000_tt:     reform(edi.epoch_timetag), $
-	            energy_gdu1:   reform(edi.energy_gdu1), $
-	            energy_gdu2:   reform(edi.energy_gdu2) $
+	edi_out = { tt2000_tt:   reform(edi.epoch_timetag), $
+	            energy_gdu1: reform(edi.energy_gdu1), $
+	            energy_gdu2: reform(edi.energy_gdu2), $
+	            pack_mode:   reform(edi.pack_mode) $
 	          }
 	edi = !Null
 
 	;Burst mode counts
 	edi_out = create_struct(edi_out, temporary(counts_0_180))
-	
+
 	;Pitch angle (burst only)
-	if tf_pitch_angle then edi_out = create_struct(edi_out, temporary(pa_0_180))
+	if nFGM gt 0 then edi_out = create_struct(edi_out, temporary(pa_0_180))
 
-;-----------------------------------------------------
-; Write to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	if _mode eq 'brst' then begin
-		mms_dissect_filename, file_edi, TSTART=fstart
-		MrTimeParser, fstart, '%Y%M%d%H%m%S', '%Y-%M-%dT%H:%m:%S', ffstart
-	endif else begin
-		ffstart = tstart
-	endelse
-
-	;Gather metadata
-	meta_data = { sc:        _sc, $
-	              instr:     'edi', $
-	              mode:      (tf_brst ? 'brst' : 'srvy'), $
-	              mods:      (n_elements(mods) eq 0 ? '' : mods), $
-	              level:     'l1b', $
-	              optdesc:   'amb', $
-	              tstart:    ffstart, $
-	              parents:   (nfgm eq 0 ? file_edi : [file_edi, file_fgm]), $
-	              directory: outdir $
-	            }
-
-	;Write the file
-	amb_file = mms_edi_ql_amb_write(meta_data, edi_out)
-	return, amb_file
+	return, edi_out
 end

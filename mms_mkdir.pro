@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_ql_amb_procone
+;    mms_mkdir
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -33,19 +33,32 @@
 ;
 ; PURPOSE:
 ;+
-;   Process EDI ambient mode data to produce a quick-look data product with counts
-;   sorted by 0 and 180 degree pitch angle.
+;   Create a directory structure consistent with the MMS SDC. Result is::
+;       ROOT/SC/INSTR/MODE/LEVEL[/OPTDESC]/YEAR/MONTH[/DAY]
+;
+;   Where /DAY is include if MODE = 'brst'
 ;
 ; :Categories:
-;    MMS, EDI, QL
+;    MMS
 ;
 ; :Params:
-;       SC:         in, optional, type=string/strarr, default=['mms1'\, 'mms2'\, 'mms3'\, 'mms4']
-;                   Spacecraft for which to process data. Options are:: mms1, mms2, mms3, or mms4
-;       MODE:       in, optional, type=string/strarr, default=['srvy'\, 'brst']
-;                   Telemetry mode of the data to be processed. Options are: 'srvy' or 'brst'
-;       DATE:       in, optional, type=string/strarr, default=three days before current date
-;                   Date of data to be processed.
+;       SC:         in, required, type=string
+;                   Spacecraft for which to process data. Options are::
+;                       'mms1', 'mms2', 'mms3', or 'mms4'
+;       INSTR:      in, required, type=string
+;                   Instrument ID
+;       MODE:       in, required, type=string
+;                   Telemetry mode.
+;       LEVEL:      in, required, type=string
+;                   Data quality level
+;       OPTDESC:    in, required, type=string
+;                   Optional descriptor
+;       TSTART:     in, required, type=string
+;                   Start time. Formatted as either 'YYYYMMDD' or 'YYYYMMDDhhmmss'.
+;
+; :Keywords:
+;       OUT:        out, optional, type=string
+;                   Resulting directory path.
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -57,60 +70,46 @@
 ;
 ; :History:
 ;    Modification History::
-;       2015/10/26  -   Written by Matthew Argall
+;       2015/11/11  -   Written by Matthew Argall
 ;-
-pro mms_edi_ql_amb_procone, sc, mode, date, $
-CREATE_LOG_FILE=create_log_file, $
-OUTPUT_DIR=output_dir, $
-LOG_DIR=log_dir
+pro mms_mkdir, root, sc, instr, mode, level, optdesc, tstart, $
+OUT=outdir
 	compile_opt idl2
+	on_error, 2
 	
-	catch, the_error
-	if the_error ne 0 then begin
-		catch, /CANCEL
-		MrPrintF, 'LogErr'
-		return
-	endif
-
-;-----------------------------------------------------
-; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Defaults
-	if total(sc eq ['mms1', 'mms2', 'mms3', 'mms4']) ne 1 then message, 'SC must be {"mms1"|"mms2"|"mms3"|'mms4'}"
-	if total(mode eq ['srvy', 'brst'])               ne 1 then message, 'MODE must be {"srvy"|"brst"}.'
-	if n_elements(date) eq 0 || date eq '' then begin
-		caldat, systime(/JULIAN, /UTC), month, day, year
-		date   = string(FORMAT='(%"%04i-%02i-%02i")', year, month, day)
-	endif
+	;Is it possible to create directories?
+	if ~file_test(root, /DIRECTORY, /WRITE) then message, 'ROOT is not writable "' + root + '".'
 	
-	;Constants
-	create_log_file = keyword_set(create_log_file)
-	if n_elements(output_dir) eq 0 then output_dir = '/nfs/edi/amb/ql'
-	if n_elements(log_dir)    eq 0 then log_dir    = '/nfs/edi/amb/logs/'
-	
-	;Create a log file
-	;   - If not, all errors will be written to console (IDL's stderr)
-	if create_log_file then begin
-		;Remove delimiters from date.
-		fstart = strmid(date, 0, 4) + strmid(date, 5, 2) + strmid(date, 8, 2)
-	
-		;Create the file name
-		log_fname = mms_edi_construct_filename(sc, 'edi', mode, 'ql', $
-		                                       OPTDESC = 'amb', $
-		                                       TSTART  = fstart, $
-		                                       VERSION = 'v0.0.0')
+	;Time stamp
+	tlen = strlen(tstart)
+	case tlen of
+		8: begin
+			yrdir  = strmid(tstart, 0, 4)
+			modir  = strmid(tstart, 4, 2)
+			daydir = ''
+		endcase
 		
-		;Create the error logging object
-		!Null = MrStdLog(log_fname)
-	endif
-
-;-----------------------------------------------------
-; Find Data Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	tstart = date + 'T00:00:00Z'
-	tend   = date + 'T24:00:00Z'
+		14: begin
+			yrdir  = strmid(tstart, 0, 4)
+			modir  = strmid(tstart, 4, 2)
+			daydir = strmid(tstart, 6, 2)
+		endcase
+		
+		else: message, 'Unexpected file start time: "' + tstart + '".'
+	endcase
 	
-	;Create the ambient quicklook file
-	file = mms_edi_ql_amb_create(sc, mode, tstart, tend, $
-	                             OUTDIR = filepath('', ROOT_DIR=outdir, SUBDIRECTORY=mode))
+	;Final output destination
+	if mode eq 'brst' $
+		then subdirs = [sc, instr, mode, level, optdesc, yrdir, modir, daydir] $
+		else subdirs = [sc, instr, mode, level, optdesc, yrdir, modir]
+	
+	;Make the directory if it does not exist
+	outdir = filepath('', ROOT_DIR=root, SUBDIRECTORY=subdirs)
+	if ~file_test(outdir) then begin
+		;Test each subdirectory
+		for i = 0, n_elements(subdirs) - 1 do begin
+			outdir = filepath('', ROOT_DIR=root, SUBDIRECTORY=subdirs[0:i])
+			if ~file_test(outdir) then file_mkdir, outdir
+		endfor
+	endif
 end

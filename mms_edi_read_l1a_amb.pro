@@ -120,6 +120,8 @@ QUALITY=quality
 
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
+	if max(sc[0] eq ['mms1', 'mms2', 'mms3', 'mms4']) eq 0 then message, 'Invalid spacecraft identifier: "' + sc[0] + '".'
+	if min(sc      eq sc[0])   eq 0 then message, 'All files must be from the same spacecraft.'
 	if min(instr   eq 'edi')   eq 0 then message, 'Only EDI files are allowed.'
 	if min(level   eq 'l1a')   eq 0 then message, 'Only L1A files are allowed.'
 	if min(optdesc eq 'amb')   eq 0 then message, 'Only EDI ambient-mode files are allowed.'

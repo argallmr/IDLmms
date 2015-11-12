@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_edi_read_l1a_efield
+;       mms_edi_test_costfn
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -1429,8 +1429,8 @@ function mms_edi_test_costfn, sc, tstart, tend
 	endif
 
 	sc       = 'mms1'
-	tstart   = '2015-08-01T15:30:00Z' ;01-Aug-2015 05:08:46.030963219  01-Aug-2015 00:41:57.83222159
-	tend     = '2015-08-01T16:30:00Z' ;01-Aug-2015 13:19:18.340386093  01-Aug-2015 05:07:01.822075718
+	tstart   = '2015-08-01T00:00:00Z' ;01-Aug-2015 05:08:46.030963219  01-Aug-2015 00:41:57.83222159
+	tend     = '2015-08-01T24:00:00Z' ;01-Aug-2015 13:19:18.340386093  01-Aug-2015 05:07:01.822075718
 	edi_dir  = '/nfs/edi/temp/'
 	sdc_dir  = '/nfs/'
 	hk_dir   = '/nfs/hk/'
@@ -1524,6 +1524,7 @@ function mms_edi_test_costfn, sc, tstart, tend
 ;-----------------------------------------------------
 ; Beam Width \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Width of beam in BPP
 	beam_width = mmsedi_beamwidth( edi.azimuth, edi.polar, b_edi[0,*], b_edi[1,*], b_edi[2,*], edi.gdu )
 	
 	;We no longer need this data.
