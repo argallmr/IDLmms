@@ -72,7 +72,7 @@
 ;                   If set, a log file will be created. If not, messages will be
 ;                       directed to the current error logging file (defaults to the
 ;                       console window -- see MrStdLog.pro)
-;       FLATTEN:    in, optional, type=boolean, default=0
+;       FLATTEN:    in, optional, type=boolean, default=1
 ;                   If set, all files will be saved to their root directories, without
 ;                       creating the standard SDC directory structure. This means
 ;                       `OUTPUT_DIR` and `LOG_DIR` will be the destination directories.
@@ -119,7 +119,7 @@ LOG_DIR=log_dir
 ; Defaults \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Calculate the current date
-	caldat, systime(/JULIAN, /UTC), month, day, year
+	caldat, systime(/JULIAN), month, day, year
 	date = string(FORMAT='(%"%4i-%2i-%2i")', year, month, day)
 
 	;Parameters
@@ -131,13 +131,27 @@ LOG_DIR=log_dir
 		else if date_end eq '' then date_end = date
 	
 	;Keywords
-	create_log = keyword_set(create_log)
-	flatten    = keyword_set(flatten)
+	create_log = n_elements(create_log) eq 0 ? 1 : keyword_set(create_log)
+	flatten    = n_elements(flatten)    eq 0 ? 1 : keyword_set(flatten)
 	if n_elements(sdc_root)   eq 0 then sdc_root   = '/nfs'
-	if n_elements(output_dir) eq 0 then output_dir = filepath('', ROOT_DIR=sdc_root, $
-	                                                          SUBDIRECTORY=['edi'])
-	if n_elements(log_dir)    eq 0 then log_dir    = filepath('', ROOT_DIR=sdc_root, $
-	                                                          SUBDIRECTORY=['edi', 'logs'])
+	if n_elements(output_dir) eq 0 then output_dir = ''
+	if n_elements(log_dir)    eq 0 then log_dir    = ''
+	
+	;Flatten or Not
+	defout = 0
+	deflog = 0
+	if output_dir eq '' then begin
+		defout = 1
+		if flatten $
+			then output_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=['edi', 'amb', 'ql']) $
+			else output_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY='edi')
+	endif
+	if log_dir eq '' then begin
+		deflog = 1
+		if flatten $
+			then log_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=['edi', 'logs', 'amb', 'ql']) $
+			else log_dir = filepath('', ROOT_DIR=sdc_root, SUBDIRECTORY=['edi', 'logs'])
+	endif
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -168,10 +182,11 @@ LOG_DIR=log_dir
 	
 
 ;-----------------------------------------------------
-; Mods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Modification History \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Mods to data processing
-	mods = ['v0.0.0 - Original version.']
+	mods = ['v0.0.0 - Original version.', $
+	        'v0.1.0 - Added pitch angles.']
 
 ;-----------------------------------------------------
 ; Generate Dates \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -232,17 +247,20 @@ LOG_DIR=log_dir
 			;Create the directory if it does not exist
 			logdir = log_dir
 			if ~flatten then mms_mkdir, log_dir, sc[k], 'edi', mode[j], 'ql', 'amb', year+month+day, OUT=logdir
+			if deflog then logdir = filepath('', ROOT_DIR=logdir, SUBDIRECTORY=mode[j])
+
 			
 			;File version
-			version = stregex(mods[-1], '(v[0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT)
+			version = stregex(mods[-1], 'v([0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT)
 			version = version[1]
 		
 			;Create the file name
 			log_fname = mms_construct_filename(sc[k], 'edi', mode[j], 'ql', $
-			                                   DIRECTORY = logmo, $
+			                                   DIRECTORY = logdir, $
 			                                   OPTDESC   = 'amb', $
 			                                   TSTART    = fstart, $
 			                                   VERSION   = version)
+			log_fname = strmid(log_fname, 0, strpos(log_fname, '.', /REVERSE_SEARCH)) + '.log'
 			
 			;Create the error logging object
 			!Null = MrStdLog(log_fname)
@@ -262,7 +280,7 @@ LOG_DIR=log_dir
 		                         SEARCHSTR = searchstr, $
 		                         TSTART    = tstart[i], $
 		                         TEND      = tend[i])
-		
+
 		;Did we find any files?
 		if nEDI eq 0 then begin
 			MrPrintF, 'LogErr', tstart[i], tend[i], FORMAT='(%"EDI files not found for interval %s - %s")'
@@ -290,6 +308,7 @@ LOG_DIR=log_dir
 			;Create the directory if it does not exist
 			outdir = output_dir
 			if ~flatten then mms_mkdir, output_dir, sc[k], 'edi', mode[j], 'l2', 'amb', year+month+day, OUT=outdir
+			if defout && flatten then outdir = filepath('', ROOT_DIR=outdir, SUBDIRECTORY=mode[j])
 
 			;Gather metadata
 			meta_data = { sc:        sc[k], $
@@ -299,7 +318,7 @@ LOG_DIR=log_dir
 			              level:     'l2', $
 			              optdesc:   'amb', $
 			              tstart:    fstart, $
-			              parents:   file_edi, $
+			              parents:   file_basename(file_edi), $
 			              directory: outdir $
 			            }
 	
@@ -340,6 +359,10 @@ LOG_DIR=log_dir
 				;Create the directory if it does not exist
 				outdir = output_dir
 				if ~flatten then mms_mkdir, output_dir, sc[k], 'edi', mode[j], 'l2', 'amb', year+month+day, OUT=outdir
+				if defout && flatten then begin
+					outdir = fullfile('', ROOT_DIR=outdir, SUBDIRECTORY=[mode[j], year+month+day])
+					if ~file_test(outdir, /DIRECTORY) then file_mkdir, outdir
+				endif
 				
 				;File time
 				MrTimeParser, edi_tstart[m], '%Y%M%d%H%m%S', '%Y-%M-%dT%H:%m:%S', fstart
@@ -352,7 +375,7 @@ LOG_DIR=log_dir
 				              level:     'l2', $
 				              optdesc:   'amb', $
 				              tstart:    fstart, $
-				              parents:   file_edi, $
+				              parents:   file_basename(file_edi), $
 				              directory: outdir $
 				            }
 		

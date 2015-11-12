@@ -243,6 +243,7 @@ LOG_DIR=log_dir
 			                                   OPTDESC   = 'amb', $
 			                                   TSTART    = fstart, $
 			                                   VERSION   = version)
+			log_fname = strmid(log_fname, 0, strpos(log_fname, '.', /REVERSE_SEARCH)) + '.log'
 			
 			;Create the error logging object
 			!Null = MrStdLog(log_fname)
@@ -301,6 +302,8 @@ LOG_DIR=log_dir
 			if ~flatten then mms_mkdir, output_dir, sc[k], 'edi', mode[j], 'l2', 'amb', year+month+day, OUT=outdir
 
 			;Gather metadata
+			parents = nFGM eq 0 ? files_edi : [files_edi, files_fgm]
+			parents = file_basename(parents)
 			meta_data = { sc:        sc[k], $
 			              instr:     'edi', $
 			              mode:      mode, $
@@ -360,6 +363,8 @@ LOG_DIR=log_dir
 				MrTimeParser, edi_tstart[m], '%Y%M%d%H%m%S', '%Y-%M-%dT%H:%m:%S', fstart
 				
 				;Gather metadata
+				parents = nFGM eq 0 ? files_edi : [files_edi, files_fgm]
+				parents = file_basename(parents)
 				meta_data = { sc:        sc[k], $
 				              instr:     'edi', $
 				              mode:      mode, $
@@ -367,7 +372,7 @@ LOG_DIR=log_dir
 				              level:     'l2', $
 				              optdesc:   'amb', $
 				              tstart:    fstart, $
-				              parents:   (nFGM eq 0 ? files_edi[m] : [files_edi[m], fgm_file]), $
+				              parents:   parents, $
 				              directory: outdir $
 				            }
 		
