@@ -109,7 +109,6 @@ UNIFORM=uniform
 ;-------------------------------------------------------
 ; Filename  ////////////////////////////////////////////
 ;-------------------------------------------------------
-
 	;Create the file name
 	fpattern = mms_construct_filename(sc, instr, mode, level, $
 	                                  OPTDESC   = optdesc,    $

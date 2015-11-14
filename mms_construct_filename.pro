@@ -230,7 +230,7 @@ VERSION=version
 		
 		;Create the directory
 		if directory ne '' then begin
-			for i = 0, nmax do fname[i] = filepath(fname[i], ROOT_DIR=directory)
+			for i = 0, nmax-1 do fname[i] = filepath(fname[i], ROOT_DIR=directory)
 		endif else begin
 			dir = strarr(nmax)
 			for i=0, nmax-1 do begin
