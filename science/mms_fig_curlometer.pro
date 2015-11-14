@@ -63,127 +63,53 @@ EIGVECS=eigvecs
 	endif
 
 ;-----------------------------------------------------
-; Find Data Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
-	;FGM QL SRVY file
-	f1_fgm = mms_find_file('mms1', 'dfg', 'srvy', 'ql', $
-	                       COUNT     = nfast_edi, $
-	                       OPTDESC   = optdesc, $
-	                       SDC_ROOT  = sdc_dir, $
-	                       SEARCHSTR = searchstr, $
-	                       TSTART    = tstart, $
-	                       TEND      = tend)
+	;Magnetic field data
+	mms_fgm_ql_read, 'mms1', 'dfg', 'srvy', tstart, tend, B_DMPA=b1, TIME=t1
+	mms_fgm_ql_read, 'mms2', 'dfg', 'srvy', tstart, tend, B_DMPA=b2, TIME=t2
+	mms_fgm_ql_read, 'mms3', 'dfg', 'srvy', tstart, tend, B_DMPA=b3, TIME=t3
+	mms_fgm_ql_read, 'mms4', 'dfg', 'srvy', tstart, tend, B_DMPA=b4, TIME=t4
 	
-	;FGM QL SRVY file
-	f2_fgm = mms_find_file('mms2', 'dfg', 'srvy', 'ql', $
-	                       COUNT     = nfast_edi, $
-	                       OPTDESC   = optdesc, $
-	                       SDC_ROOT  = sdc_dir, $
-	                       SEARCHSTR = searchstr, $
-	                       TSTART    = tstart, $
-	                       TEND      = tend)
-	
-	;FGM QL SRVY file
-	f3_fgm = mms_find_file('mms3', 'dfg', 'srvy', 'ql', $
-	                       COUNT     = nfast_edi, $
-	                       OPTDESC   = optdesc, $
-	                       SDC_ROOT  = sdc_dir, $
-	                       SEARCHSTR = searchstr, $
-	                       TSTART    = tstart, $
-	                       TEND      = tend)
-	
-	;FGM QL SRVY file
-	f4_fgm = mms_find_file('mms4', 'dfg', 'srvy', 'ql', $
-	                       COUNT     = nfast_edi, $
-	                       OPTDESC   = optdesc, $
-	                       SDC_ROOT  = sdc_dir, $
-	                       SEARCHSTR = searchstr, $
-	                       TSTART    = tstart, $
-	                       TEND      = tend)
-
-;-----------------------------------------------------
-; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Magnetic field
-	mms_fgm_ql_read, f1_fgm, tstart, tend, B_DMPA=b1_dmpa, TIME=t1_fgm
-	mms_fgm_ql_read, f2_fgm, tstart, tend, B_DMPA=b2_dmpa, TIME=t2_fgm
-	mms_fgm_ql_read, f3_fgm, tstart, tend, B_DMPA=b3_dmpa, TIME=t3_fgm
-	mms_fgm_ql_read, f4_fgm, tstart, tend, B_DMPA=b4_dmpa, TIME=t4_fgm
-	
-	;Remove the magntidue
-	b1_dmpa = transpose(b1_dmpa[0:2,*])
-	b2_dmpa = transpose(b2_dmpa[0:2,*])
-	b3_dmpa = transpose(b3_dmpa[0:2,*])
-	b4_dmpa = transpose(b4_dmpa[0:2,*])
-	
-	;FDOA Spacecraft Position
-	r1_dmpa = mms_fdoa_scpos('mms1', tstart, tend, t1_fgm)
-	r2_dmpa = mms_fdoa_scpos('mms2', tstart, tend, t1_fgm)
-	r3_dmpa = mms_fdoa_scpos('mms3', tstart, tend, t1_fgm)
-	r4_dmpa = mms_fdoa_scpos('mms4', tstart, tend, t1_fgm)
-	r1_dmpa = transpose(r1_dmpa)
-	r2_dmpa = transpose(r2_dmpa)
-	r3_dmpa = transpose(r3_dmpa)
-	r4_dmpa = transpose(r4_dmpa)
-
-	;Convert time to seconds
-	MrCDF_Epoch_Breakdown, t1_fgm[0], year, month, day
-	MrCDF_Epoch_Compute, t0, year, month, day, /TT2000
-	t1_fgm_sse = MrCDF_epoch2sse(t1_fgm, t0)
-	t2_fgm_sse = MrCDF_epoch2sse(t2_fgm, t0)
-	t3_fgm_sse = MrCDF_epoch2sse(t3_fgm, t0)
-	t4_fgm_sse = MrCDF_epoch2sse(t4_fgm, t0)
-	
-	;interpolate B-fields
-	b2_dmpa = MrInterpol(b2_dmpa, t2_fgm_sse, t1_fgm_sse)
-	b3_dmpa = MrInterpol(b3_dmpa, t3_fgm_sse, t1_fgm_sse)
-	b4_dmpa = MrInterpol(b4_dmpa, t4_fgm_sse, t1_fgm_sse)
-	
-	;Curlometer
-	Jcurl = MrReciprocalCurl(r1_dmpa, r2_dmpa, r3_dmpa, r4_dmpa, b1_dmpa, b2_dmpa, b3_dmpa, b4_dmpa)
-	Jcmtr = MrCurlometer(r1_dmpa, r2_dmpa, r3_dmpa, r4_dmpa, b1_dmpa, b2_dmpa, b3_dmpa, b4_dmpa)
-
-	;Correct units
-	;   - Micro-Amps
-	;   - (s^2 A^2 / kg m) * nT / m --> (s^2 A^2 / kg m) (1e-9 kg / A s^2) / km
-	;                               --> A/m^2 * 1e-9
-	;                               --> uA/m^2 * 1e-9 * 1e6
-	mu0 = constants('mu_0')
-	Jcurl *= (1e-6/mu0)
+	;Compute the curlometer
+	Jrecip = mms_fgm_curldiv(tstart, tend, JCURL=Jcurl, TIME=tj)
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	t0     = t1[0]
+	t1_ssm = MrCDF_epoch2ssm(temporary(t1), t0)
+	t2_ssm = MrCDF_epoch2ssm(temporary(t2), t0)
+	t3_ssm = MrCDF_epoch2ssm(temporary(t3), t0)
+	t4_ssm = MrCDF_epoch2ssm(temporary(t4), t0)
+	tj_ssm = MrCDF_epoch2ssm(temporary(tj), t0)
 
 	;MMS Colors
 	colors = mms_color(['blue', 'green', 'red', 'black'])
 
 	;Create the window
 	win = MrWindow(YSIZE=600, YGAP=0.5, REFRESH=0)
-	
+
 	;BX
-	p1x_fgm = MrPlot( t1_fgm_sse, B1_dmpa[*,0], $
+	p1x_fgm = MrPlot( t1_ssm, b1[0,*], $
 	                  /CURRENT, $
-	                  COLOR       = 'black', $
+	                  COLOR       = colors[3], $
 	                  NAME        = 'Bx FGM1', $
 	                  TITLE       = 'FGM', $
 	                  XTICKFORMAT = '(a1)', $
 	                  XTITLE      = '', $
 	                  YTITLE      = 'Bx!C(nT)')
-	p2x_fgm = MrPlot( t1_fgm_sse, B2_dmpa[*,0], $
-	                  /CURRENT, $
-	                  COLOR       = 'red', $
+	p2x_fgm = MrPlot( t2_ssm, b2[0,*], $
+	                  COLOR       = colors[2], $
 	                  NAME        = 'Bx FGM2', $
 	                  OVERPLOT    = p1x_fgm)
-	p3x_fgm = MrPlot( t1_fgm_sse, B3_dmpa[*,0], $
-	                  /CURRENT, $
-	                  COLOR       = 'forest green', $
+	p3x_fgm = MrPlot( t3_ssm, b3[0,*], $
+	                  COLOR       = colors[1], $
 	                  NAME        = 'Bx FGM3', $
 	                  OVERPLOT    = p1x_fgm)
-	p4x_fgm = MrPlot( t1_fgm_sse, B4_dmpa[*,0], $
-	                  /CURRENT, $
-	                  COLOR       = 'blue', $
+	p4x_fgm = MrPlot( t4_ssm, b4[0,*], $
+	                  COLOR       = colors[0], $
 	                  NAME        = 'Bx FGM4', $
 	                  OVERPLOT    = p1x_fgm)
 	l_fgm = MrLegend( ALIGNMENT    = 'NE', $
@@ -192,69 +118,63 @@ EIGVECS=eigvecs
 	                  POSITION     = [1.0, 1.0], $
 	                  /RELATIVE, $
 	                  SAMPLE_WIDTH = 0, $
-	                  TARGET       = p1x_fgm )
+	                  TARGET       = [p1x_fgm, p2x_fgm, p3x_fgm, p4x_fgm] )
 	
 	;BY
-	p1y_fgm = MrPlot( t1_fgm_sse, B1_dmpa[*,1], $
+	p1y_fgm = MrPlot( t1_ssm, b1[1,*], $
 	                  /CURRENT, $
-	                  COLOR       = 'black', $
+	                  COLOR       = colors[3], $
 	                  NAME        = 'By FGM1', $
 	                  XTICKFORMAT = '(a1)', $
 	                  XTITLE      = '', $
 	                  YTITLE      = 'By!C(nT)')
-	p2y_fgm = MrPlot( t1_fgm_sse, B2_dmpa[*,1], $
-	                  /CURRENT, $
-	                  COLOR       = 'red', $
+	p2y_fgm = MrPlot( t2_ssm, b2[1,*], $
+	                  COLOR       = colors[2], $
 	                  NAME        = 'By FGM2', $
 	                  OVERPLOT    = p1y_fgm)
-	p3y_fgm = MrPlot( t1_fgm_sse, B3_dmpa[*,1], $
-	                  /CURRENT, $
-	                  COLOR       = 'forest green', $
+	p3y_fgm = MrPlot( t3_ssm, b3[1,*], $
+	                  COLOR       = colors[1], $
 	                  NAME        = 'By FGM3', $
 	                  OVERPLOT    = p1y_fgm)
-	p4y_fgm = MrPlot( t1_fgm_sse, B4_dmpa[*,1], $
-	                  /CURRENT, $
-	                  COLOR       = 'blue', $
+	p4y_fgm = MrPlot( t4_ssm, b4[1,*], $
+	                  COLOR       = colors[0], $
 	                  NAME        = 'By FGM4', $
 	                  OVERPLOT    = p1y_fgm)
 	
 	;BZ
-	p1z_fgm = MrPlot( t1_fgm_sse, B1_dmpa[*,2], $
+	p1z_fgm = MrPlot( t1_ssm, b1[2,*], $
 	                  /CURRENT, $
-	                  COLOR       = 'black', $
+	                  COLOR       = colors[3], $
 	                  NAME        = 'Bz FGM1', $
 	                  XTICKFORMAT = '(a1)', $
 	                  XTITLE      = '', $
 	                  YTITLE      = 'Bz!C(nT)')
-	p2z_fgm = MrPlot( t1_fgm_sse, B2_dmpa[*,2], $
-	                  /CURRENT, $
-	                  COLOR       = 'red', $
+	p2z_fgm = MrPlot( t2_ssm, b2[2,*], $
+	                  COLOR       = colors[2], $
 	                  NAME        = 'Bz FGM2', $
 	                  OVERPLOT    = p1z_fgm)
-	p3z_fgm = MrPlot( t1_fgm_sse, B3_dmpa[*,2], $
-	                  /CURRENT, $
-	                  COLOR       = 'forest green', $
+	p3z_fgm = MrPlot( t3_ssm, b3[2,*], $
+	                  COLOR       = colors[1], $
 	                  NAME        = 'Bz FGM3', $
 	                  OVERPLOT    = p1z_fgm)
-	p4z_fgm = MrPlot( t1_fgm_sse, B4_dmpa[*,2], $
-	                  /CURRENT, $
-	                  COLOR       = 'blue', $
+	p4z_fgm = MrPlot( t4_ssm, b4[2,*], $
+	                  COLOR       = colors[0], $
 	                  NAME        = 'Bz FGM4', $
 	                  OVERPLOT    = p1z_fgm)
-	
+
 	;J CURL
-	p_curl = MrPlot( t1_fgm_sse, Jcurl, $
+	p_recip = MrPlot( tj_ssm, Jrecip, $
 	                  /CURRENT, $
-;	                  COLOR       = 'black', $
-	                  DIMENSION   = 1, $
+	                  COLOR       = colors[0:2], $
+	                  DIMENSION   = 2, $
 	                  NAME        = 'J ReciprocalVectors', $
 	                  XTICKFORMAT = '(a1)', $
 	                  YTITLE      = 'J!C($\mu$A/m$\up2$)')
 	
 	;J CURLOMETER
-	p_cmtr = MrPlot( t1_fgm_sse, Jcmtr, $
+	p_cmtr = MrPlot( tj_ssm, Jcurl, $
 	                  /CURRENT, $
-;	                  COLOR       = 'black', $
+	                  COLOR       = colors[0:2], $
 	                  DIMENSION   = 2, $
 	                  NAME        = 'J Curlometer', $
 	                  XTICKFORMAT = 'time_labels', $
@@ -262,6 +182,5 @@ EIGVECS=eigvecs
 	                  YTITLE      = 'J!C($\mu$A/m$\up2$)')
 
 	win -> Refresh
-stop
 	return, win
 end

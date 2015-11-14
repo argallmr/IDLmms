@@ -42,23 +42,25 @@
 ;                           Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:               in, required, type=string
 ;                           End time of the data interval to read, as an ISO-8601 string.
-;       T_OUT:              in, required, type=string
+;       T_OUT:              in, out, required, type=lon64arr (cdf_time_tt2000)
 ;                           If present, position and velocity will be interpolated to
-;                               these time stamps.
+;                               these time stamps. If not provided, the time stamps
+;                               will be returned.
 ;
 ; :Keywords:
-;       EIGVECS:        out, optional, type=3x3 float
-;                       Rotation matrix (into the minimum variance coordinate system).
+;       EPHEM_DIR:          in, optional, type=string, default='/nfs/ancillary/`SC`/defeph'
+;                           Directory in which to find ephemeris data.
+;       SDC_ROOT:           in, optional, type=string, default='/nfs'
+;                           Directory at which the SDC-like data repository is located.
+;       V_DMPA:             out, optional, type=3xN float
+;                           Spacecraft velocity in DMPA coordinates.
 ;
 ; :Returns:
-;       E_VXB:          Convective electric field due to the spacecraft velocity, in
-;                           the frame moving with the spacecraft.
+;       R_DMPA:         Spacecraft position in DMPA coordinates.
 ;-
 function mms_fdoa_scpos, sc, tstart, tend, t_out, $
 EPH_DIR=eph_dir, $
-R_DMPA=r_dmpa, $
 SDC_ROOT=sdc_root, $
-TIME=t_fgm, $
 V_DMPA=v_dmpa
 	compile_opt idl2
 
@@ -119,6 +121,7 @@ V_DMPA=v_dmpa
 		r_gei      = mms_fg_xinterp_ephem(defeph.tt2000, defeph.position, defeph.velocity, reform(t_out), v_gei)
 		gei2despun = mms_fdoa_xgei2despun(defatt, reform(t_out), TYPE='P')
 	endif else begin
+		if arg_present(t_out) then t_out = defatt.tt2000
 		r_gei      = defeph.position
 		v_gei      = defeph.velocity
 		gei2despun = mms_fdoa_xgei2despun(defatt, defatt.tt2000, TYPE='P')

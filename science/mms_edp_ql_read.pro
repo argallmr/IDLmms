@@ -35,6 +35,10 @@
 ;+
 ;   Read electric field double probe (EDP) quick look (QL) data.
 ;
+;   Calling Sequence::
+;       mms_edp_ql_read, FILE, TSTART, TEND
+;       mms_edp_ql_read, SC, MODE, TSTART, TEND
+;
 ; :Categories:
 ;   MMS, EDP, SDP, ADP
 ;
@@ -51,6 +55,8 @@
 ;                       Named variable to receive the bitmask values. Depends on `TIME`.
 ;       E_DSL:          out, optional, type=3xN fltarr
 ;                       Named variable to receive the 3D electric field. Depends on `TIME`.
+;       OPTDESC:        out, optional, type=bytarr
+;                       File name optional descriptor. Used only if `SC` is given.
 ;       QUALITY:        out, optional, type=bytarr
 ;                       Named variable to receive the quality flag. Depends on `TIME`.
 ;       SORT:           in, optional, type=boolean, default=0
@@ -75,6 +81,7 @@
 pro mms_edp_ql_read, files, tstart, tend, arg4, $
 BITMASK=bitmask, $
 E_DSL=e_dsl, $
+OPTDESC=optdesc, $
 QUALITY=quality, $
 SORT=tf_sort, $
 TIME=time
@@ -95,11 +102,15 @@ TIME=time
 		mode   = tstart
 		fstart = tend
 		fend   = arg4
+		if n_elements(optdesc) eq 0 then optdesc = 'dce'
+		
+		;Combine fast and slow survey?
+		_mode = mode eq 'srvy' ? ['fast', 'slow'] : mode
 		
 		;Find the files
-		theFiles = mms_find_file(sc, 'edp', mode, 'ql', $
+		theFiles = mms_find_file(sc, 'edp', _mode, 'ql', $
 		                         COUNT     = nfiles, $
-		                         OPTDESC   = 'dce', $
+		                         OPTDESC   = optdesc, $
 		                         SEARCHSTR = searchstr, $
 		                         TSTART    = fstart, $
 		                         TEND      = fend, $
@@ -111,38 +122,38 @@ TIME=time
 
 	;Dissect the file name
 	mms_dissect_filename, theFiles, $
-	                      INSTR   = instr, $
-	                      LEVEL   = level, $
-	                      MODE    = mode, $
-	                      OPTDESC = optdesc, $
-	                      SC      = sc
+	                      INSTR   = _instr, $
+	                      LEVEL   = _level, $
+	                      MODE    = _mode, $
+	                      OPTDESC = _optdesc, $
+	                      SC      = _sc
 	
 	;Ensure files exist
 	if min(file_test(theFiles, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	
 	;Level, Mode
-	if min(instr eq 'edp')   eq 0 then message, 'Only EDP files are allowed.'
-	if min(level eq 'ql')    eq 0 then message, 'Only Quick-Look (QL) files are allowed.'
-	if min(mode  eq mode[0]) eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
+	if min(_instr eq 'edp')   eq 0 then message, 'Only EDP files are allowed.'
+	if min(_level eq 'ql')    eq 0 then message, 'Only Quick-Look (QL) files are allowed.'
+	if min(_mode  eq _mode[0]) eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
 ;	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
-		sc      = sc[0]
-		instr   = instr[0]
-		mode    = mode[0]
-		level   = level[0]
-		optdesc = optdesc[0]
+		_sc      = _sc[0]
+		_instr   = _instr[0]
+		_mode    = _mode[0]
+		_level   = _level[0]
+		_optdesc = _optdesc[0]
 	endif
 
 ;-----------------------------------------------------
 ; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------	
+;-----------------------------------------------------
 
 	;Create the variable names
-	e_vname    = mms_construct_varname(sc, instr, optdesc, 'xyz_dsl')
-	mask_vname = mms_construct_varname(sc, instr, optdesc, 'bitmask')
-	q_vname    = mms_construct_varname(sc, instr, optdesc, 'quality')
+	e_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'xyz_dsl')
+	mask_vname = mms_construct_varname(_sc, _instr, _optdesc, 'bitmask')
+	q_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'quality')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -171,11 +182,15 @@ TIME=time
 		                           STATUS = status, $
 		                           TSTART = fstart, $
 		                           TEND   = fend)
+	
+	;Reissue error
+	if status ne 0 then message, /REISSUE_LAST
 
 ;-----------------------------------------------------
 ; Remove FillVals \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	if n_elements(E_dsl) gt 0 then E_dsl = replace_fillval(E_dsl, -1e31)
+
 ;-----------------------------------------------------
 ; Sort By Time \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------

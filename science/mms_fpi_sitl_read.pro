@@ -43,11 +43,17 @@
 ;   MMS, FPI
 ;
 ; :Params:
-;       FILES:              in, required, type=string/strarr
-;                           Name(s) of the AFG or DFG file(s) to be read.
-;       TSTART:             in, optional, type=string
+;       FILES:              in, optional, type=string/strarr
+;                           Name(s) of the AFG or DFG file(s) to be read. Either `FILES`
+;                               or `SC` is required. See "calling sequence" above.
+;       SC:                 in, optional, type=string
+;                           MMS spacecraft ID of the file to be read.
+;       MODE:               in, optional, type=string
+;                           Data rate mode of the file to read. Required if `SC` is
+;                               provided. Options are 'fast' and 'brst'
+;       TSTART:             in, required, type=string
 ;                           Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:               in, optional, type=string
+;       TEND:               in, required, type=string
 ;                           End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
@@ -76,11 +82,16 @@
 ;       2015/11/04  -   Written by Matthew Argall
 ;-
 pro mms_fpi_sitl_read, files, tstart, tend, arg4, $
-VE_DSC=ve_dsc, $
-VI_DSC=vi_dsc, $
+JE=Je, $
+JI=Ji, $
+J_TOTAL=J_total, $
 N_I=n_i, $
 N_E=n_e, $
-TIME=time
+PI_DSC=Pi_dsc, $
+PE_DSC=Pe_dsc, $
+TIME=time, $
+VE_DSC=ve_dsc, $
+VI_DSC=vi_dsc
 	compile_opt idl2
 	on_error, 2
 	
@@ -150,22 +161,48 @@ TIME=time
 	end
 
 ;-----------------------------------------------------
+; Which Variables to Read \\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	get_je   = arg_present(je)
+	get_ji   = arg_present(ji)
+	get_jtot = arg_present(j_total)
+	get_ne   = arg_present(n_e)    || get_je || get_jtot
+	get_ni   = arg_present(n_i)    || get_ji || get_jtot
+	get_pe   = arg_present(pe_dsc)
+	get_pi   = arg_present(pi_dsc)
+	get_time = arg_present(time)   || get_vi || get_ni || get_ve || get_ne
+	get_ve   = arg_present(ve_dsc) || get_je || get_jtot
+	get_vi   = arg_present(vi_dsc) || get_ji || get_jtot
+
+;-----------------------------------------------------
 ; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------	
+;-----------------------------------------------------
 
 	t_name   = 'Epoch'
 	
 	;Ions
-	ni_name  = mms_construct_varname(sc, instr, 'DISnumberDensity')
-	vix_name = mms_construct_varname(sc, instr, 'iBulkV_X',  'DSC')
-	viy_name = mms_construct_varname(sc, instr, 'iBulkV_Y',  'DSC')
-	viz_name = mms_construct_varname(sc, instr, 'iBulkV_Z',  'DSC')
+	ni_name   = mms_construct_varname(sc, instr, 'DISnumberDensity')
+	vix_name  = mms_construct_varname(sc, instr, 'iBulkV_X',    'DSC')
+	viy_name  = mms_construct_varname(sc, instr, 'iBulkV_Y',    'DSC')
+	viz_name  = mms_construct_varname(sc, instr, 'iBulkV_Z',    'DSC')
+	pixx_name = mms_construct_varname(sc, instr, 'DISpress_XX', 'DSC')
+	pixy_name = mms_construct_varname(sc, instr, 'DISpress_XY', 'DSC')
+	pixz_name = mms_construct_varname(sc, instr, 'DISpress_XZ', 'DSC')
+	piyy_name = mms_construct_varname(sc, instr, 'DISpress_YY', 'DSC')
+	piyz_name = mms_construct_varname(sc, instr, 'DISpress_YZ', 'DSC')
+	pizz_name = mms_construct_varname(sc, instr, 'DISpress_ZZ', 'DSC')
 	
 	;Electrons
-	ne_name  = mms_construct_varname(sc, instr, 'DESnumberDensity')
-	vex_name = mms_construct_varname(sc, instr, 'iBulkV_X',  'DSC')
-	vex_name = mms_construct_varname(sc, instr, 'iBulkV_Y',  'DSC')
-	vex_name = mms_construct_varname(sc, instr, 'iBulkV_Z',  'DSC')
+	ne_name   = mms_construct_varname(sc, instr, 'DESnumberDensity')
+	vex_name  = mms_construct_varname(sc, instr, 'eBulkV_X',    'DSC')
+	vey_name  = mms_construct_varname(sc, instr, 'eBulkV_Y',    'DSC')
+	vez_name  = mms_construct_varname(sc, instr, 'eBulkV_Z',    'DSC')
+	pexx_name = mms_construct_varname(sc, instr, 'DESpress_XX', 'DSC')
+	pexy_name = mms_construct_varname(sc, instr, 'DESpress_XY', 'DSC')
+	pexz_name = mms_construct_varname(sc, instr, 'DESpress_XZ', 'DSC')
+	peyy_name = mms_construct_varname(sc, instr, 'DESpress_YY', 'DSC')
+	peyz_name = mms_construct_varname(sc, instr, 'DESpress_YZ', 'DSC')
+	pezz_name = mms_construct_varname(sc, instr, 'DESpress_ZZ', 'DSC')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -174,7 +211,7 @@ TIME=time
 	status = 0
 
 	;NI & TIME
-	if status eq 0 && ( arg_present(n_i) || arg_present(time) ) $
+	if status eq 0 && (get_ni || get_time) $
 		then n_i = MrCDF_nRead(theFiles, ni_name, $
 		                       DEPEND_0 = time, $
 		                       STATUS   = statue, $
@@ -182,7 +219,7 @@ TIME=time
 		                       TEND     = fend)
 		                          
 	;VI
-	if status eq 0 && arg_present(vi_dsc) then begin
+	if status eq 0 && get_vi then begin
 		vix = MrCDF_nRead(theFiles, vix_name, $
 		                  STATUS = status, $
 		                  TSTART = fstart, $
@@ -197,36 +234,110 @@ TIME=time
 		                  TEND   = fend)
 		vi_dsc = [ temporary(vix), temporary(viy), temporary(viz) ]
 	endif
+	
+	;PI
+	if status eq 0 && get_pi then begin
+		pixx = MrCDF_nRead(files, pixx_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pixy = MrCDF_nRead(files, pixy_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pixz = MrCDF_nRead(files, pixz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		piyy = MrCDF_nRead(files, piyy_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		piyz = MrCDF_nRead(files, piyz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pizz = MrCDF_nRead(files, pizz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pi_dsc = transpose( [ [temporary(pixx)], [temporary(pixy)], [temporary(pixz)], $
+		                                         [temporary(piyy)], [temporary(piyz)], $
+		                                                            [temporary(pizz)] ] )
+	endif
 
 	;NE
-	if status eq 0 && arg_present(n_e) $
+	if status eq 0 && get_ne $
 		then n_e = MrCDF_nRead(theFiles, ne_name, $
 		                       STATUS   = statue, $
 		                       TSTART   = fstart, $
 		                       TEND     = fend)
 		                          
 	;VE
-	if status eq 0 && arg_present(vi_dsc) then begin
-		vex = MrCDF_nRead(files, vex_name, $
+	if status eq 0 && get_ve then begin
+		vex = MrCDF_nRead(theFiles, vex_name, $
 		                  STATUS = status, $
 		                  TSTART = fstart, $
 		                  TEND   = fend)
-		vey = MrCDF_nRead(files, vey_name, $
+		vey = MrCDF_nRead(theFiles, vey_name, $
 		                  STATUS = status, $
 		                  TSTART = fstart, $
 		                  TEND   = fend)
-		vez = MrCDF_nRead(files, vez_name, $
+		vez = MrCDF_nRead(theFiles, vez_name, $
 		                  STATUS = status, $
 		                  TSTART = fstart, $
 		                  TEND   = fend)
-		ve_dsc = transpose( [ [temporary(vex)], [temporary(vey)], [temporary(vez)] ] )
+		ve_dsc = [ temporary(vex), temporary(vey), temporary(vez) ]
 	endif
+	
+	;PE
+	if status eq 0 && get_pe then begin
+		pexx = MrCDF_nRead(theFiles, pexx_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pexy = MrCDF_nRead(theFiles, pexy_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pexz = MrCDF_nRead(theFiles, pexz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		peyy = MrCDF_nRead(theFiles, peyy_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		peyz = MrCDF_nRead(theFiles, peyz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pezz = MrCDF_nRead(theFiles, pezz_name, $
+		                   STATUS = status, $
+		                   TSTART = fstart, $
+		                   TEND   = fend)
+		pe_dsc = [ temporary(pexx), temporary(pexy), temporary(pexz), $
+		           temporary(peyy), temporary(peyz), temporary(pezz) ]
+	endif
+	
+	;Rethrow the error message
+	if status ne 0 then message, /REISSUE_LAST
+
+;-----------------------------------------------------
+; Derived Products \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	npts = n_elements(time)
+
+	;Currents
+	;   - 1e9 converts C km / (s cm^3) to C / m^2 s
+	;   - 1e6 converts A / m^2 to uA / m^2
+	if get_ji   then Ji      = constants('q') * 1e15 *  rebin(n_i, 3, npts) * vi_dsc
+	if get_je   then Je      = constants('q') * 1e15 *  rebin(n_e, 3, npts) * ve_dsc
+	if get_jtot then J_total = constants('q') * 1e15 * (rebin(n_i, 3, npts) * vi_dsc + rebin(n_e, 3, npts) * ve_dsc)
 
 ;-----------------------------------------------------
 ; Minimum Variance Frame \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if n_elements(lmn_frame) gt 0 then begin
-		if arg_present(b_nml)     && n_elements(b_dmpa)     gt 0 then b_nml     = MrVector_Rotate(b_dmpa)
-		if arg_present(b_gsm_nml) && n_elements(b_gsm_dmpa) gt 0 then b_gsm_nml = MrVector_Rotate(b_gsm_dmpa)
-	endif
+	;TODO: Rotate everything to LMN
+
 end
