@@ -110,6 +110,7 @@ function mms_edi_tri, beams, width
 	rmax = mms_edi_tri_rmax(reform(beams.gun_bpp[0,*]), $
 	                        reform(beams.gun_bpp[1,*]), $
 	                        beams.alpha, base)
+	rmax = 125.0
 	
 	;Create the grid
 	rstep   = 0.1
@@ -151,6 +152,8 @@ function mms_edi_tri, beams, width
 		tri.flag     = 2
 		MrPrintF, 'LogErr', sqrt(total(d_bpp^2)), i2d, grid_dims, rmax, $
 		          FORMAT='(%"|d|=%0.4f lies on edge of grid [%i,%i] of size [%i,%i] with rmax=%0.4f.")'
+	
+	;Record the drift step
 	endif else begin
 		tri.d_bpp[0] = -grid[i2d[0],i2d[1]].x
 		tri.d_bpp[1] = -grid[i2d[0],i2d[1]].y

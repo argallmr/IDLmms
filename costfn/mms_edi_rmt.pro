@@ -92,7 +92,8 @@ DTOF_ERROR=dtof_error
 	order_lp = beams.posord[0]
 	
 	;Time of flight associated with lowest runner order
-	tof = beams.estof[order_lp]
+;	tof = beams.estof[order_lp]
+	tof = beams.tof
 
 	;Find toward and away beams
 	ito = where(beams.toaw eq  1, nto)
@@ -114,8 +115,8 @@ DTOF_ERROR=dtof_error
 	; Toward: ToF > Tg
 	; Away:   ToF < Tg
 	;
-	dtof_to = beams[ito].tof - beams[ito].tGyro ; These values will be mostly positive if towards/away assignment is correct
-	dtof_aw = beams[iaw].tof - beams[iaw].tGyro ; These values will be mostly negative if towards/away assignment is correct
+	dtof_to = tof[ito] - beams[ito].tGyro ; These values will be mostly positive if towards/away assignment is correct
+	dtof_aw = tof[iaw] - beams[iaw].tGyro ; These values will be mostly negative if towards/away assignment is correct
 
 	; If mean(dtof_to) < mean(dtof_aw) then we need to flip the assignment
 	if mean(dtof_to) lt mean(dtof_aw) then begin
@@ -126,8 +127,8 @@ DTOF_ERROR=dtof_error
 		iaw      = temporary(temp_to)
 		
 		;Recalculate the difference between Tg and TOF
-		dtof_to  = beams[ito].tof - beams[ito].tGyro
-		dtof_aw  = beams[iaw].tof - beams[iaw].tGyro
+		dtof_to  = tof[ito] - beams[ito].tGyro
+		dtof_aw  = tof[iaw] - beams[iaw].tGyro
 		
 		;Flip the mean firing angle
 		phito = phito + !pi

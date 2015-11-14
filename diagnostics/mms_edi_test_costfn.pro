@@ -128,15 +128,22 @@ OUTPUT_DIR=output_dir
 	;Create a Title
 	MrCDF_Epoch_Breakdown, t,                yr0, mo0, day0, hr0, min0, sec0
 	MrCDF_Epoch_Breakdown, t+long64(dt*1d9), yr1, mo1, day1, hr1, min1, sec1
-	title = 'Beam intersections in $B_{Avg}$ BPP'                       + '!C' + $
-	        string(FORMAT='(%"%s %04i-%02i-%02i %02i:%02i:%02i - %02i:%02i:%02i")', $
-	        sc, yr0, mo0, day0, hr0, min0, sec0, hr1, min1, sec1);       + '!C' + $
+;	title = 'Beam intersections in $B_{Avg}$ BPP'                       + '!C' + $
+;	        string(FORMAT='(%"%s %04i-%02i-%02i %02i:%02i:%02i - %02i:%02i:%02i")', $
+;	        sc, yr0, mo0, day0, hr0, min0, sec0, hr1, min1, sec1);       + '!C' + $
 ;	        string(FORMAT='(%"d = [%0.2f, %0.2f, %0.2f]")', d_bpp)      + '!C' + $
 ;	        string(FORMAT='(%"B = [%0.2f, %0.2f, %0.2f]")', B)
+	title = string(FORMAT='(%"$d_{tri}$=[%0.2f, %0.2f, %0.2f]")', d_tri) + '!C' + $
+	        string(FORMAT='(%"$d_{tof}$=[%0.2f, %0.2f, %0.2f]")', d_tof)
+
+	;Update the range based on the maximum drift step
+	range = max( [sqrt(total(d_tri^2)), sqrt(total(d_tof^2))], /NAN )
+	range = finite(range) ? range * [-1,1] : [-10, 10]
+	range[0] <= -5
+	range[1] >= 5
 
 	;Grab the axes.
-	gTri  = win['Tri Plot']
-	range = gTri.xrange
+	win['Tri Plot'] -> SetProperty, TITLE=title, XRANGE=range, YRANGE=range
 ;	gTri.title = title
 ;	if ~obj_isa(win, 'GraphicsBuffer') then gAxes.title = title
 
@@ -603,7 +610,7 @@ ZMPA      = zmpa
 	
 	;EDI L1A
 	if arg_present(edi_l1a) then begin
-		edi_l1a = mms_edi_read_efield_l1a(files.edi_l1a, tstart, tend, $
+		edi_l1a = mms_edi_read_l1a_efield(files.edi_l1a, tstart, tend, $
 		                                  QUALITY = quality, $
 		                                  /STRUCTARR)
 	endif
@@ -885,7 +892,6 @@ pro mms_edi_costfn_tofsort, beams, avg, sdev
 ;	mms_edi_tof_sort, beams.alpha, ito, iaw, stdev
 ;	nto = n_elements(ito)
 ;	naw = n_elements(iaw)
-
 	ep_hav_sorter, beams.alpha, ito, iaw, STDEV=stdev
 	nto = n_elements(ito)
 	naw = n_elements(iaw)
@@ -967,7 +973,7 @@ pro mms_edi_costfn_tofsort, beams, avg, sdev
 	;Average away beams
 	if naw gt 0 then begin
 		;Rotate away beams into toward direction
-		alpha = beams.alpha[iaw] * (!dpi / 180.0D)
+		alpha = beams[iaw].alpha * (!dpi / 180.0D)
 
 		;Components of firing vectors
 		;   - Rotate by 180 degrees into the "toward" direction
@@ -987,7 +993,7 @@ pro mms_edi_costfn_tofsort, beams, avg, sdev
 	;Average toward beams
 	if nto gt 0 then begin
 		;Rotate away beams into toward direction
-		alpha = beams.alpha[ito] * (!dpi / 180.0D)
+		alpha = beams[ito].alpha * (!dpi / 180.0D)
 		
 		;Components of firing vectors
 		x = cos(alpha)
@@ -1428,9 +1434,16 @@ function mms_edi_test_costfn, sc, tstart, tend
 		return, !Null
 	endif
 
-	sc       = 'mms1'
-	tstart   = '2015-08-01T00:00:00Z' ;01-Aug-2015 05:08:46.030963219  01-Aug-2015 00:41:57.83222159
-	tend     = '2015-08-01T24:00:00Z' ;01-Aug-2015 13:19:18.340386093  01-Aug-2015 05:07:01.822075718
+;Test intervals
+;mms4 2015-10-01: 15:30 - 16:30
+;mms3 2015-10-12: 14:00 - 15:30
+;mms3 2015-10-13: 15:30 - 16:30
+;mms3 2015-10-18: 12:45 - 15:00
+;mms3 2015-10-30: 15:00 - 15:30
+
+	sc       = 'mms3'
+	tstart   = '2015-09-02T01:30:00Z'
+	tend     = '2015-09-02T02:30:00Z'
 	edi_dir  = '/nfs/edi/temp/'
 	sdc_dir  = '/nfs/'
 	hk_dir   = '/nfs/hk/'
@@ -1441,6 +1454,7 @@ function mms_edi_test_costfn, sc, tstart, tend
 	dt       = 5
 	save_dir = '/nfs/edi/temp/'
 	view_bpp = 0
+	debug    = 1
 	png_dir  = ''
 ;	png_dir  = '/nfs/edi/beam_plots/'
 	
@@ -1551,8 +1565,7 @@ function mms_edi_test_costfn, sc, tstart, tend
 	;     FV_DMPA  - Firing vector in DMPA coordinates
 	;  And lose others:
 	;     GUN_123, DET_123, VG_123, FV_123, GUN_BCS, DET_BCS, VG_BCS, FV_BCS
-	mms_edi_costfn_bcs2dmpa, edi, temporary(dss), $
-	                         temporary(defatt), temporary(zmpa)
+	mms_edi_costfn_bcs2dmpa, edi, temporary(dss), temporary(zmpa)
 
 ;-----------------------------------------------------
 ; Compute Average B \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1612,8 +1625,7 @@ function mms_edi_test_costfn, sc, tstart, tend
 ;-----------------------------------------------------
 ; Step Through Each Interval \\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	ntof = 0
-	ntri = 0
+	count = 0
 	npts = n_elements(avg.t_avg)
 	for i = 0, npts - 1 do begin
 		;Find the beams to use
@@ -1639,7 +1651,6 @@ function mms_edi_test_costfn, sc, tstart, tend
 		;  Beams obtain additional attributes
 		;     TOAW    - 1 if "toward", -1 if "away"
 		mms_edi_costfn_tofsort, beams, phito, sdev
-;		ep_toaw_sort_sa, beams, indgen(ninds), phito, sdev
 
 	;-----------------------------------------------------
 	; Triangulation \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1669,18 +1680,60 @@ function mms_edi_test_costfn, sc, tstart, tend
 	; View/Output Results \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
 		if view_bpp then begin
-			d_tof = rmt.dmag * [cos(rmt.phi), sin(rmt.phi)]
-			mms_test_costfn_plot_update, win, sc, t, dt, b, beams, tri.d_bpp, d_tof, $
+			d_tof = rmt_temp.dmag * [cos(rmt_temp.phi), sin(rmt_temp.phi), 0.0]
+			mms_test_costfn_plot_update, win, sc, t, dt, b, beams, tri_temp.d_bpp, d_tof, $
 			                             OUTPUT_DIR=png_dir
+		endif
+		
+		if debug then begin
+			temp = beams[sort(beams.tt2000)]
+
+			;Print header
+			print, 'No  Time         gd q phi     theta  alpha   dir tof     tg      tof-tg  tchip'
+			print, '___ ____________ __ _ _______ ______ _______ ___ _______ _______ _______ _____'
+			for i = 0, n_elements(beams)-1 do begin
+				;Convert to string
+				t0 = MrCDF_Epoch_Encode(temp[i].tt2000)
+				t0 = strmid(t0, 12, 12)
+				
+				;Print results
+				print, FORMAT='(%"%3i %s %2i %1i %7.2f %6.2f %7.2f %3i %7.3f %7.3f %7.3f %5.3f")', $
+				       i, t0, temp[i].gdu, temp[i].quality, temp[i].azimuth*!radeg, temp[i].polar*!radeg, $
+				       temp[i].alpha, temp[i].toaw, temp[i].tof, temp[i].tGyro, $
+				       temp[i].tof-temp[i].tGyro, temp[i].tChip
+			endfor
+
+			;Print header
+			d_tof = [rmt_temp.dmag * cos(rmt_temp.phi), $
+			         rmt_temp.dmag * sin(rmt_temp.phi)]
+			print, '----------------------------------'
+			print, 'Analysis Interval Averages'
+			print, FORMAT='(%"B [nT]     = [%7.2f %7.2f %7.2f]")', b
+			print, FORMAT='(%"|B| [nT]   = %7.2f")', sqrt(total(b^2))
+			print, FORMAT='(%"Tgyro [us] = %7.3f")', rmt_temp.tGyro
+			print, '----------------------------------'
+			print, 'TRI Results'
+			print, FORMAT='(%"d BPP [m]   = [%7.2f %7.2f]")', tri_temp.d_bpp[0:1]
+			print, FORMAT='(%"|d| BPP [m] = %7.2f")', sqrt(total(tri_temp.d_bpp^2))
+			print, '----------------------------------'
+			print, 'TOF Results'
+			print, FORMAT='(%"d BPP [m]   = [%7.2f %7.2f]")', d_tof
+			print, FORMAT='(%"|d| BPP [m] = %7.2f")', sqrt(total(d_tof^2))
+			print, '----------------------------------'
+			
+			temp = !Null
 		endif
 
 	;-----------------------------------------------------
 	; Save Results \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
 		;Allocate memory.
-		if i eq 0 then begin
+		;   TODO: This initializes everything to 0. We need to initialize
+		;         to !values.f_nan
+		if n_elements(tri) eq 0 then begin
 			tri = replicate({edi_tri}, npts)
 			tof = replicate({edi_tof}, npts)
+stop
 		endif
 		
 		;Save the data
