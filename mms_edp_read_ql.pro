@@ -66,9 +66,7 @@
 ;   Modification History::
 ;       2015/06/15  -   Written by Matthew Argall
 ;-
-function mms_edp_read_ql, files, $
-TSTART=tstart, $
-TEND=tend
+function mms_edp_read_ql, files, tstart, tend
 	compile_opt idl2
 	on_error, 2
 	
@@ -76,7 +74,8 @@ TEND=tend
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Number of files given
-	nFiles = n_elements(files)
+	nFiles  = n_elements(files)
+	tf_sort = 0
 
 	;Dissect the file name
 	mms_dissect_filename, files, $
@@ -92,7 +91,11 @@ TEND=tend
 	;Level, Mode
 	if min(instr eq 'edp')   eq 0 then message, 'Only EDP files are allowed.'
 	if min(level eq 'ql')    eq 0 then message, 'Only Quick-Look (QL) files are allowed.'
-	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
+	if min(mode  eq mode[0]) eq 0 then begin
+		if total((mode eq 'fast') + (mode eq 'slow')) ne n_elements(mode) $
+			then message, 'All files must have the same telemetry mode.' $
+			else tf_sort = 1
+	endif
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -105,11 +108,11 @@ TEND=tend
 
 ;-----------------------------------------------------
 ; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------	
+;-----------------------------------------------------
 
 	;Create the variable names
-	e_vname = mms_construct_varname(sc, instr, 'dce', 'xyz_dsl')
-	q_vname = mms_construct_varname(sc, instr, 'dce', 'quality')
+	e_vname = mms_construct_varname(sc, instr, optdesc, 'xyz_dsl')
+	q_vname = mms_construct_varname(sc, instr, optdesc, 'quality')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -118,14 +121,28 @@ TEND=tend
 	;Read the data
 	e_dsl = MrCDF_nRead(files, e_vname, $
 	                    DEPEND_0 = edp_epoch, $
+	                    STATUS   = status, $
 	                    TSTART   = tstart, $
 	                    TEND     = tend)
 	quality = MrCDF_nRead(files, q_vname, TSTART=tstart, TEND=tend)
 
-	;Return a structure
-	edp_ql = { tt2000:  edp_epoch, $
-	           e_dsl:   e_dsl, $
-	           quality: quality }
+;-----------------------------------------------------
+; Sort Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	if tf_sort then begin
+		isort     = sort(edp_epoch)
+		edp_epoch = edp_epoch[isort]
+		e_dsl     = e_dsl[*,isort]
+;		quality   = quality[isort]
+	endif
+
+;-----------------------------------------------------
+; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	edp_ql = { tt2000:  temporary(edp_epoch), $
+	           e_dsl:   temporary(e_dsl) $
+;	           quality: temporary(quality) $
+	         }
 
 	return, edp_ql
 end
