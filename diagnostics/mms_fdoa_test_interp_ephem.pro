@@ -53,6 +53,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/03/15  -   Written by Matthew Argall
+;       2015/11/17  -   Plot each component in a separate panel.
 ;-
 function mms_fdoa_test_interp_ephem, sc, tstart, tend
 	compile_opt strictarr
@@ -89,7 +90,7 @@ function mms_fdoa_test_interp_ephem, sc, tstart, tend
 	                          TEND      = tend)
 	if count eq 0 then message, 'Unable to find FG file "' + searchstr + '".'
 
-	;Attitude files
+	;Ephemeris files
 	eph_ftest = filepath( ROOT_DIR=eph_dir, strupcase(sc) + '_DEFEPH_%Y%D_%Y%D.V*' )
 	files_defeph = MrFile_Search(eph_ftest, /CLOSEST, $
 	                             COUNT     = count, $
@@ -108,7 +109,8 @@ function mms_fdoa_test_interp_ephem, sc, tstart, tend
 	fg_ql = mms_fg_read_ql(files_fg, tstart, tend)
 	
 	;Interpolate ephemeris data onto FG time stamps.
-	r = mms_fg_xinterp_ephem(ephem.tt2000, ephem.position, ephem.velocity, fg_ql.tt2000, v)
+	;   - MUST pass in an Nx1 vector
+	r = mms_fg_xinterp_ephem(ephem.tt2000, ephem.position, ephem.velocity, reform(fg_ql.tt2000), v)
 
 ;-------------------------------------------------------
 ; Plot Results /////////////////////////////////////////
@@ -123,47 +125,102 @@ function mms_fdoa_test_interp_ephem, sc, tstart, tend
 	MrCDF_Epoch, t0, yr, mo, day
 	t_fg   = MrCDF_epoch2sse(fg_ql.tt2000, t0)
 	t_eph  = MrCDF_epoch2sse(ephem.tt2000, t0)
-	rrange = [min(r, MAX=rmax), rmax]
-	vrange = [min(v, MAX=vmax), vmax]
 
 	;Create a window
-	win = MrWindow(OXMARGIN=[13,4], YGAP=0.5, REFRESH=0)
-	
-	;Plot position
-	Pri = MrPlot( t_fg, r, $
-	              /CURRENT, $
-	              DIMENSION   = 2, $
-	              LAYOUT      = [2,2,1], $
-	              NAME        = 'R Interp', $
-	              XTICKFORMAT = '(a1)', $
-	              YRANGE      = rrange, $
-	              YTITLE      = 'R Interp!C(km)' )
-	              
-	Pre = MrPlot( t_eph, ephem.position, $
-	              /CURRENT, $
-	              DIMENSION   = 2, $
-	              LAYOUT      = [2,2,3], $
-	              NAME        = 'R', $
-	              XTICKFORMAT = 'time_labels', $
-	              YRANGE      = rrange, $
-	              YTITLE      = 'R!C(km)' )
+	win = MrWindow(LAYOUT=[2,3], OXMARGIN=[13,4], YGAP=0.5, REFRESH=0)
 
-	;Plot velocity
-	Pvx = MrPlot( t_fg, v, $
-	              /CURRENT, $
-	              DIMENSION   = 2, $
-	              LAYOUT      = [2,2,2], $
-	              NAME        = 'V Interp', $
-	              XTICKFORMAT = '(a1)', $
-	              YTITLE      = 'V Interp!C(km/s)' )
-	              
-	Pvx = MrPlot( t_eph, ephem.velocity, $
-	              /CURRENT, $
-	              DIMENSION   = 2, $
-	              LAYOUT      = [2,2,4], $
-	              NAME        = 'V', $
-	              XTICKFORMAT = 'time_labels', $
-	              YTITLE      = 'V!C(km/s)' )
+	rxrange = [min(r[0,*], MAX=rmax), rmax]
+	ryrange = [min(r[1,*], MAX=rmax), rmax]
+	rzrange = [min(r[2,*], MAX=rmax), rmax]
+	rxrange += abs(rxrange) * [-0.1, 0.1]
+	ryrange += abs(ryrange) * [-0.1, 0.1]
+	rzrange += abs(rzrange) * [-0.1, 0.1]
+
+	vxrange = [min(v[0,*], MAX=vmax), vmax]
+	vyrange = [min(v[1,*], MAX=vmax), vmax]
+	vzrange = [min(v[2,*], MAX=vmax), vmax]
+	vxrange += abs(vxrange) * [-0.1, 0.1]
+	vyrange += abs(vyrange) * [-0.1, 0.1]
+	vzrange += abs(vzrange) * [-0.1, 0.1]
+
+	;RX
+	Prix = MrPlot( t_fg, r[0,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,1], $
+	               NAME        = 'Rx Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = rxrange, $
+	               YTITLE      = 'R$\downX$ Interp!C(km)' )
+	Prex = MrPlot( t_eph, ephem.position[0,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Rx', $
+	               OVERPLOT    = Prix, $
+	               PSYM        = 2 )
+	;RY
+	Priy = MrPlot( t_fg, r[1,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,3], $
+	               NAME        = 'Ry Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = ryrange, $
+	               YTITLE      = 'R$\downY$ Interp!C(km)' )
+	Prey = MrPlot( t_eph, ephem.position[1,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Ry', $
+	               OVERPLOT    = Priy, $
+	               PSYM        = 2 )
+	;RZ
+	Priz = MrPlot( t_fg, r[2,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,5], $
+	               NAME        = 'Rz Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = rrange, $
+	               YTITLE      = 'R$\downZ$ Interp!C(km)' )
+	Prez = MrPlot( t_eph, ephem.position[2,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Rz', $
+	               OVERPLOT    = Priz, $
+	               PSYM        = 2 )
+	;VX
+	Pvix = MrPlot( t_fg, v[0,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,2], $
+	               NAME        = 'Vx Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = vxrange, $
+	               YTITLE      = 'V$\downX$ Interp!C(km)' )
+	Pvex = MrPlot( t_eph, ephem.velocity[0,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Vx', $
+	               OVERPLOT    = Pvix, $
+	               PSYM        = 2 )
+	;VY
+	Pviy = MrPlot( t_fg, v[1,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,4], $
+	               NAME        = 'Vy Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = vyrange, $
+	               YTITLE      = 'V$\downY$ Interp!C(km)' )
+	Pvey = MrPlot( t_eph, ephem.velocity[1,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Vy', $
+	               OVERPLOT    = Pviy, $
+	               PSYM        = 2 )
+	;VZ
+	Pviz = MrPlot( t_fg, v[2,*], $
+	               /CURRENT, $
+	               LAYOUT      = [2,3,6], $
+	               NAME        = 'Vz Interp', $
+	               XTICKFORMAT = '(a1)', $
+	               YRANGE      = vzrange, $
+	               YTITLE      = 'V$\downZ$ Interp!C(km)' )
+	Pvez = MrPlot( t_eph, ephem.velocity[2,*], $
+	               COLOR       = 'Blue', $
+	               NAME        = 'Vz', $
+	               OVERPLOT    = Pviz, $
+	               PSYM        = 2 )
 
 	win -> Refresh
 	return, win
