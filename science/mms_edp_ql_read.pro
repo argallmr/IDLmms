@@ -97,10 +97,10 @@ TIME=time
 	;Number of files given
 	nFiles = n_elements(files)
 	
-	if stregex(files, 'mms[1-4]', /BOOLEAN, /FOLD_CASE) then begin
+	if max(stregex(files, '^mms[1-4]$', /BOOLEAN, /FOLD_CASE)) eq 1 then begin
 		sc     = files
 		mode   = tstart
-		fstart = tend
+		fstart = tstart
 		fend   = arg4
 		if n_elements(optdesc) eq 0 then optdesc = 'dce'
 		

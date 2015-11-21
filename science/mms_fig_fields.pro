@@ -61,7 +61,7 @@ EIGVECS=eigvecs
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /cancel
-		void = cgErrorMsg(/QUIET)
+		MrLogFile, 'LogErr'
 		return, !Null
 	endif
 
@@ -246,7 +246,8 @@ EIGVECS=eigvecs
 	                  TARGET       = [p_gdu1_180, p_gdu2_180])
 
 	;Anisotropy
-	p_gdu1_180 = MrPlot( t_0_ssm, anisotropy, $
+stop
+	p_gdu1_180 = MrPlot( t_180_ssm, anisotropy, $
 	                     /CURRENT, $
 	                     NAME        = 'EDI Anisotropy', $
 	                     TITLE       = '', $

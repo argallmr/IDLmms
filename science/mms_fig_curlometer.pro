@@ -50,7 +50,7 @@
 ;       EIGVECS:        out, optional, type=3x3 float
 ;                       Rotation matrix (into the minimum variance coordinate system).
 ;-
-function mms_fig_curlometer, tstart, tend, $
+function mms_fig_curlometer, mode, tstart, tend, $
 EIGVECS=eigvecs
 	compile_opt strictarr
 
@@ -61,19 +61,22 @@ EIGVECS=eigvecs
 		void = cgErrorMsg(/QUIET)
 		return, !Null
 	endif
+	
+	;Accept only 'srvy' or 'brst'
+	if mode ne 'brst' && mode ne 'srvy' then message, 'MODE must be "srvy" or "brst".'
 
 ;-----------------------------------------------------
 ; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Magnetic field data
-	mms_fgm_ql_read, 'mms1', 'dfg', 'srvy', tstart, tend, B_DMPA=b1, TIME=t1
-	mms_fgm_ql_read, 'mms2', 'dfg', 'srvy', tstart, tend, B_DMPA=b2, TIME=t2
-	mms_fgm_ql_read, 'mms3', 'dfg', 'srvy', tstart, tend, B_DMPA=b3, TIME=t3
-	mms_fgm_ql_read, 'mms4', 'dfg', 'srvy', tstart, tend, B_DMPA=b4, TIME=t4
-	
+	mms_fgm_ql_read, 'mms1', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b1, TIME=t1
+	mms_fgm_ql_read, 'mms2', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b2, TIME=t2
+	mms_fgm_ql_read, 'mms3', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b3, TIME=t3
+	mms_fgm_ql_read, 'mms4', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b4, TIME=t4
+
 	;Compute the curlometer
-	Jrecip = mms_fgm_curldiv(tstart, tend, JCURL=Jcurl, TIME=tj)
+	Jrecip = mms_fgm_curldiv(tstart, tend, DIVB=divB, JCURL=Jcurl, TIME=tj)
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -177,9 +180,16 @@ EIGVECS=eigvecs
 	                  COLOR       = colors[0:2], $
 	                  DIMENSION   = 2, $
 	                  NAME        = 'J Curlometer', $
-	                  XTICKFORMAT = 'time_labels', $
-	                  XTITLE      = 'Time (UTC)', $
+	                  XTICKFORMAT = '(a1)', $
 	                  YTITLE      = 'J!C($\mu$A/m$\up2$)')
+	
+	;DivB/mu0
+	p_divB = MrPlot( tj_ssm, divB, $
+	                 /CURRENT, $
+	                 NAME        = 'DivB', $
+	                 XTICKFORMAT = 'time_labels', $
+	                 XTITLE      = 'Time (UTC)', $
+	                 YTITLE      = 'Div(B)/$\mu$$\down0$!C($\mu$A/m$\up2$)')
 
 	win -> Refresh
 	return, win

@@ -117,6 +117,12 @@ E_DJDT=E_dJdt
 	              E_DJDT  = E_dJdt, $
 	              TIME    = t_ohm
 	
+	;Interpolate EDP onto FPI time-scale
+	E = MrInterpol(E, t_edp, t_ohm)
+	
+	;Compare terms against (E + Ve x B)
+	E_prime = temporary(E) - temporary(E_C)
+	
 ;-----------------------------------------------------
 ; Derived Products \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -132,12 +138,12 @@ E_DJDT=E_dJdt
 	;e0 * dE/dt
 ;	npts  = n_elements(t_edp_ssm)
 ;	dE_dt = (E[*,1:*] - E) / rebin(reform(t_edp_ssm[1:*] - t_edp_ssm, 1, npts), 3, npts)
-	
+
 ;-----------------------------------------------------
 ; Create Plots \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Convert to seconds
-	t0        = t_fgm[0]
+	t0        = t_edp[0]
 ;	t_fgm_ssm = MrCDF_epoch2ssm(temporary(t_fgm), t0)
 	t_edp_ssm = MrCDF_epoch2ssm(temporary(t_edp), t0)
 ;	t_fpi_ssm = MrCDF_epoch2ssm(temporary(t_fpi), t0)
@@ -147,10 +153,10 @@ E_DJDT=E_dJdt
 	colors = mms_color(['blue', 'green', 'red', 'black'])
 
 	;Create the window
-	win = MrWindow(YSIZE=600, YGAP=0.5, REFRESH=0)
+	win = MrWindow(OXMARGIN=[10,8], YSIZE=600, YGAP=0.5, REFRESH=0)
 
 	;EX
-	p1_Ex = MrPlot( t_edp_ssm, E[0,*], $
+	p1_Ex = MrPlot( t_ohm_ssm, E_prime[0,*], $
 	                /CURRENT, $
 	                COLOR       = colors[3], $
 	                NAME        = 'Ex', $
@@ -158,95 +164,79 @@ E_DJDT=E_dJdt
 	                XTICKFORMAT = '(a1)', $
 	                XTITLE      = '', $
 	                YTITLE      = 'Ex!C(mV/m)')
-	p2_Ex = MrPlot( t_ohm_ssm, E_C[0,*], $
-	                COLOR       = colors[2], $
-	                NAME        = 'Ex Convective', $
-	                OVERPLOT    = p1_Ex)
+;	p2_Ex = MrPlot( t_ohm_ssm, E_C[0,*], $
+;	                COLOR       = colors[2], $
+;	                NAME        = 'Ex Convective', $
+;	                OVERPLOT    = p1_Ex)
 	p3_Ex = MrPlot( t_ohm_ssm, E_Hall[0,*], $
-	                COLOR       = colors[1], $
+	                COLOR       = colors[2], $
 	                NAME        = 'Ex Hall', $
 	                OVERPLOT    = p1_Ex)
 	p4_Ex = MrPlot( t_ohm_ssm, E_divPe[0,*], $
+	                COLOR       = colors[1], $
+	                NAME        = 'Ex DivPe', $
+	                OVERPLOT    = p1_Ex)
+	p5_Ex = MrPlot( t_ohm_ssm[0:-2], E_dJdt[0,*], $
 	                COLOR       = colors[0], $
-	                NAME        = 'Ex DivPe', $
+	                NAME        = 'Ex Inert', $
 	                OVERPLOT    = p1_Ex)
-	p5_Ex = MrPlot( t_ohm_ssm, E_dJdt[0,*], $
-	                COLOR       = 'magenta', $
-	                NAME        = 'Ex DivPe', $
-	                OVERPLOT    = p1_Ex)
-	l_EX = MrLegend( ALIGNMENT    = 'NE', $
+	l_EX = MrLegend( ALIGNMENT    = 'NW', $
 	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['E', 'E$\downH$', 'E$\downC$', 'E$\downdivPe$', 'E\downInert$'], $
+	                 LABEL        = ['E', 'E$\downH$', 'E$\downC$', 'E$\downdivPe$', 'E$\downInert$'], $
 	                 POSITION     = [1.0, 1.0], $
 	                 /RELATIVE, $
 	                 SAMPLE_WIDTH = 0, $
 	                 TARGET       = [p1_Ex, p2_Ex, p3_Ex, p4_Ex, p5_Ex] )
 
-	;EX
-	p1_Ey = MrPlot( t_edp_ssm, E[1,*], $
+	;EY
+	p1_Ey = MrPlot( t_ohm_ssm, E[1,*], $
 	                /CURRENT, $
 	                COLOR       = colors[3], $
 	                NAME        = 'Ey', $
-	                TITLE       = "Generalized Ohm's Law", $
 	                XTICKFORMAT = '(a1)', $
 	                XTITLE      = '', $
 	                YTITLE      = 'Ey!C(mV/m)')
-	p2_Ey = MrPlot( t_ohm_ssm, E_C[1,*], $
-	                COLOR       = colors[2], $
-	                NAME        = 'Ey Convective', $
-	                OVERPLOT    = p1_Ey)
+;	p2_Ey = MrPlot( t_ohm_ssm, E_C[1,*], $
+;	                COLOR       = colors[2], $
+;	                NAME        = 'Ey Convective', $
+;	                OVERPLOT    = p1_Ey)
 	p3_Ey = MrPlot( t_ohm_ssm, E_Hall[1,*], $
-	                COLOR       = colors[1], $
+	                COLOR       = colors[2], $
 	                NAME        = 'Ey Hall', $
 	                OVERPLOT    = p1_Ey)
 	p4_Ey = MrPlot( t_ohm_ssm, E_divPe[1,*], $
+	                COLOR       = colors[1], $
+	                NAME        = 'Ey DivPe', $
+	                OVERPLOT    = p1_Ey)
+	p5_Ey = MrPlot( t_ohm_ssm[0:-2], E_dJdt[1,*], $
 	                COLOR       = colors[0], $
-	                NAME        = 'Ey DivPe', $
+	                NAME        = 'Ey Inert', $
 	                OVERPLOT    = p1_Ey)
-	p5_Ey = MrPlot( t_ohm_ssm, E_dJdt[1,*], $
-	                COLOR       = 'magenta', $
-	                NAME        = 'Ey DivPe', $
-	                OVERPLOT    = p1_Ey)
-	l_Ey = MrLegend( ALIGNMENT    = 'NE', $
-	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['E', 'E$\downH$', 'E$\downC$', 'E$\downdivPe$', 'E\downInert$'], $
-	                 POSITION     = [1.0, 1.0], $
-	                 /RELATIVE, $
-	                 SAMPLE_WIDTH = 0, $
-	                 TARGET       = [p1_Ey, p2_Ey, p3_Ey, p4_Ey, p5_Ey] )
 
-	;EX
-	p1_Ez = MrPlot( t_edp_ssm, E[2,*], $
+	;EZ
+	p1_Ez = MrPlot( t_ohm_ssm, E[2,*], $
 	                /CURRENT, $
 	                COLOR       = colors[3], $
 	                NAME        = 'Ez', $
-	                TITLE       = "Generalized Ohm's Law", $
-	                XTICKFORMAT = '(a1)', $
+	                XTICKFORMAT = 'time_labels', $
 	                XTITLE      = '', $
 	                YTITLE      = 'Ez!C(mV/m)')
-	p2_Ez = MrPlot( t_ohm_ssm, E_C[2,*], $
-	                COLOR       = colors[2], $
-	                NAME        = 'Ez Convective', $
-	                OVERPLOT    = p1_Ez)
+;	p2_Ez = MrPlot( t_ohm_ssm, E_C[2,*], $
+;	                COLOR       = colors[2], $
+;	                NAME        = 'Ez Convective', $
+;	                OVERPLOT    = p1_Ez)
 	p3_Ez = MrPlot( t_ohm_ssm, E_Hall[2,*], $
-	                COLOR       = colors[1], $
+	                COLOR       = colors[2], $
 	                NAME        = 'Ez Hall', $
 	                OVERPLOT    = p1_Ez)
 	p4_Ez = MrPlot( t_ohm_ssm, E_divPe[2,*], $
+	                COLOR       = colors[1], $
+	                NAME        = 'Ez DivPe', $
+	                OVERPLOT    = p1_Ez)
+	p5_Ez = MrPlot( t_ohm_ssm[0:-2], E_dJdt[2,*], $
 	                COLOR       = colors[0], $
-	                NAME        = 'Ez DivPe', $
+	                NAME        = 'Ez Inert', $
 	                OVERPLOT    = p1_Ez)
-	p5_Ez = MrPlot( t_ohm_ssm, E_dJdt[2,*], $
-	                COLOR       = 'magenta', $
-	                NAME        = 'Ez DivPe', $
-	                OVERPLOT    = p1_Ez)
-	l_Ez = MrLegend( ALIGNMENT    = 'NE', $
-	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['E', 'E$\downH$', 'E$\downC$', 'E$\downdivPe$', 'E\downInerg$'], $
-	                 POSITION     = [1.0, 1.0], $
-	                 /RELATIVE, $
-	                 SAMPLE_WIDTH = 0, $
-	                 TARGET       = [p1_Ez, p2_Ez, p3_Ez, p4_Ez, p5_Ez] )
 	
 	win -> Refresh
 	return, win

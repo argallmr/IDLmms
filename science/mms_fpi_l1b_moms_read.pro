@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_fpi_sitl_read
+;       mms_fpi_l1b_desmoms_read
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, University of New Hampshire                                      ;
@@ -33,11 +33,12 @@
 ;
 ; PURPOSE:
 ;+
-;   Read FPI sitl data data.
+;   Read FPI L1B burst moments data. Reads both ion (dis) and electron (des) moment
+;   files.
 ;
 ;   Calling Sequenc::
 ;      mms_fpi_sitl_read, FILES, TSTART, TEND
-;      mms_fpi_sitl_read, SC, MODE, TSTART, TEND
+;      mms_fpi_sitl_read, SC, OPTDESC, TSTART, TEND
 ;
 ; :Categories:
 ;   MMS, FPI
@@ -48,26 +49,28 @@
 ;                               or `SC` is required. See "calling sequence" above.
 ;       SC:                 in, optional, type=string
 ;                           MMS spacecraft ID of the file to be read.
-;       MODE:               in, optional, type=string
-;                           Data rate mode of the file to read. Required if `SC` is
-;                               provided. Options are 'fast' and 'brst'
+;       OPTDESC:            in, optional, type=string
+;                           Optional descriptor of the file name. Required if `SC` is
+;                               given. Options are 'des-moms' and 'dis-moms'
 ;       TSTART:             in, required, type=string
 ;                           Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:               in, required, type=string
 ;                           End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
-;       N_E:                out, optional, type=fltarr
+;       N:                  out, optional, type=fltarr
 ;                           A named variable to receive the electron density.
-;       N_I:                out, optional, type=fltarr
-;                           A named variable to receive the ion density.
+;       J:                  out, optional, type=fltarr
+;                           A named variable to receive the current density of the given species.
 ;       TIME:               out, optional, type=int64 (cdf_time_tt2000)
 ;                           A named variable to receive the time array. Time tags for
 ;                               `N_E`, `N_I`, `VI_DCS`, `VE_DCS`.
-;       VE_DCS:             out, optional, type=3xN fltarr
-;                           A named variable to receive the electron bulk velocity.
-;       VI_DCS:             out, optional, type=3xN fltarr
-;                           A named variable to receive the ion bulk velocity.
+;       V_GSE:              out, optional, type=3xN fltarr
+;                           A named variable to receive the bulk velocity.
+;       P_GSE:              out, optional, type=6xN fltarr
+;                           A named variable to receive the symmetric pressure tensor.
+;       T_GSE:              out, optional, type=6xN fltarr
+;                           A named variable to receive the symmetric temperature tensor.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -79,19 +82,15 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/11/04  -   Written by Matthew Argall
+;       2015/11/18  -   Written by Matthew Argall
 ;-
-pro mms_fpi_sitl_read, arg1, arg2, arg3, arg4, $
-JE=Je, $
-JI=Ji, $
-J_TOTAL=J_total, $
-N_I=n_i, $
-N_E=n_e, $
-PI_DSC=Pi_dsc, $
-PE_DSC=Pe_dsc, $
+pro mms_fpi_l1b_moms_read, arg1, arg2, arg3, arg4, $
+J=J, $
+N=n, $
+P_GSE=P_gse, $
+T_GSE=T_gse, $
 TIME=time, $
-VE_DSC=ve_dsc, $
-VI_DSC=vi_dsc
+V_GSE=v_gse
 	compile_opt idl2
 	on_error, 2
 	
@@ -99,21 +98,21 @@ VI_DSC=vi_dsc
 	tf_sort = keyword_set(tf_sort)
 	
 	;Number of consecutive inputs with data
-	nparams = n_elements(arg1)     eq 0 ? 0 : $
+	nparams = n_elements(arg1)      eq 0 ? 0 : $
 	              n_elements(arg2) eq 0 ? 1 : $
-	              n_elements(arg3) eq 0 ? 2 : $
-	              n_elements(arg4) eq 0 ? 3 : $
+	              n_elements(arg3)   eq 0 ? 2 : $
+	              n_elements(arg4)   eq 0 ? 3 : $
 	              4
 	
 	;FGM QL SRVY file
 	if nparams eq 4 then begin
-		sc     = arg1
-		mode   = arg2
-		fstart = arg3
-		fend   = arg4
+		sc      = arg1
+		optdesc = arg2
+		fstart  = arg3
+		fend    = arg4
 	
 		;Grab the files
-		theFiles = mms_find_file(sc, 'fpi', mode, 'sitl', $
+		theFiles = mms_find_file(sc, 'fpi', 'brst', 'l1b', $
 		                         COUNT     = nfiles, $
 		                         OPTDESC   = optdesc, $
 		                         SDC_ROOT  = sdc_dir, $
@@ -148,9 +147,9 @@ VI_DSC=vi_dsc
 	
 	;Level, Mode
 	if min(instr eq 'fpi')   eq 0 then message, 'Only FPI files are allowed.'
-	if min(level eq 'sitl')  eq 0 then message, 'Only SITL files are allowed.'
-	if min(mode  eq mode[0]) eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
-;	if min(mode  eq mode[0]) eq 0 then message, 'All files must have the same telemetry mode.'
+	if min(level eq 'l1b')  eq 0 then message, 'Only L1B files are allowed.'
+;	if min(mode  eq mode[0]) eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
+	if min(mode  eq 'brst') eq 0 then message, 'All files must be brst mode.'
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -164,46 +163,38 @@ VI_DSC=vi_dsc
 ;-----------------------------------------------------
 ; Which Variables to Read \\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	get_je   = arg_present(je)
-	get_ji   = arg_present(ji)
-	get_jtot = arg_present(j_total)
-	get_ne   = arg_present(n_e)    || get_je || get_jtot
-	get_ni   = arg_present(n_i)    || get_ji || get_jtot
-	get_pe   = arg_present(pe_dsc)
-	get_pi   = arg_present(pi_dsc)
-	get_time = arg_present(time)   || get_vi || get_ni || get_ve || get_ne
-	get_ve   = arg_present(ve_dsc) || get_je || get_jtot
-	get_vi   = arg_present(vi_dsc) || get_ji || get_jtot
+	get_time = arg_present(time)
+	get_j    = arg_present(j)
+	get_n    = arg_present(n)      || get_j || get_time
+	get_v    = arg_present(v_gse)  || get_j
+	get_p    = arg_present(P_gse)
+	get_t    = arg_present(T_gse)
 
 ;-----------------------------------------------------
 ; File and Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Electrons or ions?
+	particle = (strsplit(optdesc, '-', /EXTRACT))[0]
 
 	t_name   = 'Epoch'
 	
-	;Ions
-	ni_name   = mms_construct_varname(sc, instr, 'DISnumberDensity')
-	vix_name  = mms_construct_varname(sc, instr, 'iBulkV_X',    'DSC')
-	viy_name  = mms_construct_varname(sc, instr, 'iBulkV_Y',    'DSC')
-	viz_name  = mms_construct_varname(sc, instr, 'iBulkV_Z',    'DSC')
-	pixx_name = mms_construct_varname(sc, instr, 'DISpress_XX', 'DSC')
-	pixy_name = mms_construct_varname(sc, instr, 'DISpress_XY', 'DSC')
-	pixz_name = mms_construct_varname(sc, instr, 'DISpress_XZ', 'DSC')
-	piyy_name = mms_construct_varname(sc, instr, 'DISpress_YY', 'DSC')
-	piyz_name = mms_construct_varname(sc, instr, 'DISpress_YZ', 'DSC')
-	pizz_name = mms_construct_varname(sc, instr, 'DISpress_ZZ', 'DSC')
-	
-	;Electrons
-	ne_name   = mms_construct_varname(sc, instr, 'DESnumberDensity')
-	vex_name  = mms_construct_varname(sc, instr, 'eBulkV_X',    'DSC')
-	vey_name  = mms_construct_varname(sc, instr, 'eBulkV_Y',    'DSC')
-	vez_name  = mms_construct_varname(sc, instr, 'eBulkV_Z',    'DSC')
-	pexx_name = mms_construct_varname(sc, instr, 'DESpress_XX', 'DSC')
-	pexy_name = mms_construct_varname(sc, instr, 'DESpress_XY', 'DSC')
-	pexz_name = mms_construct_varname(sc, instr, 'DESpress_XZ', 'DSC')
-	peyy_name = mms_construct_varname(sc, instr, 'DESpress_YY', 'DSC')
-	peyz_name = mms_construct_varname(sc, instr, 'DESpress_YZ', 'DSC')
-	pezz_name = mms_construct_varname(sc, instr, 'DESpress_ZZ', 'DSC')
+	;Moments
+	n_name   = mms_construct_varname(sc, particle, 'numberDensity')
+	vx_name  = mms_construct_varname(sc, particle, 'bulkX')
+	vy_name  = mms_construct_varname(sc, particle, 'bulkY')
+	vz_name  = mms_construct_varname(sc, particle, 'bulkZ')
+	Pxx_name = mms_construct_varname(sc, particle, 'PresXX')
+	Pxy_name = mms_construct_varname(sc, particle, 'PresXY')
+	Pxz_name = mms_construct_varname(sc, particle, 'PresXZ')
+	Pyy_name = mms_construct_varname(sc, particle, 'PresYY')
+	Pyz_name = mms_construct_varname(sc, particle, 'PresYZ')
+	Pzz_name = mms_construct_varname(sc, particle, 'PresZZ')
+	Txx_name = mms_construct_varname(sc, particle, 'TempXX')
+	Txy_name = mms_construct_varname(sc, particle, 'TempXY')
+	Txz_name = mms_construct_varname(sc, particle, 'TempXZ')
+	Tyy_name = mms_construct_varname(sc, particle, 'TempYY')
+	Tyz_name = mms_construct_varname(sc, particle, 'TempYZ')
+	Tzz_name = mms_construct_varname(sc, particle, 'TempZZ')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -212,115 +203,92 @@ VI_DSC=vi_dsc
 	status = 0
 
 	;NI & TIME
-	if status eq 0 && (get_ni || get_time) $
-		then n_i = MrCDF_nRead(theFiles, ni_name, $
-		                       DEPEND_0 = time, $
-		                       STATUS   = statue, $
-		                       TSTART   = fstart, $
-		                       TEND     = fend)
-		                          
-	;VI
-	if status eq 0 && get_vi then begin
-		vix = MrCDF_nRead(theFiles, vix_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		viy = MrCDF_nRead(theFiles, viy_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		viz = MrCDF_nRead(theFiles, viz_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		vi_dsc = [ temporary(vix), temporary(viy), temporary(viz) ]
+	if status eq 0 && (get_n || get_time) $
+		then n = MrCDF_nRead(theFiles, n_name, $
+		                     DEPEND_0 = time, $
+		                     STATUS   = statue, $
+		                     TSTART   = fstart, $
+		                     TEND     = fend)
+	
+	;V
+	if status eq 0 && get_v then begin
+		vx = MrCDF_nRead(theFiles, vx_name, $
+		                 STATUS = status, $
+		                 TSTART = fstart, $
+		                 TEND   = fend)
+		vy = MrCDF_nRead(theFiles, vy_name, $
+		                 STATUS = status, $
+		                 TSTART = fstart, $
+		                 TEND   = fend)
+		vz = MrCDF_nRead(theFiles, vz_name, $
+		                 STATUS = status, $
+		                 TSTART = fstart, $
+		                 TEND   = fend)
+		v_gse = [ temporary(vx), temporary(vy), temporary(vz) ]
 	endif
 	
-	;PI
-	if status eq 0 && get_pi then begin
-		pixx = MrCDF_nRead(files, pixx_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pixy = MrCDF_nRead(files, pixy_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pixz = MrCDF_nRead(files, pixz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		piyy = MrCDF_nRead(files, piyy_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		piyz = MrCDF_nRead(files, piyz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pizz = MrCDF_nRead(files, pizz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pi_dsc = transpose( [ [temporary(pixx)], [temporary(pixy)], [temporary(pixz)], $
-		                                         [temporary(piyy)], [temporary(piyz)], $
-		                                                            [temporary(pizz)] ] )
+	;P
+	if status eq 0 && get_P then begin
+		Pxx = MrCDF_nRead(theFiles, Pxx_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Pxy = MrCDF_nRead(theFiles, Pxy_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Pxz = MrCDF_nRead(theFiles, Pxz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Pyy = MrCDF_nRead(theFiles, Pyy_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Pyz = MrCDF_nRead(theFiles, Pyz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Pzz = MrCDF_nRead(theFiles, Pzz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		P_gse = [ temporary(Pxx), temporary(Pxy), temporary(Pxz), $
+		                          temporary(Pyy), temporary(Pyz), $
+		                                          temporary(Pzz) ]
+	endif
+	
+	;T
+	if status eq 0 && get_T then begin
+		Txx = MrCDF_nRead(theFiles, Txx_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Txy = MrCDF_nRead(theFiles, Txy_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Txz = MrCDF_nRead(theFiles, Txz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Tyy = MrCDF_nRead(theFiles, Tyy_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Tyz = MrCDF_nRead(theFiles, Tyz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		Tzz = MrCDF_nRead(theFiles, Tzz_name, $
+		                  STATUS = status, $
+		                  TSTART = fstart, $
+		                  TEND   = fend)
+		T_gse = [ temporary(Txx), temporary(Txy), temporary(Txz), $
+		                          temporary(Tyy), temporary(Tyz), $
+		                                          temporary(Tzz) ]
 	endif
 
-	;NE
-	if status eq 0 && get_ne $
-		then n_e = MrCDF_nRead(theFiles, ne_name, $
-		                       STATUS   = statue, $
-		                       TSTART   = fstart, $
-		                       TEND     = fend)
-		                          
-	;VE
-	if status eq 0 && get_ve then begin
-		vex = MrCDF_nRead(theFiles, vex_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		vey = MrCDF_nRead(theFiles, vey_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		vez = MrCDF_nRead(theFiles, vez_name, $
-		                  STATUS = status, $
-		                  TSTART = fstart, $
-		                  TEND   = fend)
-		ve_dsc = [ temporary(vex), temporary(vey), temporary(vez) ]
-	endif
-	
-	;PE
-	if status eq 0 && get_pe then begin
-		pexx = MrCDF_nRead(theFiles, pexx_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pexy = MrCDF_nRead(theFiles, pexy_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pexz = MrCDF_nRead(theFiles, pexz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		peyy = MrCDF_nRead(theFiles, peyy_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		peyz = MrCDF_nRead(theFiles, peyz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pezz = MrCDF_nRead(theFiles, pezz_name, $
-		                   STATUS = status, $
-		                   TSTART = fstart, $
-		                   TEND   = fend)
-		pe_dsc = [ temporary(pexx), temporary(pexy), temporary(pexz), $
-		           temporary(peyy), temporary(peyz), temporary(pezz) ]
-	endif
-	
 	;Rethrow the error message
 	if status ne 0 then message, /REISSUE_LAST
 
@@ -332,9 +300,10 @@ VI_DSC=vi_dsc
 	;Currents
 	;   - 1e9 converts C km / (s cm^3) to C / m^2 s
 	;   - 1e6 converts A / m^2 to uA / m^2
-	if get_ji   then Ji      = constants('q') * 1e15 *  rebin(n_i, 3, npts) * vi_dsc
-	if get_je   then Je      = constants('q') * 1e15 *  rebin(n_e, 3, npts) * ve_dsc
-	if get_jtot then J_total = constants('q') * 1e15 * (rebin(n_i, 3, npts) * vi_dsc + rebin(n_e, 3, npts) * ve_dsc)
+	if get_j then begin
+		J = constants('q') * 1e15 *  rebin(n, 3, npts) * v_gse
+		if particle eq 'des' then J = -J
+	endif
 
 ;-----------------------------------------------------
 ; Minimum Variance Frame \\\\\\\\\\\\\\\\\\\\\\\\\\\\\

@@ -88,17 +88,17 @@ TIME=time
 	
 	if n_elements(instr) eq 0 || instr eq '' then instr = 'dfg'
 	if n_elements(mode)  eq 0 || mode  eq '' then mode  = 'srvy'
-	if n_elements(level) eq 0 || level eq '' then level = 'ql'
+	if n_elements(level) eq 0 || level eq '' then level = 'l2pre'
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Magnetic field
 	;   - DMPA Coordinates
-	mms_fgm_ql_read, 'mms1', instr, mode, tstart, tend, B_DMPA=b1, TIME=t1
-	mms_fgm_ql_read, 'mms2', instr, mode, tstart, tend, B_DMPA=b2, TIME=t2
-	mms_fgm_ql_read, 'mms3', instr, mode, tstart, tend, B_DMPA=b3, TIME=t3
-	mms_fgm_ql_read, 'mms4', instr, mode, tstart, tend, B_DMPA=b4, TIME=t4
+	mms_fgm_ql_read, 'mms1', instr, mode, level, tstart, tend, B_GSE=b1, TIME=t1
+	mms_fgm_ql_read, 'mms2', instr, mode, level, tstart, tend, B_GSE=b2, TIME=t2
+	mms_fgm_ql_read, 'mms3', instr, mode, level, tstart, tend, B_GSE=b3, TIME=t3
+	mms_fgm_ql_read, 'mms4', instr, mode, level, tstart, tend, B_GSE=b4, TIME=t4
 	
 	;Remove the magntidue
 	b1 = b1[0:2,*]

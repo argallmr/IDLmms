@@ -58,78 +58,98 @@
 ; :Returns:
 ;       R_DMPA:         Spacecraft position in DMPA coordinates.
 ;-
-function mms_fdoa_scpos, sc, tstart, tend, t_out, $
-EPH_DIR=eph_dir, $
-SDC_ROOT=sdc_root, $
-V_DMPA=v_dmpa
+pro mms_fig_scpos, tstart, tend
 	compile_opt idl2
 
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
 		MrPrintF, 'LogErr'
-		return, !Null
+		return
 	endif
 
-	;Defaults
-	if n_elements(sdc_root)  eq 0 then sdc_root  = '/nfs'
-	if n_elements(eph_dir)   eq 0 then eph_dir   = filepath('', ROOT_DIR=sdc_root, $
-	                                                        SUBDIRECTORY=['ancillary', sc, 'defeph'])
-	if n_elements(att_dir)   eq 0 then att_dir   = filepath('', ROOT_DIR=sdc_root, $
-	                                                        SUBDIRECTORY=['ancillary', sc, 'defatt'])
+	;Read the data
+	r1 = mms_fdoa_scpos('mms1', tstart, tend)
+	r2 = mms_fdoa_scpos('mms2', tstart, tend)
+	r3 = mms_fdoa_scpos('mms3', tstart, tend)
+	r4 = mms_fdoa_scpos('mms4', tstart, tend)
 
-;-----------------------------------------------------
-; Find Data Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	; Ephemeris file
-	str = filepath(ROOT_DIR=eph_dir, strupcase(sc) + '_DEFEPH_%Y%D_%Y%D.V*' )
-	files_eph = MrFile_Search( str, $
-	                           /CLOSEST, $
-	                           COUNT     = nfiles_eph, $
-	                           TSTART    = tstart, $
-	                           TEND      = tend, $
-	                           TIMEORDER = '%Y%D', $
-	                           VREGEX    = 'V([0-9]{2})' )
-	if nfiles_eph eq 0 then message, 'No ephemeris files found: "' + str + '".'
+	;Average position during the interval
+	r1 = mean(r1, DIMENSION=2)
+	r2 = mean(r2, DIMENSION=2)
+	r3 = mean(r3, DIMENSION=2)
+	r4 = mean(r4, DIMENSION=2)
 
-	; Attitude file
-	str = filepath(ROOT_DIR=att_dir, strupcase(sc) + '_DEFATT_%Y%D_%Y%D.V*' )
-	files_att = MrFile_Search( str, $
-	                           /CLOSEST, $
-	                           COUNT     = nfiles_att, $
-	                           TSTART    = tstart, $
-	                           TEND      = tend, $
-	                           TIMEORDER = '%Y%D', $
-	                           VREGEX    = 'V([0-9]{2})' )
-	if nfiles_att eq 0 then message, 'No attitude files found: "' + str + '".'
+	;Calculate positions relative to MMS1
+	r4 = r4 - r1
+	r3 = r3 - r1
+	r2 = r2 - r1
+	r1 = r1 - r1
+	
+	x = [r1[0], r2[0], r3[0], r4[0]]
+	y = [r1[1], r2[1], r3[1], r4[1]]
+	z = [r1[2], r2[2], r3[2], r4[2]]
 	
 ;-----------------------------------------------------
-; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Plot Positions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	
-	;Attitude
-	defatt = mms_fdoa_read_defatt(files_att, tstart, tend)
-	
-	;Ephemeris
-	defeph = mms_fdoa_read_defeph(files_eph, tstart, tend)
+	xrange = [min([r1[0], r2[0], r3[0], r4[0]], MAX=rmax), rmax]
+	yrange = [min([r1[1], r2[1], r3[1], r4[1]], MAX=rmax), rmax]
+	zrange = [min([r1[2], r2[2], r3[2], r4[2]], MAX=rmax), rmax]
 
-;-----------------------------------------------------
-; Rotate Ephemeris to DMPA from GEI \\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Interpolate ephemeris data
-	if n_elements(t_out) gt 0 then begin
-		r_gei      = mms_fg_xinterp_ephem(defeph.tt2000, defeph.position, defeph.velocity, reform(t_out), v_gei)
-		gei2despun = mms_fdoa_xgei2despun(defatt, reform(t_out), TYPE='P')
-	endif else begin
-		if arg_present(t_out) then t_out = defatt.tt2000
-		r_gei      = defeph.position
-		v_gei      = defeph.velocity
-		gei2despun = mms_fdoa_xgei2despun(defatt, defeph.tt2000, TYPE='P')
-	endelse
+	xrange += abs(xrange) * [-0.1, 0.1]
+	yrange += abs(yrange) * [-0.1, 0.1]
+	zrange += abs(zrange) * [-0.1, 0.1]
 
-	;Rotate from GEI to DMPA
-	r_dmpa = MrVector_Rotate(gei2despun, r_gei)
-	v_dmpa = MrVector_Rotate(gei2despun, v_gei)
+	colors = mms_color(['blue', 'green', 'red', 'black'])
+
+	;Create a cgWindow
+	cgWindow
+
+	;Establish the 3D coordinate sytem using cgSurf
+	cgSurf, fltarr(2,2), [0], [0], /NODATA, $
+	        TITLE  = 'MMS Spacecraft Positions'
+	        XRANGE = xrange, $
+	        XSTYLE = 1, $
+	        XTITLE = 'X (km)', $
+	        YRANGE = yrange, $
+	        YSTYLE = 1, $
+	        YTITLE = 'Y (km)', $
+	        ZSTYLE = 1, $
+	        ZRANGE = zrange, $
+	        ZTITLE = 'Z (km)', $
+	        /SAVE, $
+	        /ADDCMD
 	
-	return, r_dmpa
+	;Plot positions
+	cgPlotS, x, y, z, $
+	         SYMCOLOR = colors, $
+	         SYMSIZE  = 4, $
+	         PSYM     = 'FilledDiamond', $
+	         /T3D, $
+	         /ADDCMD
+
+	;Step through each spacecraft
+	for i = 0, 3 do begin
+		;Project onto XY-plane
+		cgPlotS, x[[i,i]], y[[i,i]], [z[i],zrange[0]], $
+		         COLOR     = colors[i], $
+		         LINESTYLE = 2, $
+		         /T3D, $
+		         /ADDCMD
+		
+		;Project onto XZ-plane
+		cgPlotS, x[[i,i]], [y[i], yrange[0]], z[[i,i]], $
+		         COLOR     = colors[i], $
+		         LINESTYLE = 2, $
+		         /T3D, $
+		         /ADDCMD
+		
+		;Project onto YZ-plane
+		cgPlotS, [x[i], xrange[0]], y[[i,i]], z[[i,i]], $
+		         COLOR     = colors[i], $
+		         LINESTYLE = 2, $
+		         /T3D, $
+		         /ADDCMD
+	endfor
 end

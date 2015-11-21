@@ -50,7 +50,7 @@
 ;       EIGVECS:        out, optional, type=3x3 float
 ;                       Rotation matrix (into the minimum variance coordinate system).
 ;-
-function mms_fig_currents, tstart, tend, $
+function mms_fig_currents, mode, tstart, tend, $
 EIGVECS=eigvecs
 	compile_opt strictarr
 
@@ -61,23 +61,54 @@ EIGVECS=eigvecs
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
+	
+	;Accept only srvy or brst
+	if mode ne 'srvy' && mode ne 'brst' then message, 'MODE must be "srvy" or "brst".'
 
 ;-----------------------------------------------------
 ; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Magnetic field data
-	mms_fgm_ql_read, 'mms1', 'dfg', 'srvy', tstart, tend, B_DMPA=b_dmpa, TIME=t_fgm
+	mms_fgm_ql_read, 'mms1', 'dfg', mode, tstart, tend, B_DMPA=b_dmpa, TIME=t_fgm
 	b_dmpa = b_dmpa[0:2,*]
 	
 	;Get current density from FPI
-	mms_fpi_sitl_read, 'mms1', 'fast', tstart, tend, J_TOTAL=j1_total, TIME=t1_fpi
-	mms_fpi_sitl_read, 'mms2', 'fast', tstart, tend, J_TOTAL=j2_total, TIME=t2_fpi
-	mms_fpi_sitl_read, 'mms3', 'fast', tstart, tend, J_TOTAL=j3_total, TIME=t3_fpi
-	mms_fpi_sitl_read, 'mms4', 'fast', tstart, tend, J_TOTAL=j4_total, TIME=t4_fpi
+	fpi_mode = mode eq 'srvy' ? 'fast' : mode
+	if fpi_mode eq 'brst' then begin
+		;Read DES
+		mms_fpi_l1b_moms_read, 'mms1', 'des-moms', tstart, tend, J=ji1, TIME=ti1_fpi
+		mms_fpi_l1b_moms_read, 'mms2', 'des-moms', tstart, tend, J=ji2, TIME=ti2_fpi
+		mms_fpi_l1b_moms_read, 'mms3', 'des-moms', tstart, tend, J=ji3, TIME=ti3_fpi
+		mms_fpi_l1b_moms_read, 'mms4', 'des-moms', tstart, tend, J=ji4, TIME=ti4_fpi
+		
+		;Read DIS
+		mms_fpi_l1b_moms_read, 'mms1', 'dis-moms', tstart, tend, J=je1, TIME=t1_fpi
+		mms_fpi_l1b_moms_read, 'mms2', 'dis-moms', tstart, tend, J=je2, TIME=t2_fpi
+		mms_fpi_l1b_moms_read, 'mms3', 'dis-moms', tstart, tend, J=je3, TIME=t3_fpi
+		mms_fpi_l1b_moms_read, 'mms4', 'dis-moms', tstart, tend, J=je4, TIME=t4_fpi
+
+		;Interpolate ji onto je
+		ji1 = MrInterpol(ji1, temporary(ti1_fpi), t1_fpi)
+		ji2 = MrInterpol(ji2, temporary(ti2_fpi), t2_fpi)
+		ji3 = MrInterpol(ji3, temporary(ti3_fpi), t3_fpi)
+		ji4 = MrInterpol(ji4, temporary(ti4_fpi), t4_fpi)
+		
+		;Total current
+		j1_total = temporary(ji1) + temporary(je1)
+		j2_total = temporary(ji2) + temporary(je2)
+		j3_total = temporary(ji3) + temporary(je3)
+		j4_total = temporary(ji4) + temporary(je4)
+	endif else begin
+		;Srvy data
+		mms_fpi_sitl_read, 'mms1', fpi_mode, tstart, tend, J_TOTAL=j1_total, TIME=t1_fpi
+		mms_fpi_sitl_read, 'mms2', fpi_mode, tstart, tend, J_TOTAL=j2_total, TIME=t2_fpi
+		mms_fpi_sitl_read, 'mms3', fpi_mode, tstart, tend, J_TOTAL=j3_total, TIME=t3_fpi
+		mms_fpi_sitl_read, 'mms4', fpi_mode, tstart, tend, J_TOTAL=j4_total, TIME=t4_fpi
+	endelse
 	
 	;Compute the curlometer
-	Jrecip = mms_fgm_curldiv(tstart, tend, TIME=t_curl)
+	Jrecip = mms_fgm_curldiv(tstart, tend, DIVB=divB, TIME=t_curl)
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -91,7 +122,7 @@ EIGVECS=eigvecs
 	t4_fpi_ssm = MrCDF_epoch2ssm(temporary(t4_fpi), t0)
 
 	yrange = [min(j1_total, MAX=ymax), ymax]
-	yrange += yrange * 1.1
+	yrange += abs(yrange) * [-0.1, 0.1]
 
 	;MMS Colors
 	colors = mms_color(['blue', 'green', 'red', 'black'])
@@ -165,60 +196,51 @@ EIGVECS=eigvecs
 	                COLOR       = colors[3], $
 	                NAME        = 'Jy FPI1', $
 	                OVERPLOT    = p1y_j)
-	p3y_j = MrPlot( t1_fpi_ssm, j2_total[1,*], $
+	p3y_j = MrPlot( t2_fpi_ssm, j2_total[1,*], $
 	                COLOR       = colors[2], $
 	                NAME        = 'Jy FPI2', $
 	                OVERPLOT    = p1y_j)
-	p4y_j = MrPlot( t1_fpi_ssm, j3_total[1,*], $
+	p4y_j = MrPlot( t3_fpi_ssm, j3_total[1,*], $
 	                COLOR       = colors[1], $
 	                NAME        = 'Jy FPI3', $
 	                OVERPLOT    = p1y_j)
-	p5y_j = MrPlot( t1_fpi_ssm, j4_total[1,*], $
+	p5y_j = MrPlot( t4_fpi_ssm, j4_total[1,*], $
 	                COLOR       = colors[0], $
 	                NAME        = 'Jy FPI4', $
 	                OVERPLOT    = p1y_j)
-	l_jy = MrLegend( ALIGNMENT    = 'NW', $
-	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['CurlB', 'FPI1', 'FPI2', 'FPI3', 'FPI4'], $
-	                 NAME         = 'Leg: Jy', $
-	                 POSITION     = [1.0, 1.0], $
-	                 /RELATIVE, $
-	                 SAMPLE_WIDTH = 0, $
-	                 TARGET       = [p1y_j, p2y_j, p3y_j, p4y_j, p5y_j] )
 	
 	;JZ
 	p1z_j = MrPlot( t_curl_ssm, Jrecip[2,*], $
 	                /CURRENT, $
 	                COLOR       = 'magenta', $
 	                NAME        = 'Jz Recip', $
-	                XTICKFORMAT = 'time_labels', $
-	                XTITLE      = 'Time (UT)', $
+	                XTICKFORMAT = '(a1)', $
 	                YRANGE      = yrange, $
 	                YTITLE      = 'Jz!C($\mu$A/m^2)')
 	p2z_j = MrPlot( t1_fpi_ssm, j1_total[2,*], $
 	                COLOR       = colors[3], $
 	                NAME        = 'Jz FPI1', $
 	                OVERPLOT    = p1z_j)
-	p3z_j = MrPlot( t1_fpi_ssm, j2_total[2,*], $
+	p3z_j = MrPlot( t2_fpi_ssm, j2_total[2,*], $
 	                COLOR       = colors[2], $
 	                NAME        = 'Jz FPI2', $
 	                OVERPLOT    = p1z_j)
-	p4z_j = MrPlot( t1_fpi_ssm, j3_total[2,*], $
+	p4z_j = MrPlot( t3_fpi_ssm, j3_total[2,*], $
 	                COLOR       = colors[1], $
 	                NAME        = 'Jz FPI3', $
 	                OVERPLOT    = p1z_j)
-	p5z_j = MrPlot( t1_fpi_ssm, j4_total[2,*], $
+	p5z_j = MrPlot( t4_fpi_ssm, j4_total[2,*], $
 	                COLOR       = colors[0], $
 	                NAME        = 'Jz FPI4', $
 	                OVERPLOT    = p1z_j)
-	l_jz = MrLegend( ALIGNMENT    = 'NW', $
-	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['CurlB', 'FPI1', 'FPI2', 'FPI3', 'FPI4'], $
-	                 NAME         = 'Leg: Jz', $
-	                 POSITION     = [1.0, 1.0], $
-	                 /RELATIVE, $
-	                 SAMPLE_WIDTH = 0, $
-	                 TARGET       = [p1z_j, p2z_j, p3z_j, p4z_j, p5z_j] )
+
+	;DivB/mu0
+	p_divB = MrPlot( t_curl_ssm, divB, $
+	                 /CURRENT, $
+	                 NAME        = 'DivB', $
+	                 XTICKFORMAT = 'time_labels', $
+	                 XTITLE      = 'Time (UTC)', $
+	                 YTITLE      = 'Div(B)/$\mu$$\down0$!C($\mu$A/m$\up2$)')
 
 	win -> Refresh
 

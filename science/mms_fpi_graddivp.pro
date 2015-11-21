@@ -69,7 +69,8 @@
 ;   Modification History::
 ;       2015/11/13  -   Written by Matthew Argall
 ;-
-function mms_fpi_divP, tstart, tend, mode, level, $
+function mms_fpi_graddivP, mode, tstart, tend, $
+GRADP=gradP, $
 ION=ion, $
 TIME=time
 	compile_opt strictarr
@@ -83,24 +84,39 @@ TIME=time
 	endif
 	
 	ion = keyword_set(ion)
-	if n_elements(mode)  eq 0 || mode  eq '' then mode  = 'fast'
-	if n_elements(level) eq 0 || level eq '' then level = 'sitl'
+	if mode ne 'srvy' && mode ne 'brst' then message, 'MODE must be "srvy" or "brst".'
+	fpi_mode = mode eq 'srvy' ? 'fast' : 'brst'
 
 ;-----------------------------------------------------
 ; FPI Pressure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
-	;FPI moments
-	if ion then begin
-		mms_fpi_sitl_read, 'mms1', mode, tstart, tend, PI_DSC=pi1, TIME=t1
-		mms_fpi_sitl_read, 'mms2', mode, tstart, tend, PI_DSC=pi2, TIME=t2
-		mms_fpi_sitl_read, 'mms3', mode, tstart, tend, PI_DSC=pi3, TIME=t3
-		mms_fpi_sitl_read, 'mms4', mode, tstart, tend, PI_DSC=pi4, TIME=t4
+	;BRST
+	if fpi_mode eq 'brst' then begin
+		if ion then begin
+			mms_fpi_l1b_moms_read, 'mms1', 'dis-moms', tstart, tend, P_GSE=p1, TIME=t1
+			mms_fpi_l1b_moms_read, 'mms2', 'dis-moms', tstart, tend, P_GSE=p2, TIME=t2
+			mms_fpi_l1b_moms_read, 'mms3', 'dis-moms', tstart, tend, P_GSE=p3, TIME=t3
+			mms_fpi_l1b_moms_read, 'mms4', 'dis-moms', tstart, tend, P_GSE=p4, TIME=t4
+		endif else begin
+			mms_fpi_l1b_moms_read, 'mms1', 'des-moms', tstart, tend, P_GSE=p1, TIME=t1
+			mms_fpi_l1b_moms_read, 'mms2', 'des-moms', tstart, tend, P_GSE=p2, TIME=t2
+			mms_fpi_l1b_moms_read, 'mms3', 'des-moms', tstart, tend, P_GSE=p3, TIME=t3
+			mms_fpi_l1b_moms_read, 'mms4', 'des-moms', tstart, tend, P_GSE=p4, TIME=t4
+		endelse
+	;FAST
 	endif else begin
-		mms_fpi_sitl_read, 'mms1', mode, tstart, tend, PE_DSC=pe1, TIME=t1
-		mms_fpi_sitl_read, 'mms2', mode, tstart, tend, PE_DSC=pe2, TIME=t2
-		mms_fpi_sitl_read, 'mms3', mode, tstart, tend, PE_DSC=pe3, TIME=t3
-		mms_fpi_sitl_read, 'mms4', mode, tstart, tend, PE_DSC=pe4, TIME=t4
+		if ion then begin
+			mms_fpi_sitl_read, 'mms1', mode, tstart, tend, PI_DSC=p1, TIME=t1
+			mms_fpi_sitl_read, 'mms2', mode, tstart, tend, PI_DSC=p2, TIME=t2
+			mms_fpi_sitl_read, 'mms3', mode, tstart, tend, PI_DSC=p3, TIME=t3
+			mms_fpi_sitl_read, 'mms4', mode, tstart, tend, PI_DSC=p4, TIME=t4
+		endif else begin
+			mms_fpi_sitl_read, 'mms1', mode, tstart, tend, PE_DSC=p1, TIME=t1
+			mms_fpi_sitl_read, 'mms2', mode, tstart, tend, PE_DSC=p2, TIME=t2
+			mms_fpi_sitl_read, 'mms3', mode, tstart, tend, PE_DSC=p3, TIME=t3
+			mms_fpi_sitl_read, 'mms4', mode, tstart, tend, PE_DSC=p4, TIME=t4
+		endelse
 	endelse
 
 ;-----------------------------------------------------
@@ -108,14 +124,10 @@ TIME=time
 ;-----------------------------------------------------
 	
 	;FDOA Spacecraft Position
-	r1_dmpa = mms_fdoa_scpos('mms1', tstart, tend, t1)
-	r2_dmpa = mms_fdoa_scpos('mms2', tstart, tend, t1)
-	r3_dmpa = mms_fdoa_scpos('mms3', tstart, tend, t1)
-	r4_dmpa = mms_fdoa_scpos('mms4', tstart, tend, t1)
-	r1_dmpa = transpose(r1_dmpa)
-	r2_dmpa = transpose(r2_dmpa)
-	r3_dmpa = transpose(r3_dmpa)
-	r4_dmpa = transpose(r4_dmpa)
+	r1 = mms_fdoa_scpos('mms1', tstart, tend, t1)
+	r2 = mms_fdoa_scpos('mms2', tstart, tend, t1)
+	r3 = mms_fdoa_scpos('mms3', tstart, tend, t1)
+	r4 = mms_fdoa_scpos('mms4', tstart, tend, t1)
 
 ;-----------------------------------------------------
 ; Interpolate FPI \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -123,23 +135,35 @@ TIME=time
 
 	;Convert time to seconds
 	MrCDF_Epoch_Breakdown, t1[0], year, month, day
-	MrCDF_Epoch_Compute, t0, year, month, day, /TT2000
+	t0 = MrCDF_Epoch_Compute(year, month, day, /TT2000)
 	t1_sse = MrCDF_epoch2sse(t1, t0)
-	t2_sse = MrCDF_epoch2sse(t2, t0)
-	t3_sse = MrCDF_epoch2sse(t3, t0)
-	t4_sse = MrCDF_epoch2sse(t4, t0)
-	
+	t2_sse = MrCDF_epoch2sse(temporary(t2), t0)
+	t3_sse = MrCDF_epoch2sse(temporary(t3), t0)
+	t4_sse = MrCDF_epoch2sse(temporary(t4), t0)
+
 	;Interpolate to reference spacecraft
-	pe2 = MrInterpol(pe2, t2_sse, t1_sse)
-	pe3 = MrInterpol(pe3, t3_sse, t1_sse)
-	pe4 = MrInterpol(pe4, t4_sse, t1_sse)
+	p2 = MrInterpol(p2, t2_sse, t1_sse)
+	p3 = MrInterpol(p3, t3_sse, t1_sse)
+	p4 = MrInterpol(p4, t4_sse, t1_sse)
 
 ;-----------------------------------------------------
 ; Divergence \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	
-	;Curlometer
-	divP = MrReciprocalDivergence(r1_dmpa, r2_dmpa, r3_dmpa, r4_dmpa, pe1, pe2, pe3, pe4)
 
+	;Divergence
+	;   - 1e-18 converts cm^3/C 1/km^2 nP --> V/m
+	;   - 1e-3 converts V/m --> mV/m
+	divP = 1e-15 * MrReciprocalDivergence(r1, r2, r3, r4, p1, p2, p3, p4)
+	
+	;Gradient
+	if arg_present(gradP) then begin
+		scalarP1 = (p1[0,*] + p1[4,*] + p1[6,*]) / 3.0
+		scalarP2 = (p2[0,*] + p2[4,*] + p2[6,*]) / 3.0
+		scalarP3 = (p3[0,*] + p3[4,*] + p3[6,*]) / 3.0
+		scalarP4 = (p4[0,*] + p4[4,*] + p4[6,*]) / 3.0
+		gradP    = MrReciprocalGradient(r1, r2, r3, r4, scalarP1, scalarP2, scalarP3, scalarP4)
+	endif
+
+	if arg_present(time) then time = temporary(t1)
 	return, divP
 end

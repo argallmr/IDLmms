@@ -97,21 +97,44 @@ TIME=time
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Magnetic field
-	mms_fgm_ql_read, sc, 'dfg', mode, tstart, tend, $
-	                 B_DMPA = b_fgm, $
-	                 TIME   = t_fgm
+	mms_fgm_ql_read, sc, 'dfg', mode, 'l2pre', tstart, tend, $
+	                 B_GSE = b_fgm, $
+	                 TIME  = t_fgm
 	
 	;FPI moments
 	;   - Only 'fast' and 'brst' available
 	fpi_mode = mode eq 'srvy' ? 'fast' : mode
-	mms_fpi_sitl_read, sc, fpi_mode, tstart, tend, $
-	                   VI_DSC  = vi_dsc, $
-	                   VE_DSC  = ve_dsc, $
-	                   N_I     = n_i, $
-	                   N_E     = n_e, $
-	                   J_TOTAL = J_total, $
-	                   TIME    = t_fpi
+	if fpi_mode eq 'brst' then begin
+		;Read DES
+		mms_fpi_l1b_moms_read, sc, 'des-moms', tstart, tend, $
+		                       N     = n_e, $
+		                       V_GSE = ve, $
+		                       TIME  = t_fpi
+		;Read DIS
+		mms_fpi_l1b_moms_read, sc, 'dis-moms', tstart, tend, $
+		                       N     = n_i, $
+		                       V_GSE = vi, $
+		                       TIME  = time_i
+		
+		;Interpolate ions onto electron times
+		n_i  = interpol(n_i, time_i, t_fpi)
+		vi   = MrInterpol(vi, temporary(time_i), t_fpi)
+		npts = n_elements(t_fpi)
+		
+		;Total current
+		;   - 1e9 converts C km / (s cm^3) to C / m^2 s
+		;   - 1e6 converts A / m^2 to uA / m^2
+		J_total = q*1e15 * (rebin(n_i, 3, npts) * vi - rebin(n_e, 3, npts) * ve)
 	
+	endif else begin
+		mms_fpi_sitl_read, sc, fpi_mode, tstart, tend, $
+		                   VI_DSC  = vi, $
+		                   VE_DSC  = ve, $
+		                   N_I     = n_i, $
+		                   N_E     = n_e, $
+		                   J_TOTAL = J_total, $
+		                   TIME    = t_fpi
+	endelse
 	;Number of points
 	npts = n_elements(t_fpi)
 	
@@ -137,7 +160,7 @@ TIME=time
 	;Unit conversion
 	;   - 1e-6 converts km/s nT  --> V/m
 	;   - 1e3  converts V/m --> mV/m
-	if get_ec then E_C = -1e-3 * MrVector_Cross(vi_dsc, b_fpi)
+	if get_ec then E_C = -1e-3 * MrVector_Cross(vi, b_fpi)
 	
 ;-----------------------------------------------------
 ; Hall Electric Field \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -150,7 +173,7 @@ TIME=time
 	;Unit conversion
 	;   - 1e-21 converts 1/C cm^3 uA/m^2 nT  --> V/m
 	;   - 1e3   converts V/m --> mV/m
-	if get_eh then E_Hall = 1e-18 / (q * n_e) * MrVector_Cross(J_total, b_fpi)
+	if get_eh then E_Hall = rebin(1e-18 / (q * n_e), 3, npts) * MrVector_Cross(J_total, b_fpi)
 	
 ;-----------------------------------------------------
 ; Pressure Divergence \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -163,12 +186,12 @@ TIME=time
 	if get_divp then begin
 		;Divergence of the electron pressure
 		;   - 1/km erg/cm^3
-		divPe = mms_fpi_divP(tstart, tend)
+		divPe = mms_fpi_gradDivP(mode, tstart, tend)
 
 		;Electric field
 		;   - 1e-10 converts 1/C cm^3 1/km erg/cm^3  --> V/m
 		;   - 1e3  converts V/m --> mV/m
-		E_divPe = (-1e-7 / q) * (1.0 / n_e) * divPe
+		E_divPe = (-1e-7 / q) * (1.0 / rebin(n_e, 3, npts)) * divPe
 	endif
 	
 ;-----------------------------------------------------
@@ -190,9 +213,9 @@ TIME=time
 		dJ_dt     = (J_total[*,1:*] - J_total[*,0:npts-2]) / dt
 	
 		;Unit conversion
-		;   - 1e0 converts V/m --> V/m
+		;   - 1e-12 converts uA/m^2 1/s --> V/m
 		;   - 1e3 converts V/m --> mV/m
-		E_dJdt = (me/q^2) * (1.0/n_e) * temporary(dJ_dt)
+		E_dJdt = (me/q^2) * 1e-9/rebin(n_e, 3, npts) * temporary(dJ_dt)
 	endif
 	
 ;-----------------------------------------------------
