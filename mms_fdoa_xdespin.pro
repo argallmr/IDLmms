@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_fdoa_interp_phase
+;       mms_fdoa_xdespin
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -32,7 +32,7 @@
 ;*****************************************************************************************
 ;
 ;+
-;   Interpolate spacecraft attitude phase informationl.
+;   Create a set of transformation matrices that will despin a vector.
 ;
 ; :Params:
 ;       ATTITUDE:       in, required, type=struct
@@ -67,12 +67,12 @@
 ;   Modification History::
 ;       2015-09-25  -   Written by Matthew Argall.
 ;-
-function mms_fdoa_interp_phase, attitude, t_out, $
+function mms_fdoa_xdespin, attitude, t_out, $
 OFFSET=offset, $
 SPINUP=spinup, $
 TYPE=type
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 	
 	;Defaults
 	spinup = keyword_set(spinup)
@@ -94,9 +94,7 @@ TYPE=type
 	phase = mms_fdoa_interp_phase(attitude, t_out) * !dtor
 	
 	;If we are spinning up the data, we have to invert the phase
-	if spinup
-		phase = -phase
-	end
+	if spinup then phase = -phase
 	
 	;Sine and cosine of phase
 	cosPhase = cos(phase + offset)
@@ -104,11 +102,11 @@ TYPE=type
 	
 	;Create the rotation matrix
 	bcs2despun        =  fltarr(3, 3, n_elements(t_out))
-	bcs2despun[1,1,:] =  cosPhase
-	bcs2despun[2,1,:] =  sinPhase
-	bcs2despun[1,2,:] = -sinPhase
-	bcs2despun[2,2,:] =  cosPhase
-	bcs2despun[3,3,:] =  1
+	bcs2despun[1,1,*] =  cosPhase
+	bcs2despun[2,1,*] =  sinPhase
+	bcs2despun[1,2,*] = -sinPhase
+	bcs2despun[2,2,*] =  cosPhase
+	bcs2despun[3,3,*] =  1
 
 	return, phase
 end

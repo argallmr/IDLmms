@@ -79,7 +79,7 @@ PDIFF=pdiff, $
 FIT=fit, $
 MAXERROR=maxerror
 	compile_opt idl2
-	on_error, 2
+;	on_error, 2
 	
 	;Defaults
 	tf_smooth = keyword_set(tf_smooth)
@@ -90,7 +90,7 @@ MAXERROR=maxerror
 	;   - check for gaps > 175 degrees, to be safe.
 	;   - 175 degrees / (wZ degrees/second) * 1e9 nanoseconds/second
 	;   - wZ is the angular frequency (degrees/sec) of the spin axis in BCS.
-	att_gap = where((attitude.tt2000[1:*]-attitude.tt2000) gt 175*1.d9/atitude.w[2,*], n_att_gap)
+	att_gap = where((attitude.tt2000[1:*]-attitude.tt2000) gt 175*1.d9/attitude.w[2,*], n_att_gap)
 	if n_att_gap gt 0 then begin
 		; TODO process phunwrap on continuous segments
 		message, /INFORMATIONAL, 'Data gap in definitive attitude: phase results may get corrupted'
