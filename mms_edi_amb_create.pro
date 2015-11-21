@@ -1624,9 +1624,12 @@ end
 ;   for burst data, calculate the pitch angle of each anode.
 ;
 ;   Calling Sequences:
-;       fname = mms_edi_ql_amb_create( edi_file)
-;       fname = mms_edi_ql_amb_create( edi_file, fgm_file)
-;       fname = mms_edi_ql_amb_create( sc, mode, tstart, tend)
+;       fname = mms_edi_ql_amb_create( fast_file )
+;       fname = mms_edi_ql_amb_create( slow_file )
+;       fname = mms_edi_ql_amb_create( brst_file )
+;       fname = mms_edi_ql_amb_create( ..., tstart, tend )
+;       fname = mms_edi_ql_amb_create( fast_file, slow_file )
+;       fname = mms_edi_ql_amb_create( ..., tstart, thend )
 ;
 ; :Params:
 ;       SC:         in, required, type=string/strarr
@@ -1682,10 +1685,11 @@ FGM_FILES=fgm_files
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
-
+	
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+
 	;Total number of files given
 	nEDI = n_elements(amb_files)
 	nFGM = n_elements(fgm_files)
@@ -1703,6 +1707,7 @@ FGM_FILES=fgm_files
 ;-----------------------------------------------------
 	;Read Data
 	;   - Automatically comines slow and fast survey data
+	;   - Will check sc, instr, mode, level, optdesc
 	edi = mms_edi_read_l1a_amb(amb_files, tstart, tend)
 
 	;Sort by 0 and 180 pitch angles

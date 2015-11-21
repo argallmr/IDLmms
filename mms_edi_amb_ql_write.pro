@@ -91,7 +91,9 @@
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
 ;-
-function mms_edi_amb_ql_write, amb_data, meta
+function mms_edi_amb_ql_write, amb_data, $
+FILENAME=filename, $
+PARENTS=parents
 	compile_opt idl2
 	
 	catch, the_error
@@ -104,62 +106,94 @@ function mms_edi_amb_ql_write, amb_data, meta
 	endif
 
 ;------------------------------------;
-; Check Metadata                     ;
+; Version History                    ;
 ;------------------------------------;
-	;Extract metadata from structure
-	if size(meta, /TNAME) eq 'STRUCT' then begin
-		sc        = meta.sc
-		instr     = meta.instr
-		mode      = meta.mode
-		level     = meta.level
-		optdesc   = meta.optdesc
-		tstart    = meta.tstart
-		directory = meta.directory
-		mods      = meta.mods
-		parents   = meta.parents
+	;Mods to data processing
+	mods = [ 'v0.0.0 - Original version.', $
+	         'v0.1.0 - Added PACK_MODE variable.' ]
 	
-		; Describe the modifications to each version
-		version = stregex( mods[-1], '^v([0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT )
-		version = version[1]
+	;Get the version
+	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+	vx      = strtrim(version[1], 2)
+	vy      = strtrim(version[2], 2)
+	vz      = strtrim(version[3], 2)
 
-		; Create the output filename
-		amb_file = mms_construct_filename( sc, instr, mode, level,     $
-		                                   DIRECTORY = meta.directory, $
-		                                   OPTDESC   = optdesc,        $
-		                                   TSTART    = tstart,         $
-		                                   VERSION   = version )
+;------------------------------------;
+; Check Keywords                     ;
+;------------------------------------;
 	
-	;Filename Given
-	endif else if size(meta, /TNAME) eq 'STRING' then begin
-		amb_file = meta
-	
-		;Try to dissect the file name
-		mms_dissect_filename, amb_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level, $
-		                                TSTART=tstart, OPTDESC=optdesc, VERSION=version, $
-		                                DIRECTORY=directory
-	
-		;Could not dissect
-		if sc eq '' then MrPrintF, 'LogErr', 'Filename does not meet MMS standards: "' + meta + '".'
-	
-	;Create file name
+	;Parse information from the parents
+	if n_elements(parents) gt 0 then begin
+		;Find an EDI parent file
+		ifile      = where( stregex(parents, '_edi_', /BOOLEAN), nfile )
+		edi_parent = parents[ifile[0]]
+		
+		;Dissect the name
+		mms_dissect_filename, edi_parent, SC=sc, MODE=mode, TSTART=tstart
+		mode = mode eq 'brst' ? 'brst' : 'srvy'
 	endif else begin
-		sc = ''
-		cd, CURRENT=directory
-		amb_file = filepath('mms_edi_amb.cdf', ROOT_DIR=directory)
-		MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
+		parents = ' '
 	endelse
 	
-	;Create fake metadata
-	if sc eq '' then begin
-		sc      = 'mms#'
-		instr   = 'edi'
-		mode    = 'mode'
-		level   = 'level'
-		optdesc = 'amb'
-		tstart  = 'YYYYMMDD'
-		version = 'X.Y.Z'
-		parents = ' '
+	;Dissect a file name
+	if n_elements(filename) gt 0 $
+		then mms_dissect_filename, filename, SC=sc, MODE=mode, TSTART=tstart, DIRECTORY=outdir $
+		else filename = ''
+	
+	;Check if the system variable exists
+	defsysv, '!mms_init', EXISTS=tf_sysv
+	if tf_sysv then begin
+		status  = !mms_init.status
+		outdir  = !mms_init.dropbox
+		sdcroot = !mms_init.data_path
+	endif else begin
+		status  = 0
+		sdcroot = ''
+	endelse
+	
+	;Defaults
+	if n_elements(sc)      eq 0 || sc      eq '' then sc     = 'mms#'
+	if n_elements(mode)    eq 0 || mode    eq '' then mode   = 'mode'
+	if n_elements(outdir)  eq 0 || outdir  eq '' then cd, CURRENT=outdir
+	if n_elements(tstart)  eq 0 || tstart  eq '' then begin
+		MrCDF_Epoch_Breakdown, amb_data.tt2000_0[0], yr, mo, day, hr, mn, sec
+		tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec)
 	endif
+
+;------------------------------------;
+; Get the Latest Z-Version           ;
+;------------------------------------;
+	;Constants
+	instr   = 'edi'
+	level   = 'ql'
+	optdesc = 'amb'
+
+	;Create a fully qualified file name
+	;   - Both to DROPBOX and to DATA_PATH_ROOT
+	vxy     = vx + '.' + vy + '.'
+	dbfile  = mms_build_path(outdir,  sc, instr, mode, level, optdesc, tstart, vxy, /NOMKDIR, DEPTH='/')
+	sdcfile = mms_build_path(sdcroot, sc, instr, mode, level, optdesc, tstart, vxy, /NOMKDIR)
+
+	;Check the z-version
+	z_db  = unh_version(dbfile)
+	z_sdc = unh_version(sdcfile)
+	vz    = string(fix(z_db) > fix(z_sdc), FORMAT='(i0)')
+	
+	;Final version
+	version = string(vx, vy, vz, FORMAT='(%"%i.%i.%i")')
+
+;------------------------------------;
+; Create Output File Name            ;
+;------------------------------------;
+	
+	;Create the final file name
+	;   - Save to DROPBOX
+	if filename eq '' $
+		then amb_file = mms_build_path(outdir, sc, instr, mode, level, optdesc, tstart, version, /NOMKDIR, DEPTH='/') $
+		else amb_file = filename
+
+	;Notify where file is located
+	MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
 
 ;------------------------------------;
 ; Check Data                         ;
