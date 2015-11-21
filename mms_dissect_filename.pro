@@ -82,7 +82,7 @@
 ;                           with irrelevant, least significant, fields dropped
 ;                           when files start on regular hourly or minute boundaries.
 ;       VERSION:        out, optional, type=string
-;                       Version of the data file, formatted as 'vX.Y.Z'
+;                       Version of the data file, formatted as 'X.Y.Z'
 ;                           X - Interface number.  Increments in this number represent a
 ;                                   significant change to the processing software and/or to the contents of the 
 ;                                   file. These changes will likely break existing code that expects a specific 
@@ -102,10 +102,10 @@
 ; :Author:
 ;   Matthew Argall::
 ;       University of New Hampshire
-;       Morse Hall, Room 113
+;       Morse Hall, Room 348
 ;       8 College Rd.
 ;       Durham, NH, 03824
-;       matthew.argall@wildcats.unh.edu
+;       matthew.argall@unh.edu
 ;
 ; :Copyright:
 ;       Matthew Argall 2013
@@ -119,6 +119,7 @@
 ;       2015/05/04  -   Added the DIRECTORY keyword. Accept full file paths. - MRA
 ;       2015/06/15  -   Version numbers can be greater than 9. - MRA
 ;       2015/10/21  -   Burst mode dates not longer get caught by OPTDESC. - MRA
+;       2015/11/20  -   Breakdown the version and time as well. - MRA
 ;-
 pro mms_dissect_filename, filename, $
 DIRECTORY=directory, $
@@ -128,7 +129,11 @@ MODE=mode, $
 OPTDESC=optdesc, $
 SC=sc, $
 TSTART=tstart, $
-VERSION=version
+VERSION=version, $
+VX=vx, $
+VY=vy, $
+VZ=vz, $
+TT2000=tt2000
 	compile_opt strictarr
 	on_error, 2
 
@@ -168,6 +173,26 @@ VERSION=version
 	tstart  = reform(str[7,iPass])
 	version = reform(str[8,iPass])
 	
+	;Dissect the version numbers
+	if arg_present(vx) || arg_present(vy) || arg_present(vz) then begin
+		parts = stregex(version, '([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+		vx    = reform(parts[1,*])
+		vy    = reform(parts[2,*])
+		vz    = reform(parts[3,*])
+	endif
+	
+	;Dissect the start time
+	if arg_present(tt2000) then begin
+		fstart = reform(tstart, 1, nPass)
+		year   = fix(strmid(fstart,  0, 4))
+		month  = fix(strmid(fstart,  4, 2))
+		day    = fix(strmid(fstart,  6, 2))
+		hour   = fix(strmid(fstart,  8, 2))
+		minute = fix(strmid(fstart, 10, 2))
+		second = fix(strmid(fstart, 12, 2))
+		tt2000 = MrCDF_Epoch_Compute(year, month, day, hour, minute, second, 0, 0, 0)
+	endif
+	
 	;Return scalars?
 	if nPass eq 1 then begin
 		sc      = sc[0]
@@ -177,6 +202,14 @@ VERSION=version
 		optdesc = optdesc[0]
 		tstart  = tstart[0]
 		version = version[0]
+		
+		if n_elements(vx) eq 1 then begin
+			vx = vx[0]
+			vy = vy[0]
+			vz = vz[0]
+		endif
+		
+		if n_elements(tt2000) eq 1 then tt2000 = tt2000[0]
 	endif
 end
 
