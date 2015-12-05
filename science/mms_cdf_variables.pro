@@ -1,11 +1,11 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_test_interp
+;    mms_cdf_variables
 ;
 ; PURPOSE:
 ;+
-;   G
+;   Gather MMS variable names for a specific data product.
 ;
 ; :Categories:
 ;    MMS, Utility
@@ -21,6 +21,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/11/19  -   Written by Matthew Argall
+;       2015/11/21  -   Added various L1A/QL/L2 EDI varaibles. Fixed bugs. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -35,6 +36,292 @@
 ;                       Data rate mode. Options are: "slow", "fast", "srvy", "brst", "f128"
 ;       LEVEL:          in, required, type=string
 ;                       Data level. Options are: "l1a", "l1b", "l2pre"
+;       OPTDESC:        in, required, type=string
+;                       Optional variable name descriptor.
+;
+; :Returns:
+;       VARS:           String array of variable names.
+;-
+function mms_cdf_edi_variables, sc, instr, mode, level, optdesc
+	compile_opt idl2
+	on_error, 2
+
+	;Type of data requested
+	data = strjoin([sc, instr, mode, level, optdesc], '_')
+
+;-------------------------------------------------------
+; Ambient Mode /////////////////////////////////////////
+;-------------------------------------------------------
+	if optdesc eq 'amb' then begin
+	;-------------------------------------------------------
+	; L1A Amb //////////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'l1a' then begin
+			;SLOW & FAST
+			if mode eq 'slow' || mode eq 'fast' then begin
+				vars = [ 'Epoch', $
+				         'epoch_angle', $
+				         'epoch_timetag', $
+				         'delta_t', $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'phi'), $
+				         mms_construct_varname(sc, instr, optdesc, 'theta'), $
+				         mms_construct_varname(sc, instr, 'pitch', 'gdu1'), $
+				         mms_construct_varname(sc, instr, 'pitch', 'gdu2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'dwell'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pitchmode'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pacmo'), $
+				         mms_construct_varname(sc, instr, optdesc, 'optics'), $
+				         'epoch_crsf', $
+				         'crsf_10min' $
+				       ]
+			;SRVY
+			endif else if mode eq 'srvy' then begin
+				vars = [ 'Epoch', $
+				         'epoch_angle', $
+				         'epoch_timetag', $
+				         'delta_t', $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'phi'), $
+				         mms_construct_varname(sc, instr, optdesc, 'theta'), $
+				         mms_construct_varname(sc, instr, optdesc, 'dwell'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pitchmode'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pacmo'), $
+				         mms_construct_varname(sc, instr, optdesc, 'optics'), $
+				         'epoch_crsf', $
+				         'crsf_10min' $
+				       ]
+			;BRST
+			endif else if mode eq 'brst' then begin
+				vars = [ 'Epoch', $
+				         'epoch_angle', $
+				         'epoch_timetag', $
+				         'delta_t', $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts3'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts3'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts4'), $
+				         mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts4'), $
+				         mms_construct_varname(sc, instr, optdesc, 'phi'), $
+				         mms_construct_varname(sc, instr, optdesc, 'theta'), $
+				         mms_construct_varname(sc, instr, 'pitch', 'gdu1'), $
+				         mms_construct_varname(sc, instr, 'pitch', 'gdu2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'dwell'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy1'), $
+				         mms_construct_varname(sc, instr, optdesc, 'energy2'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pitchmode'), $
+				         mms_construct_varname(sc, instr, optdesc, 'pacmo'), $
+				         mms_construct_varname(sc, instr, optdesc, 'optics'), $
+				         'epoch_crsf', $
+				         'crsf_10min' $
+				       ]
+			endif else begin
+				message, 'No files for "' + data + '".'
+			endelse
+	;-------------------------------------------------------
+	; QL Amb ///////////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else if mode eq 'ql' then begin
+			if mode eq 'srvy' then begin
+				message, 'No files for "' + data + '".'
+			endif else if mode eq 'srvy' then begin
+				message, 'No files for "' + data + '".'
+			endif else begin
+				message, 'No files for "' + data + '".'
+			endelse
+	;-------------------------------------------------------
+	; L2 Amb ///////////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else if mode eq 'l2' then begin
+			;SRVY
+			if mode eq 'srvy' then begin
+				vars = [ 'epoch_gd12', $
+				         'epoch_gd21', $
+				         mms_construct_varname(sc, instr, energy, 'gd12'), $
+				         mms_construct_varname(sc, instr, energy, 'gd21'), $
+				         mms_construct_varname(sc, instr, counts, 'gd12'), $
+				         mms_construct_varname(sc, instr, counts, 'gd21') $
+				       ]
+			;BRST
+			endif else if mode eq 'brst' then begin
+				message, 'No files for "' + data + '".'
+			endif else begin
+				message, 'No files for "' + data + '".'
+			endelse
+	;-------------------------------------------------------
+	; Invalid Level ////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else begin
+			message, 'No files for "' + data + '".'
+		endelse
+		
+;-------------------------------------------------------
+; E-Field Mode /////////////////////////////////////////
+;-------------------------------------------------------
+	endif else if optdesc eq 'efield' then begin
+	;-------------------------------------------------------
+	; L1A EField ///////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'l1a' then begin
+			;SLOW & FAST
+			if mode eq 'slow' || mode eq 'fast' then begin
+				vars = [ 'Epoch', $
+				         'epoch_time_tag', $
+				         'delta_t', $
+				         mms_construct_varname(sc, instr, 'optics'), $
+				         'Epoch_beam_gd12', $
+				         'Epoch_beam_gd21', $
+				         mms_construct_varname(sc, instr, 'tof1',     'us'), $
+				         mms_construct_varname(sc, instr, 'tof2',     'us'), $
+				         mms_construct_varname(sc, instr, 'vax',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'vax',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'vay',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'vay',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'theta',    'gd12'), $
+				         mms_construct_varname(sc, instr, 'theta',    'gd21'), $
+				         mms_construct_varname(sc, instr, 'phi',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'phi',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'word14',   'gd12'), $
+				         mms_construct_varname(sc, instr, 'word14',   'gd21'), $
+				         mms_construct_varname(sc, instr, 'word15',   'gd12'), $
+				         mms_construct_varname(sc, instr, 'word15',   'gd21'), $
+				         mms_construct_varname(sc, instr, 'numchips', 'gd12'), $
+				         mms_construct_varname(sc, instr, 'numchips', 'gd21'), $
+				         mms_construct_varname(sc, instr, 'e',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'e',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'sq',       'gd12'), $
+				         mms_construct_varname(sc, instr, 'sq',       'gd21'), $
+				         mms_construct_varname(sc, instr, 'm',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'm',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'n',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'n',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'max_addr', 'gd12'), $
+				         mms_construct_varname(sc, instr, 'max_addr', 'gd21'), $
+				         'epoch_crsf', $
+				         'crsf_10min' $
+				       ]
+			;BRST
+			endif else if mode eq 'brst' then begin
+				vars = [ 'Epoch', $
+				         'epoch_time_tag', $
+				         'epoch_time_tag', $
+				         mms_construct_varname(sc, instr, 'optics'), $
+				         'Epoch_beam_gd12', $
+				         'Epoch_beam_gd21', $
+				         'Epoch_data29', $
+				         mms_construct_varname(sc, instr, 'tof1',     'us'), $
+				         mms_construct_varname(sc, instr, 'tof2',     'us'), $
+				         mms_construct_varname(sc, instr, 'data29',   'gd12'), $
+				         mms_construct_varname(sc, instr, 'data29',   'gd21'), $
+				         mms_construct_varname(sc, instr, 'vax',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'vax',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'vay',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'vay',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'theta',    'gd12'), $
+				         mms_construct_varname(sc, instr, 'theta',    'gd21'), $
+				         mms_construct_varname(sc, instr, 'phi',      'gd12'), $
+				         mms_construct_varname(sc, instr, 'phi',      'gd21'), $
+				         mms_construct_varname(sc, instr, 'word14',   'gd12'), $
+				         mms_construct_varname(sc, instr, 'word14',   'gd21'), $
+				         mms_construct_varname(sc, instr, 'word15',   'gd12'), $
+				         mms_construct_varname(sc, instr, 'word15',   'gd21'), $
+				         mms_construct_varname(sc, instr, 'numchips', 'gd12'), $
+				         mms_construct_varname(sc, instr, 'numchips', 'gd21'), $
+				         mms_construct_varname(sc, instr, 'e',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'e',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'sq',       'gd12'), $
+				         mms_construct_varname(sc, instr, 'sq',       'gd21'), $
+				         mms_construct_varname(sc, instr, 'm',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'm',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'n',        'gd12'), $
+				         mms_construct_varname(sc, instr, 'n',        'gd21'), $
+				         mms_construct_varname(sc, instr, 'max_addr', 'gd12'), $
+				         mms_construct_varname(sc, instr, 'max_addr', 'gd21'), $
+				         'epoch_crsf', $
+				         'crsf_10min' $
+				       ]
+			endif else begin
+				message, 'No files for "' + data + '".'
+			endelse
+		
+	;-------------------------------------------------------
+	; QL EField ////////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else if level eq 'ql' then begin
+			message, 'No files for "' + data + '".'
+	
+	;-------------------------------------------------------
+	; L2 EField ////////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else if level eq 'l2' then begin
+			message, 'No files for "' + data + '".'
+		endif else begin
+			message, 'No files for "' + data + '".'
+		endelse
+		
+;-------------------------------------------------------
+; Q0 ///////////////////////////////////////////////////
+;-------------------------------------------------------
+	endif else if optdesc eq 'q0' then begin
+	;-------------------------------------------------------
+	; L2 Q0 ////////////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'l2' then begin
+			if mode eq 'srvy' then begin
+				vars = [ 'epoch_gd12', $
+				         'epoch_gd21', $
+				         mms_construct_varname(sc, instr, energy, 'gd12'), $
+				         mms_construct_varname(sc, instr, energy, 'gd21'), $
+				         mms_construct_varname(sc, instr, counts, 'gd12'), $
+				         mms_construct_varname(sc, instr, counts, 'gd21') $
+				       ]
+			endif else if mode eq 'brst' then begin
+				message, 'No files for "' + data + '".'
+			endif else begin
+				message, 'No files for "' + data + '".'
+			endelse
+	;-------------------------------------------------------
+	; Invalid Level ////////////////////////////////////////
+	;-------------------------------------------------------
+		endif else begin
+			message, 'No files for "' + data + '".'
+		endelse
+;-------------------------------------------------------
+; Invalid OptDesc //////////////////////////////////////
+;-------------------------------------------------------
+	endif else begin
+		message, 'No files for "' + data + '".'
+	endelse
+	
+	return, vars
+end
+
+
+;+
+;   Array of EDP variable names
+;
+; :Params:
+;       SC:             in, required, type=string
+;                       Spacecraft identifier. Options are: "mms1", "mms2", "mms3", "mms4"
+;       INSTR:          in, required, type=string
+;                       Instrument identifier. Options are: "afg", "dfg"
+;       MODE:           in, required, type=string
+;                       Data rate mode. Options are: "slow", "fast", "srvy", "brst", "f128"
+;       LEVEL:          in, required, type=string
+;                       Data level. Options are: "l1a", "l1b", "l2pre"
+;       OPTDESC:        in, required, type=string
+;                       Optional variable name descriptor.
 ;
 ; :Returns:
 ;       VARS:           String array of variable names.
@@ -267,7 +554,6 @@ function mms_cdf_edp_variables, sc, instr, mode, level, optdesc
 end
 
 
-
 ;+
 ;   Array of FGM variable names
 ;
@@ -400,38 +686,64 @@ end
 ;+
 ;   Return CDF variable names.
 ;
+; :Examples:
+;   Get all of the variable names for a given data product::
+;       IDL> mms_cdf_variables('', 'mms1', 'dfg', 'srvy', 'l2pre', /ALL)
+;           Epoch
+;           Epoch_state
+;           label_b_gse
+;           label_b_gsm
+;           label_b_dmpa
+;           label_b_bcs
+;           label_r_gse
+;           label_r_gsm
+;           mms1_dfg_srvy_l2pre_gse
+;           mms1_dfg_srvy_l2pre_gsm
+;           mms1_dfg_srvy_l2pre_dmpa
+;           mms1_dfg_srvy_l2pre_bcs
+;           mms1_dfg_srvy_l2pre_flag
+;           mms1_dfg_srvy_l2pre_hirange
+;           mms1_dfg_srvy_l2pre_rate
+;           mms1_dfg_srvy_l2pre_stemp
+;           mms1_dfg_srvy_l2pre_etemp
+;           mms1_dfg_srvy_l2pre_l1a_mode
+;           mms1_pos_gsm
+;           mms1_pos_gse
+;   Get the magnetic field in GSE coordinates::
+;       IDL> mms_cdf_variables('gse', 'mms1', 'dfg', 'srvy', 'l2pre')
+;           mms1_dfg_srvy_l2pre_gse
+;
 ; :Params:
 ;       VARNAMES:       in, required, type=string/strarr
 ;                       Requested variable names. These are the CDF variable names, but
 ;                           with `SC`, `INSTR`, `MODE`, `LEVEL` stripped from the
-;                           beginning of the name.
+;                           beginning of the name (e.g. the variable suffix).
 ;       SC:             in, required, type=string
-;                       Spacecraft identifier. Options are: "mms1", "mms2", "mms3", "mms4"
+;                       Spacecraft identifier.
 ;       INSTR:          in, required, type=string
-;                       Instrument identifier. Options are: "afg", "dfg"
+;                       Instrument identifier.
 ;       MODE:           in, required, type=string
-;                       Data rate mode. Options are: "slow", "fast", "srvy", "brst", "f128"
+;                       Data rate mode.
 ;       LEVEL:          in, required, type=string
-;                       Data level. Options are: "l1a", "l1b", "l2pre"
+;                       Data level.
 ;       OPTDESC:        in, optional, type=string
 ;                       Optional variable name descriptor.
+;
+; :Keywords:
+;       ALL:            in, optional, type=boolean, default=0
+;                       If set, all variable names for the given inputs are returned.
+;       SUFFIX:         in, optional, type=boolean, default=0
+;                       Return the suffixes (i.e. the values accepted by `VARNAMES`)
+;                           for the given inputs. Ignored if `ALL` is set.
 ;
 ; :Returns:
 ;       VARIABLES:      CDF Variable names matching the input parameters.
 ;-
 function mms_cdf_variables, varnames, sc, instr, mode, level, optdesc, $
-ALL=all
+ALL=all, $
+SUFFIX=tf_suffix
 	compile_opt idl2
-
-	;Error handling
-	catch, the_error
-	if the_error ne 0 then begin
-		catch, /cancel
-		if obj_valid(win) then obj_destroy, win
-		MrPrintF, 'LogErr'
-		return, !Null
-	endif
-
+	on_error, 2
 
 ;-----------------------------------------------------
 ; Gather Variable Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -447,24 +759,42 @@ ALL=all
 	if keyword_set(all) then return, vars
 
 ;-----------------------------------------------------
+; Variable Suffixes \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Find the suffixes
+	;   - The suffix is anything not containing the generic input information
+	;   - If no suffix is found, select the entire variable
+	prefix = strjoin([sc, instr, mode, level], '|')
+	parts  = stregex(vars, '^((' + prefix + ')_)+(.*)$', /SUBEXP, /EXTRACT)
+	suffix = reform(parts[3,*])
+	
+	;If no suffix was found, select the entire variable
+	iNoSuffix = where(parts[0,*] eq '', nNoSuffix)
+	if nNoSuffix gt 0 then suffix[iNoSuffix] = vars[iNoSuffix]
+	
+	;Return the suffixes?
+	if keyword_set(tf_suffix) then return, suffix
+
+;-----------------------------------------------------
 ; Select Specific Variables \\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	nvars = n_elements(varnames)
+	nvars     = n_elements(varnames)
 	variables = strarr(nvars)
-	count = 0
+	count     = 0
+
+	;Loop through each variable to look for matches
 	for i = 0, nvars-1 do begin
-		;Search for th name
-		iname = where( stregex(vars, varname + '$') ne -1, nname)
+		;Search for the name
+		iname = where( stregex(suffix, '^' + varnames[i] + '$') ne -1, nname)
+		if nname eq 0 then iname = where( stregex(vars, varnames[i] + '$') ne -1, nname)
 		
 		;Variable not found.
 		if nname eq 0 then begin
-			MrPrintF, 'LogText', 'Unable to find variable: "' + $
-			         strjoin([sc, instr, mode, level, '*'+varname], '_') + '".'
+			MrPrintF, 'LogText', 'Unable to find variable: "' + varnames[i] + '".'
 		
 		;Too many variables found
 		endif else if nname gt 1 then begin
-			MrPrintF, 'LogText', 'More than one variable found: ' + $
-			          strjoin([sc, instr, mode, level, '*'+varname], '_') + '".'
+			MrPrintF, 'LogText', 'More than one variable found matching: "' + varnames[i] + '".'
 		
 		;Variable found
 		endif else begin

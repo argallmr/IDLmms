@@ -70,8 +70,8 @@ EIGVECS=eigvecs
 ;-----------------------------------------------------
 	
 	;Magnetic field data
-	mms_fgm_ql_read, 'mms1', 'dfg', mode, tstart, tend, B_DMPA=b_dmpa, TIME=t_fgm
-	b_dmpa = b_dmpa[0:2,*]
+	mms_fgm_ql_read, 'mms1', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b_fgm, TIME=t_fgm
+	b_fgm = b_fgm[0:2,*]
 	
 	;Get current density from FPI
 	fpi_mode = mode eq 'srvy' ? 'fast' : mode
@@ -121,6 +121,8 @@ EIGVECS=eigvecs
 	t3_fpi_ssm = MrCDF_epoch2ssm(temporary(t3_fpi), t0)
 	t4_fpi_ssm = MrCDF_epoch2ssm(temporary(t4_fpi), t0)
 
+stop
+
 	yrange = [min(j1_total, MAX=ymax), ymax]
 	yrange += abs(yrange) * [-0.1, 0.1]
 
@@ -131,7 +133,7 @@ EIGVECS=eigvecs
 	win = MrWindow(OXMARGIN=[12,7], YSIZE=600, YGAP=0.5, REFRESH=0)
 	
 	;Magnetic field from MMS1
-	p1_fgm = MrPlot(t_fgm_ssm, b_dmpa, $
+	p1_fgm = MrPlot(t_fgm_ssm, b_fgm, $
 	                /CURRENT, $
 	                COLOR       = colors[0:2], $
 	                DIMENSION   = 2, $

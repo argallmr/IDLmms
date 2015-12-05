@@ -94,7 +94,7 @@ TIME=time
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Magnetic field
-	;   - DMPA Coordinates
+	;   - GSE Coordinates
 	mms_fgm_ql_read, 'mms1', instr, mode, level, tstart, tend, B_GSE=b1, TIME=t1
 	mms_fgm_ql_read, 'mms2', instr, mode, level, tstart, tend, B_GSE=b2, TIME=t2
 	mms_fgm_ql_read, 'mms3', instr, mode, level, tstart, tend, B_GSE=b3, TIME=t3
@@ -105,26 +105,57 @@ TIME=time
 	b2 = b2[0:2,*]
 	b3 = b3[0:2,*]
 	b4 = b4[0:2,*]
+
+;-----------------------------------------------------
+; Interpolate Fields \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Convert time to float (seconds)
+	t0     = t1[0]
+	t1_ssm = MrCDF_epoch2ssm(t1, t0)
+	t2_ssm = MrCDF_epoch2ssm(temporary(t2), t0)
+	t3_ssm = MrCDF_epoch2ssm(temporary(t3), t0)
+	t4_ssm = MrCDF_epoch2ssm(temporary(t4), t0)
+	
+	;Interpolate B-fields
+	;   - Use MMS1 as reference spacecraft
+	b2 = MrInterpol(b2, temporary(t2_ssm), t1_ssm)
+	b3 = MrInterpol(b3, temporary(t3_ssm), t1_ssm)
+	b4 = MrInterpol(b4, temporary(t4_ssm), t1_ssm)
+
+;-----------------------------------------------------
+; Positions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; Using MEC is 100x faster.
+	;
 	
 	;FDOA Spacecraft Position
-	;   - DMPA Coordinates
-	r1 = mms_fdoa_scpos('mms1', tstart, tend, t1)
-	r2 = mms_fdoa_scpos('mms2', tstart, tend, t1)
-	r3 = mms_fdoa_scpos('mms3', tstart, tend, t1)
-	r4 = mms_fdoa_scpos('mms4', tstart, tend, t1)
-
-	;Convert time to seconds
-	MrCDF_Epoch_Breakdown, t1[0], year, month, day
-	t0 = MrCDF_Epoch_Compute(year, month, day, /TT2000)
-	t1_sse = MrCDF_epoch2sse(t1, t0)
-	t2_sse = MrCDF_epoch2sse(temporary(t2), t0)
-	t3_sse = MrCDF_epoch2sse(temporary(t3), t0)
-	t4_sse = MrCDF_epoch2sse(temporary(t4), t0)
+;	r1 = mms_fdoa_scpos('mms1', tstart, tend, t1)
+;	r2 = mms_fdoa_scpos('mms2', tstart, tend, t1)
+;	r3 = mms_fdoa_scpos('mms3', tstart, tend, t1)
+;	r4 = mms_fdoa_scpos('mms4', tstart, tend, t1)
 	
-	;interpolate B-fields
-	b2 = MrInterpol(b2, temporary(t2_sse), t1_sse)
-	b3 = MrInterpol(b3, temporary(t3_sse), t1_sse)
-	b4 = MrInterpol(b4, temporary(t4_sse), temporary(t1_sse))
+	;MEC Spacecraft Position
+	mms_mec_read, 'mms1', 'epht89d', tstart, tend, R_GSE=r1, TIME=t1_mec
+	mms_mec_read, 'mms2', 'epht89d', tstart, tend, R_GSE=r2, TIME=t2_mec
+	mms_mec_read, 'mms3', 'epht89d', tstart, tend, R_GSE=r3, TIME=t3_mec
+	mms_mec_read, 'mms4', 'epht89d', tstart, tend, R_GSE=r4, TIME=t4_mec
+	
+	;Convert to seconds
+	t1_mec = MrCDF_epoch2ssm(temporary(t1_mec), t0)
+	t2_mec = MrCDF_epoch2ssm(temporary(t2_mec), t0)
+	t3_mec = MrCDF_epoch2ssm(temporary(t3_mec), t0)
+	t4_mec = MrCDF_epoch2ssm(temporary(t4_mec), t0)
+	
+	;Interpolate position
+	r1 = MrInterpol(r1, temporary(t1_mec), t1_ssm)
+	r2 = MrInterpol(r2, temporary(t2_mec), t1_ssm)
+	r3 = MrInterpol(r3, temporary(t3_mec), t1_ssm)
+	r4 = MrInterpol(r4, temporary(t4_mec), t1_ssm)
+
+;-----------------------------------------------------
+; Curl \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Curl via Reciprocal Vectors
 	;   - 1e-12/mu0 converts 1/km * nT  --> A/m^2
@@ -145,7 +176,7 @@ TIME=time
 		divB  = MrReciprocalDivergence(r1, r2, r3, r4, b1, b2, b3, b4)
 		divB *= (1e-6/mu0)
 	endif
-	
+
 	;Delete data
 	r1 = (r2 = (r3 = (r4 = !Null)))
 	b1 = (b2 = (b3 = (b4 = !Null)))

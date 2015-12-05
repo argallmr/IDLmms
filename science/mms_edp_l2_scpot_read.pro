@@ -35,12 +35,20 @@
 ;+
 ;   Read EDP level 2 spacecraft potential data.
 ;
+;   Calling Sequence::
+;       mms_edp_l2_scpot_read, FILE, TSTART, TEND
+;       mms_edp_l2_scpot_read, SC, MODE, TSTART, TEND
+;
 ; :Categories:
 ;   MMS, EDP
 ;
 ; :Params:
 ;       FILES:          in, required, type=string/strarr
 ;                       Name of the EDI e-field mode file or files to be read.
+;       SC:             in, optional, type=string
+;                       MMS spacecraft identifier. Options are 'mms1', 'mms2', 'mms3', 'mms4'
+;       MODE:           in, optional, type=string
+;                       Data rate mode. Options are 'srvy' and 'brst'.
 ;       TSTART:         in, optional, type=string
 ;                       Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:           in, optional, type=string
@@ -72,7 +80,7 @@
 ;   Modification History::
 ;       2015/09/12  -   Written by Matthew Argall
 ;-
-pro mms_edp_l2_scpot_read, files, tstart, tend, $
+pro mms_edp_l2_scpot_read, arg1, arg2, arg3, arg4, $
 BITMASK=bitmask, $
 DCV=dcv, $
 PSP=psp, $
@@ -93,6 +101,35 @@ TIME=time
 	
 	;Defaults
 	tf_sort = keyword_set(tf_sort)
+	
+;-----------------------------------------------------
+; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Number of files given
+	nFiles = n_elements(files)
+	if max(stregex(files, '^mms[1-4]$', /BOOLEAN, /FOLD_CASE)) eq 1 then begin
+		sc     = arg1
+		mode   = arg2
+		fstart = arg3
+		fend   = arg4
+		
+		;Combine fast and slow survey?
+		_mode = mode eq 'srvy' ? ['fast', 'slow'] : mode
+		
+		;Find the files
+		theFiles = mms_find_file(sc, 'edp', _mode, 'l2', $
+		                         COUNT     = nfiles, $
+		                         OPTDESC   = 'scpot', $
+		                         SEARCHSTR = searchstr, $
+		                         TSTART    = fstart, $
+		                         TEND      = fend, $
+		                         TIMEORDER = '%Y%M%d%H%m%S')
+		if nfiles eq 0 then message, 'Unable to find EDP files: "' + searchstr[0] + '".'
+	endif else begin
+		theFiles = arg1
+		fstart   = arg2
+		fend     = arg3
+	endelse
 	
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

@@ -96,11 +96,10 @@ TIME=time
 ;-----------------------------------------------------
 	;Number of files given
 	nFiles = n_elements(files)
-	
 	if max(stregex(files, '^mms[1-4]$', /BOOLEAN, /FOLD_CASE)) eq 1 then begin
 		sc     = files
 		mode   = tstart
-		fstart = tstart
+		fstart = tend
 		fend   = arg4
 		if n_elements(optdesc) eq 0 then optdesc = 'dce'
 		
@@ -119,6 +118,10 @@ TIME=time
 	endif else begin
 		theFiles = files
 	endelse
+	
+;-----------------------------------------------------
+; Dissect File Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Dissect the file name
 	mms_dissect_filename, theFiles, $
@@ -152,8 +155,9 @@ TIME=time
 
 	;Create the variable names
 	e_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'xyz_dsl')
-	mask_vname = mms_construct_varname(_sc, _instr, _optdesc, 'bitmask')
-	q_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'quality')
+;	e_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'ql_dsl')
+	mask_vname = mms_construct_varname(_sc, _instr, _optdesc, 'ql_bitmask')
+	q_vname    = mms_construct_varname(_sc, _instr, _optdesc, 'ql_quality')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -184,7 +188,8 @@ TIME=time
 		                           TEND   = fend)
 	
 	;Reissue error
-	if status ne 0 then message, /REISSUE_LAST
+	;   - Register error, but do not halt
+	if status ne 0 then MrPrintF, 'LogErr'
 
 ;-----------------------------------------------------
 ; Remove FillVals \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

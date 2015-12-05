@@ -34,16 +34,13 @@
 ; PURPOSE:
 ;+
 ;   Create a plot of FIELDS data
-;       1) DFG Magnetic Field
-;       2) EDP Electric Field
-;       3) EDP Spacecraft Potential
-;       4) EDI 0-degree ambient counts
-;       5) EDI 180-degree ambient counts
-;       6) EDI Anisotropy (0/180 counts)
+;       1) Bx from all 4 spacecraft
+;       2) By from all 4 spacecraft
+;       3) Bz from all 4 spacecraft
+;       4) Current density from curlometer
+;       5) Current density from reciprocal vectors
 ;
 ; :Params:
-;       SC:                 in, required, type=string/strarr
-;                           Spacecraft for which data is to be plotted.
 ;       TSTART:             in, required, type=string
 ;                           Start time of the data interval to read, as an ISO-8601 string.
 ;       TEND:               in, required, type=string
@@ -53,7 +50,7 @@
 ;       EIGVECS:        out, optional, type=3x3 float
 ;                       Rotation matrix (into the minimum variance coordinate system).
 ;-
-function mms_fig_xprox, sc, tstart, tend, $
+function mms_fig_fpi_moms, sc, mode, tstart, tend, $
 EIGVECS=eigvecs
 	compile_opt strictarr
 
@@ -61,102 +58,114 @@ EIGVECS=eigvecs
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /cancel
-		void = cgErrorMsg(/QUIET)
+		MrPrintF, 'LogErr'
 		return, !Null
 	endif
 	
-	mode = 'brst' ; 'brst' | 'srvy'
+	;Accept only srvy or brst
+	if mode ne 'srvy' && mode ne 'brst' then message, 'MODE must be "srvy" or "brst".'
 
 ;-----------------------------------------------------
-; Find Data Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;FGM Magnetic Field
-	mms_fgm_ql_read, sc, 'dfg', mode, 'l2pre', tstart, tend, $
-	                 B_GSE = b_gse, $
-	                 TIME  = t_fgm
 	
-	;FPI Ion Density and Velocity
-	if mode eq 'srvy' then begin
-		mms_fpi_sitl_read, sc, 'fast', tstart, tend, $
-		                   VI_DSC = v, $
-		                   N_I    = n, $
-		                   TIME   = t_fpi
-	endif else begin
+	;Magnetic field data
+;	mms_fgm_ql_read, 'mms1', 'dfg', mode, tstart, tend, B_DMPA=b_dmpa, TIME=t_fgm
+;	b_dmpa = b_dmpa[0:2,*]
+	
+	;Get current density from FPI
+	fpi_mode = mode eq 'srvy' ? 'fast' : mode
+	if fpi_mode eq 'brst' then begin
+		;Read DES
 		mms_fpi_l1b_moms_read, sc, 'des-moms', tstart, tend, $
-		                       N     = n, $
-		                       V_GSE = v, $
-		                       TIME  = t_fpi
-	endelse
+		                       N     = n_fpi, $
+		                       V_GSE = v_gse, $
+		                       P_GSE = P_gse, $
+		                       T_GSE = T_gse, $
+		                       TIME  = tt2000
 		
-	;EDP Electric Field
-	edp_mode = mode eq 'brst' ? mode : 'fast'
-	mms_edp_ql_read, sc, edp_mode, tstart, tend, $
-	                 E_DSL = e_dsl, $
-	                 TIME  = t_edp
-	
-	;SCP
-	mms_edp_l2_scpot_read, sc, edp_mode, tstart, tend, $
-	                       SCPOT = scpot, $
-	                       TIME  = t_scpot
-	
-	;Get definitive attitude data
-	defatt = mms_fdoa_defatt(sc, tstart, tend)
-	
-	;Rotate EDP to GSE
-	e_gse = mms_rot_despun2gse(defatt, t_edp, temporary(e_dsl), TYPE='L')
+		;Read DIS
+;		mms_fpi_l1b_moms_read, 'mms1', 'dis-moms', tstart, tend, J=je1, TIME=t1_fpi
+
+	endif else begin
+		;Srvy data
+		mms_fpi_sitl_read, 'mms1', fpi_mode, tstart, tend, J_TOTAL=j1_total, TIME=t1_fpi
+	endelse
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	t_fgm_ssm = MrCDF_epoch2ssm(t_fgm, t_fgm[0])
-	t_fpi_ssm = MrCDF_epoch2ssm(t_fpi, t_fgm[0])
-	t_edp_ssm = MrCDF_epoch2ssm(t_edp, t_fgm[0])
+	t_ssm  = MrCDF_epoch2ssm(temporary(tt2000))
 
 	;MMS Colors
-	mms_color = mms_color(['blue', 'green', 'red', 'black'])
+	colors = mms_color(['blue', 'green', 'red', 'black'])
 
 	;Create the window
-	win   = MrWindow(XSIZE=600, YGAP=0.5, REFRESH=0)
+	win = MrWindow(OXMARGIN=[12,7], YSIZE=600, YGAP=0.5, REFRESH=0)
 	
-	;BL
-	p_BL = MrPlot(t_fgm_ssm, b_gse[2,*], $
+	;Density
+	p1_n = MrPlot(t_ssm, n_fpi, $
 	              /CURRENT, $
-	              COLOR       = 'Red', $
-	              NAME        = 'BL', $
+	              NAME        = 'n', $
+	              TITLE       = 'FPI Moments', $
 	              XTICKFORMAT = '(a1)', $
-	              YTITLE      = 'B$\downL$!C(nT)')
+	              XTITLE      = '', $
+	              YTITLE      = 'n!C(cm$\up-3$)')
 	
-	;BM
-	p_BM = MrPlot(t_fgm_ssm, b_gse[1,*], $
-	              /CURRENT, $
-	              COLOR       = 'Forest Green', $
-	              NAME        = 'BM', $
-	              XTICKFORMAT = '(a1)', $
-	              YTITLE      = 'B$\downM$!C(nT)')
+	;Velocity
+	p2_v = MrPlot( t_ssm, v_gse, $
+	               /CURRENT, $
+	               COLOR       = colors[0:2], $
+	               DIMENSION   = 2, $
+	               NAME        = 'V FPI', $
+	               XTICKFORMAT = '(a1)', $
+	               XTITLE      = '', $
+	               YTITLE      = 'V!C(km/s)')
+	l_v = MrLegend( ALIGNMENT    = 'NW', $
+	                LABEL        = ['X', 'Y', 'Z'], $
+	                NAME         = 'Leg: V', $
+	                POSITION     = [1.0, 1.0], $
+	                /RELATIVE, $
+	                SAMPLE_WIDTH = 0, $
+	                TARGET       = p2_v, $
+	                TEXT_COLOR   = colors[0:2] )
 	
-	;NI
-	p_ni = MrPlot(t_fpi_ssm, n, $
-	              /CURRENT, $
-	              NAME        = 'ni', $
-	              XTICKFORMAT = '(a1)', $
-	              YTITLE      = 'N$\downi$!C(1/cm$\up3$)')
+	;Pressure
+	p3_P = MrPlot( t_ssm, P_gse, $
+	               /CURRENT, $
+	               DIMENSION   = 2, $
+	               NAME        = 'P', $
+	               XTICKFORMAT = '(a1)', $
+	               XTITLE      = '', $
+	               YTITLE      = 'P!C(erg/m^3)')
+	l_P = MrLegend( ALIGNMENT    = 'NW', $
+	                LABEL        = ['P$\downXX$', 'P$\downXY$', 'P$\downXZ$', $
+	                                'P$\downYY$', 'P$\downYZ$', 'P$\downZZ$'], $
+	                NAME         = 'Leg: P', $
+	                POSITION     = [1.0, 1.0], $
+	                /RELATIVE, $
+	                SAMPLE_WIDTH = 0, $
+	                TARGET       = p3_P, $
+	                TEXT_COLOR   = p3_P.color )
 	
-	;ViL
-	p_ni = MrPlot(t_fpi_ssm, v[2,*], $
-	              /CURRENT, $
-	              COLOR       = 'Red', $
-	              NAME        = 'ViL', $
-	              XTICKFORMAT = '(a1)', $
-	              YTITLE      = 'V$\downiL$!C(km/s)')
-	
-	;EN
-	p_En = MrPlot(t_edp_ssm, e_gse[2,*], $
-	              /CURRENT, $
-	              COLOR       = 'Blue', $
-	              NAME        = 'EN', $
-	              XTICKFORMAT = 'time_labels', $
-	              YTITLE      = 'E$\downiN$!C(mV/m)')
-	
+	;Temperature
+	p4_T = MrPlot( t_ssm, T_gse, $
+	                /CURRENT, $
+	                DIMENSION   = 2, $
+	                NAME        = 'T', $
+	                XTICKFORMAT = 'time_labels', $
+	                YTITLE      = 'T!C(K)')
+	l_T = MrLegend( ALIGNMENT    = 'NW', $
+	                LABEL        = ['T$\downXX$', 'T$\downXY$', 'T$\downXZ$', $
+	                                'T$\downYY$', 'T$\downYZ$', 'T$\downZZ$'], $
+	                NAME         = 'Leg: T', $
+	                POSITION     = [1.0, 1.0], $
+	                /RELATIVE, $
+	                SAMPLE_WIDTH = 0, $
+	                TARGET       = p4_T, $
+	                TEXT_COLOR   = p4_T.color )
+
 	win -> Refresh
+
 	return, win
 end

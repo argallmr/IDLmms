@@ -99,8 +99,11 @@ E_DJDT=E_dJdt
 	;Total magnetic field
 ;	mms_fgm_read_ql, sc, 'dfg', mode, tstart, tend, B_DMPA=B, TIME=t_fgm
 
-	;Total electric field
-	mms_edp_ql_read, sc, mode, tstart, tend, E_DSL=E, TIME=t_edp
+	;Electric Field
+	mms_edp_ql_read, sc, mode, tstart, tend, E_DSL=E_dsl, TIME=t_edp
+	
+	;Ephemeris data
+	defatt = mms_fdoa_defatt(sc, tstart, tend)
 	
 	;Density and current density
 ;	mms_fpi_sitl_read, 'mms1', 'fast', tstart, tend, $
@@ -117,15 +120,17 @@ E_DJDT=E_dJdt
 	              E_DJDT  = E_dJdt, $
 	              TIME    = t_ohm
 	
-	;Interpolate EDP onto FPI time-scale
-	E = MrInterpol(E, t_edp, t_ohm)
-	
-	;Compare terms against (E + Ve x B)
-	E_prime = temporary(E) - temporary(E_C)
-	
 ;-----------------------------------------------------
 ; Derived Products \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Rotate from DSL to GSE
+	E_gse = mms_rot_despun2gse(defatt, t_edp, temporary(E_dsl))
+
+	;Interpolate EDP onto FPI time-scale
+	E = MrInterpol(temporary(E_gse), t_edp, t_ohm)
+	
+	;Compare terms against (E + Ve x B)
+	E_prime = temporary(E) - temporary(E_C)
 
 	;Charge density
 ;	q   = constants('q')
@@ -144,10 +149,10 @@ E_DJDT=E_dJdt
 ;-----------------------------------------------------
 	;Convert to seconds
 	t0        = t_edp[0]
-;	t_fgm_ssm = MrCDF_epoch2ssm(temporary(t_fgm), t0)
 	t_edp_ssm = MrCDF_epoch2ssm(temporary(t_edp), t0)
-;	t_fpi_ssm = MrCDF_epoch2ssm(temporary(t_fpi), t0)
 	t_ohm_ssm = MrCDF_epoch2ssm(temporary(t_ohm), t0)
+;	t_fgm_ssm = MrCDF_epoch2ssm(temporary(t_fgm), t0)
+;	t_fpi_ssm = MrCDF_epoch2ssm(temporary(t_fpi), t0)
 
 	;MMS Colors
 	colors = mms_color(['blue', 'green', 'red', 'black'])
@@ -182,14 +187,14 @@ E_DJDT=E_dJdt
 	                OVERPLOT    = p1_Ex)
 	l_EX = MrLegend( ALIGNMENT    = 'NW', $
 	                 /AUTO_TEXT_COLOR, $
-	                 LABEL        = ['E', 'E$\downH$', 'E$\downC$', 'E$\downdivPe$', 'E$\downInert$'], $
+	                 LABEL        = ['E+E$\downC$', 'E$\downH$', 'E$\downdivPe$', 'E$\downInert$'], $
 	                 POSITION     = [1.0, 1.0], $
 	                 /RELATIVE, $
 	                 SAMPLE_WIDTH = 0, $
-	                 TARGET       = [p1_Ex, p2_Ex, p3_Ex, p4_Ex, p5_Ex] )
+	                 TARGET       = [p1_Ex, p3_Ex, p4_Ex, p5_Ex] )
 
 	;EY
-	p1_Ey = MrPlot( t_ohm_ssm, E[1,*], $
+	p1_Ey = MrPlot( t_ohm_ssm, E_prime[1,*], $
 	                /CURRENT, $
 	                COLOR       = colors[3], $
 	                NAME        = 'Ey', $
@@ -214,7 +219,7 @@ E_DJDT=E_dJdt
 	                OVERPLOT    = p1_Ey)
 
 	;EZ
-	p1_Ez = MrPlot( t_ohm_ssm, E[2,*], $
+	p1_Ez = MrPlot( t_ohm_ssm, E_prime[2,*], $
 	                /CURRENT, $
 	                COLOR       = colors[3], $
 	                NAME        = 'Ez', $

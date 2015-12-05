@@ -73,6 +73,7 @@
 ; :History:
 ;   Modification History::
 ;       2015/11/13  -   Written by Matthew Argall
+;       2015/11/28  -   Use the electron density and quasi-neutral assumption. - MRA
 ;-
 pro mms_ohms_law, sc, mode, tstart, tend, $
 E_C=E_C, $
@@ -81,7 +82,7 @@ E_DIVPE=E_divPe, $
 E_DJDT=E_dJdt, $
 TIME=time
 	compile_opt idl2
-;	on_error, 2
+	on_error, 2
 	
 	;Constants
 	me = constants('m_e')
@@ -124,7 +125,8 @@ TIME=time
 		;Total current
 		;   - 1e9 converts C km / (s cm^3) to C / m^2 s
 		;   - 1e6 converts A / m^2 to uA / m^2
-		J_total = q*1e15 * (rebin(n_i, 3, npts) * vi - rebin(n_e, 3, npts) * ve)
+;		J_total = q*1e15 * (rebin(n_i, 3, npts) * vi - rebin(n_e, 3, npts) * ve)
+		J_total = q*1e15 * rebin(n_e, 3, npts) * (vi - ve)
 	
 	endif else begin
 		mms_fpi_sitl_read, sc, fpi_mode, tstart, tend, $
@@ -183,16 +185,8 @@ TIME=time
 	;   - E_divP = -1/(qn) \nabla \cdot P
 	;
 	
-	if get_divp then begin
-		;Divergence of the electron pressure
-		;   - 1/km erg/cm^3
-		divPe = mms_fpi_gradDivP(mode, tstart, tend)
-
-		;Electric field
-		;   - 1e-10 converts 1/C cm^3 1/km erg/cm^3  --> V/m
-		;   - 1e3  converts V/m --> mV/m
-		E_divPe = (-1e-7 / q) * (1.0 / rebin(n_e, 3, npts)) * divPe
-	endif
+	;Returns mV/m
+	if get_divp then E_divPe = mms_fpi_gradDivP(mode, tstart, tend)
 	
 ;-----------------------------------------------------
 ; Electron Inertial Term \\\\\\\\\\\\\\\\\\\\\\\\\\\\\

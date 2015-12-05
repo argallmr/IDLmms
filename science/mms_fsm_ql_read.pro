@@ -37,10 +37,10 @@
 ;
 ;   Calling Sequenc::
 ;      mms_fgm_ql_read, FILES, TSTART, TEND
-;      mms_fgm_ql_read, SC, INSTR, MODE, LEVEL, TSTART, TEND
+;      mms_fgm_ql_read, SC, MODE, TSTART, TEND
 ;
 ; :Categories:
-;   MMS, DFG, AFG, FGM
+;   MMS, FSM
 ;
 ; :Params:
 ;       FILES:              in, required, type=string/strarr
@@ -68,20 +68,14 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015/09/07  -   Written by Matthew Argall
+;       2015/11/30  -   Written by Matthew Argall
 ;-
-pro mms_fgm_ql_read, arg1, arg2, arg3, arg4, arg5, arg6, $
+pro mms_fsm_ql_read, arg1, arg2, arg3, arg4, $
 B_BCS=b_bcs, $
 B_DMPA=b_dmpa, $
 B_GSE=b_gse, $
 B_GSM=b_gsm, $
-DMPA_GSM=b_gsm_dmpa, $
-EPOCH_STATE=epoch_state, $
 LMN_FRAME=lmn_frame, $
-POS_GSE=pos_gse, $
-POS_GSM=pos_gsm, $
-RADEC_GSE=radec_gse, $
-SORT=tf_sort, $
 TIME=time
 	compile_opt idl2
 	on_error, 2
@@ -98,48 +92,30 @@ TIME=time
 	              n_elements(arg2) eq 0 ? 1 : $
 	              n_elements(arg3) eq 0 ? 2 : $
 	              n_elements(arg4) eq 0 ? 3 : $
-	              n_elements(arg5) eq 0 ? 4 : $
-	              n_elements(arg6) eq 0 ? 5 : $
-	              6
+	              4
 	
 	;What was requested?
 	get_time       = arg_present(time)
 	get_b_bcs      = arg_present(b_bcs)
 	get_b_dmpa     = arg_present(b_dmpa)
-	get_b_gsm_dmpa = arg_present(b_gsm_dmpa)
 	get_b_gse      = arg_present(b_gse)
 	get_b_gsm      = arg_present(b_gsm)
-	get_r_gse      = arg_present(r_gse)
-	get_r_gsm      = arg_present(r_gsm)
-	get_t_state    = arg_present(epoch_state)
-	
-	;Does the data level contain the data product?
-	level = nparams eq 6 ? arg4 : ''
-	case level of
-		'': ;do nothing
-		'ql':    if (get_b_bse || get_b_gsm) $
-			         then message, 'GSE and GSM coords not available in QL.'
-		'l2pre': if (get_b_gsm_dmpa) $
-			         then message, 'GSM_DMPA coords not available in QL.'
-		else: message, 'LEVEL "' + level + '" not recognized.'
-	endcase
 
 ;-----------------------------------------------------
 ; Get Files (?) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;FGM QL SRVY file
-	if nparams eq 6 then begin
+	if nparams eq 4 then begin
 		sc     = arg1
-		instr  = arg2
-		mode   = arg3
-		level  = arg4
-		fstart = arg5
-		fend   = arg6
+		mode   = arg2
+		fstart = arg3
+		fend   = arg4
 
 		;Grab the files
-		theFiles = mms_find_file(sc, instr, mode, level, $
+		theFiles = mms_find_file(sc, 'dfg-scm', mode, 'ql', $
 		                         COUNT     = nfiles, $
+		                         DIRECTORY = '/nfs/fsm/temp', $
 		                         OPTDESC   = optdesc, $
 		                         SDC_ROOT  = sdc_dir, $
 		                         SEARCHSTR = searchstr, $
@@ -170,14 +146,10 @@ TIME=time
 	;Ensure L1A EDI files were given
 	if min(file_test(theFiles, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	
-	;AFG or DFG
-	!Null = where( (instr ne 'afg') and (instr ne 'dfg'), count)
-	if count gt 0 then message, 'Only AFG and DFG files are allowed.'
-	
 	;Level, Mode
-	if min(level eq level[0]) eq 0 then message, 'All files must be the same data level.'
-	if min(mode  eq mode[0])  eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
-;	if min(mode  eq mode[0])  eq 0 then message, 'All files must have the same telemetry mode.'
+	if min(instr eq 'dfg-scm') eq 0 then message, 'All files must be from instrument "dfg-scm".'
+	if min(level eq level[0])  eq 0 then message, 'All files must be the same data level.'
+	if min(mode  eq mode[0])   eq 0 then tf_sort = 1 else tf_sort = keyword_set(tf_sort)
 
 	;We now know all the files match, so keep on the the first value.
 	if nFiles gt 1 then begin
@@ -193,28 +165,14 @@ TIME=time
 ;-----------------------------------------------------
 	get_time       = arg_present(time)
 	get_b_dmpa     = arg_present(b_dmpa)
-	get_b_dmpa_gsm = arg_present(b_dmpa_gsm)
-	get_b_dmpa_gse = arg_present(b_dmpa_gse)
 	get_b_gse      = arg_present(b_gse)
 	get_b_gsm      = arg_present(b_gsm)
 
 	;Create the variable names
-	if level eq 'ql' then begin
-		b_bcs_name      = mms_construct_varname(sc, instr, mode,  'bcs')
-		b_dmpa_name     = mms_construct_varname(sc, instr, mode,  'dmpa')
-		b_gsm_dmpa_name = mms_construct_varname(sc, instr, mode,  'gsm_dmpa')
-		pos_gse_name    = mms_construct_varname(sc, level, 'pos',   'gse')
-		pos_gsm_name    = mms_construct_varname(sc, level, 'pos',   'gsm')
-		radec_gse_name  = mms_construct_varname(sc, level, 'RADec', 'gse')
-	endif else begin
-		b_bcs_name   = mms_construct_varname(sc, instr, mode,  level + '_bcs')
-		b_dmpa_name  = mms_construct_varname(sc, instr, mode,  level + '_dmpa')
-		b_gse_name   = mms_construct_varname(sc, instr, mode,  level + '_gse')
-		b_gsm_name   = mms_construct_varname(sc, instr, mode,  level + '_gsm')
-		b_bcs_name   = mms_construct_varname(sc, instr, mode,  level + '_bcs')
-		pos_gse_name = mms_construct_varname(sc, 'pos',   'gse')
-		pos_gsm_name = mms_construct_varname(sc, 'pos',   'gsm')
-	endelse
+	b_bcs_name   = mms_construct_varname(sc, instr, 'b',  'bcs')
+	b_dmpa_name  = mms_construct_varname(sc, instr, 'b',  'dmpa')
+	b_gse_name   = mms_construct_varname(sc, instr, 'b',  'gse')
+	b_gsm_name   = mms_construct_varname(sc, instr, 'b',  'gsm')
 
 ;-----------------------------------------------------
 ; Read the Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -236,49 +194,6 @@ TIME=time
 		                         STATUS   = status, $
 		                         TSTART   = fstart, $
 		                         TEND     = fend)
-
-	;B_GSM_DMPA
-	if status eq 0 && get_b_gsm_dmpa $
-		then b_gsm_dmpa = MrCDF_nRead(theFiles, b_gsm_dmpa_name, $
-		                              STATUS = status, $
-		                              TSTART = fstart, $
-		                              TEND   = fend)
-		                          
-	;B_GSE
-	if status eq 0 && get_b_gse $
-		then b_gse = MrCDF_nRead(theFiles, b_gse_name, $
-		                         STATUS = status, $
-		                         TSTART = fstart, $
-		                         TEND   = fend)
-		                          
-	;B_GSM
-	if status eq 0 && get_b_gsm $
-		then b_gsm = MrCDF_nRead(theFiles, b_gsm_name, $
-		                         STATUS = status, $
-		                         TSTART = fstart, $
-		                         TEND   = fend)
-	
-	;R_GSE & EPOCH_STATE
-	if status eq 0 && ( get_r_gse || get_t_state ) $
-		then pos_gse = MrCDF_nRead(theFiles, pos_gse_name, $
-		                           DEPEND_0 = epoch_state, $
-		                           STATUS = status, $
-		                           TSTART = fstart, $
-		                           TEND   = fend)
-	
-	;R_GSM
-	if status eq 0 && get_r_gsm $
-		then pos_gsm = MrCDF_nRead(theFiles, pos_gsm_name, $
-		                           STATUS = status, $
-		                           TSTART = fstart, $
-		                           TEND   = fend)
-	
-	;RA & DEC
-	if status eq 0 && arg_present(radec_gse) $
-		then radec_gse = MrCDF_nRead(theFiles, radec_gse_name, $
-		                             STATUS = status, $
-		                             TSTART = fstart, $
-		                             TEND   = fend)
 
 	;Reissue the eror, if it occurred
 	if status ne 0 then message, /REISSUE_LAST
