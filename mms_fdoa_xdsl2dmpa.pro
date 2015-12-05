@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_fdoa_xgei2despun
+;       mms_fdoa_xdsl2dmpa
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -31,24 +31,18 @@
 ;   DAMAGE.                                                                              ;
 ;*****************************************************************************************
 ;
+; PURPOSE:
 ;+
-;   Return a transformation matrix from GEI to a despun satellite coordinate system.
+;   Create a set of coordinate system transformation matrices from DSL coordinates to DMPA.
 ;
 ; :Params:
-;       ATTITUDE:       in, required, type=struct
+;       DEFATT:         in, required, type=struct
 ;                       Structure of attitude data returned by mms_fdoa_read_defatt.pro.
 ;       T_OUT:          in, optional, type=lon64arr (cdf_time_tt2000)
 ;                       Times to which the phase is to be interpolated.
 ;
-; :Keywords:
-;       TYPE:           in, optional, type=intarr
-;                       Type of phase to use when despinning. Options are::
-;                           'Z'  -  Spacecraft body       z-phase
-;                           'P'  -  Major principal axix  P-phase
-;                           'L'  -  Angular momentum      L-phase
-;
 ; :Returns:
-;       PHASE:          Interpolated phase.
+;       DSL2DMPA:       Rotation matrices from DSL to DMPA.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -60,70 +54,21 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015-09-25  -   Written by Matthew Argall.
+;       2015-11-27  -   Written by Matthew Argall
 ;-
-function mms_fdoa_xgei2despun, attitude, t_out, $
-TYPE=type
+function mms_fdoa_xdsl2dmpa, defatt, time
 	compile_opt idl2
 	on_error, 2
-	
-	;Defaults
-	if n_elements(type) eq 0 then type = 'P'
 
-	;Watch out for data gaps > 0.5 spin
-	;   - phunwrap will give non-monotonic results...
-	;   - check for gaps > 175 degrees, to be safe.
-	;   - 175 degrees / (wZ degrees/second) * 1e9 nanoseconds/second
-	;   - wZ is the angular frequency (degrees/sec) of the spin axis in BCS.
-	att_gap = where((attitude.tt2000[1:*]-attitude.tt2000) gt 175*1.d9/attitude.w[2,*], n_att_gap)
-	if n_att_gap gt 0 then begin
-		; TODO process phunwrap on continuous segments
-		message, /INFORMATIONAL, 'Data gap in definitive attitude: phase results may get corrupted'
-	endif
+	;Rotations from GSE to DSL and DMPA
+	gei2dsl  = mms_foda_xgei2despun(defatt, time, TYPE='L')
+	gei2dmpa = mms_foda_xgei2despun(defatt, time, TYPE='P')
 	
-	;Get the index of the tag of the specified phase-type
-	iType = where(strmatch(tag_names(attitude), type, /FOLD_CASE))
-	if iType lt 0 then message, 'Invalid phase type: "' + type + '".'
-
-;---------------------------------------------------------------------
-; Interpolate ////////////////////////////////////////////////////////
-;---------------------------------------------------------------------
-	;Right ascension and declination
-	ra  = attitude.(iType)[0,*]
-	dec = attitude.(iType)[1,*]
+	;DSL --> GEI
+	dsl2gei = transpose(temporary(gei2dsl), [1,0,2])
 	
-	;Unwrap the phase
-	ra  = phunwrap(ra,  MAXVAL=360.0)
-	dec = phunwrap(dec, MAXVAL=360.0)
+	;DSL --> DMPA
+	dsl2dmpa = MrMatrix_Multiply(dsl2gei, gei2dmpa)
 	
-	;Convert time to double for interpolation
-	t0       = attitude.tt2000[0]
-	att_sse  = double(attitude.tt2000 - t0) * 1e-9
-	time_sse = double(t_out           - t0) * 1e-9
-	
-	;Extrapolation
-	if time_sse[0] lt att_sse[0] then begin
-		iExtrap = where(time_sse lt att_sse[0], nExtrap)
-		if nExtrap gt 0 then message, 'Extrapolating ' + strtrim(nExtrap, 2) + ' points before.', /INFORMATIONAL
-	endif
-	if time_sse[-1] gt att_sse[-1] then begin
-		iExtrap = where(time_sse gt att_sse[-1], nExtrap)
-		if nExtrap gt 0 then message, 'Extrapolating ' + strtrim(nExtrap, 2) + ' points after.', /INFORMATIONAL
-	endif
-	
-	;Interpolate
-	ra  = interpol(ra,  att_sse, time_sse)
-	dec = interpol(dec, att_sse, time_sse)
-
-;---------------------------------------------------------------------
-; Create Transformation Matrix ///////////////////////////////////////
-;---------------------------------------------------------------------
-	;Convert time to seconds since midnight
-	MrCDF_Epoch_Breakdown, t_out, year, month, day
-	t_ssm = MrCDF_epoch2ssm(t_out)
-
-	;Create transformation matrix
-	gei2despun = MrCS_gei2scs(year, month, day, t_ssm, ra, dec)
-	
-	return, gei2despun
+	return, dsl2dmpa
 end

@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;       mms_fdoa_xdespin
+;       mms_fdoa_xgei2bcs
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2015, Matthew Argall                                                   ;
@@ -31,29 +31,26 @@
 ;   DAMAGE.                                                                              ;
 ;*****************************************************************************************
 ;
+; PURPOSE:
 ;+
-;   Create a set of transformation matrices that will despin a vector.
+;   Interpolate MMS definitive attitude quaternions. Spherical linear interpolation
+;   is used.
 ;
 ; :Params:
-;       ATTITUDE:       in, required, type=struct
-;                       Structure of attitude data returned by mms_fdoa_read_defatt.pro.
-;       T_OUT:          in, optional, type=lon64arr (cdf_time_tt2000)
-;                       Times to which the phase is to be interpolated.
+;       Q:          in, required, type=4xN fltarr
+;                   Quaterions to be interpolated, for GEI -> BCS transformation.
+;       T_ATT:      in, required, type=lon64arr (cdf_time_tt2000)
+;                   Time associated with `Q`
+;       T_OUT:      in, required, type=lon64arr (cdf_time_tt2000)
+;                   Times to which `Q` is to be interpolated.
 ;
 ; :Keywords:
-;       OFFSET:         in, required, type=boolean, default=0
-;                       Fixed angular offset between x-BCS axis and the x-axis of the
-;                           coordinate system in which the data is given.
-;       SPINUP:         in, optional, type=
-;                       If set, spin will be added instead of removed.
-;       TYPE:           in, optional, type=intarr
-;                       Type of phase to use when despinning. Options are::
-;                           'Z'  -  Spacecraft body       z-phase
-;                           'P'  -  Major principal axix  P-phase
-;                           'L'  -  Angular momentum      L-phase
+;       INVERSE:    out, optional, type=boolean, default=0
+;                   If set, the transformation from BCS -> GEI is returned.
 ;
 ; :Returns:
-;       PHASE:          Interpolated phase.
+;       QTERP:      Quaternions, interpolated to `T_OUT` using sperical linear
+;                       interpolation.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -65,53 +62,36 @@
 ;
 ; :History:
 ;   Modification History::
-;       2015-09-25  -   Written by Matthew Argall.
+;       2015/11/26  -   Written by Matthew Argall
 ;-
-function mms_fdoa_xdespin, attitude, t_out, $
-OFFSET=offset, $
-SPINUP=spinup, $
-TYPE=type
-	compile_opt idl2
-	on_error, 2
-	
-	;Defaults
-	spinup = keyword_set(spinup)
-	if n_elements(offset) eq 0 then offset = 0
-	if n_elements(type)   eq 0 then type   = 'P'
-	
+function mms_fdoa_xgei2bcs, q, t_att, t_out, $
+INVERSE=inverse
+
+	; Defaults
+	tf_inverse = keyword_set(inverse)
+
 	;
-	; The spin phase reported by FDOA is relative to the physical
-	; BCS x-axis.
-	;
-	; If the instrument is in BCS already, no phase offset needs to
-	; be applied. The offset is the angle between the original CS
-	; x-axis and the x-axis of BCS.
+	; Spacecraft attitude (quaternion). 
+	;   NOTE: this has noise at level of
+	;       0.023 deg for spin phase
+	;       0.008 deg for x-y axis
 	;
 
-	;Interpolate the phase
-	;   - Returned in degrees
-	phase = mms_fdoa_interp_phase(attitude, t_out) * !dtor
-
-	;If we are spinning up the data, we have to invert the phase
-	if spinup then phase = -phase
+	; 
+	; TODO: watch out for data gaps > 0.5 spin period.
+	;
 	
-	;Sine and cosine of phase
-	cosPhase = cos(phase + offset)
-	sinPhase = sin(phase + offset)
+	; Times cannot be int64
+	;   - Reference epoch is the first attitude time stamp
+	t0 = t_att[0]
 	
-	;Create the rotation matrix
-	; - PHASE is from the sun to the x-axis. We want the phase from
-	;   the x-axis to the sun. To accomplish this, we transpose the
-	;   typical transformation matrix about Z
-	;       |  cos  sin  0 |       |  cos -sin  0 |
-	;   T = | -sin  cos  0 |  -->  |  sin  cos  0 |
-	;       |   0    0   1 |       |   0    0   1 |
-	xdespin        =  fltarr(3, 3, n_elements(t_out))
-	xdespin[0,0,*] =  cosPhase
-	xdespin[1,0,*] = -sinPhase
-	xdespin[0,1,*] =  sinPhase
-	xdespin[1,1,*] =  cosPhase
-	xdespin[2,2,*] =  1
+	; Inteprolate the quaternions
+	;   - Use SLERP for smoother interpolation.
+	Qinterp = qterp( double(t_att - t0), q, double(t_out - t0), /SLERP )
 
-	return, xdespin
+	; Invert
+	;   - BCS --> GEI
+	if tf_inverse then Q[0:2,*] = -Q[0:2,*]
+
+	return, Qinterp
 end

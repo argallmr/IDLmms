@@ -72,16 +72,17 @@
 ;                           written by Ken Brommund for MMS AFG/DFG data processing.
 ;-
 function mms_fdoa_interp_phase, attitude, t_out, $
-SMOOTH=smooth, $
+SMOOTH=tf_smooth, $
 PERROR=perror, $
 KEEP=keep, $
 PDIFF=pdiff, $
 FIT=fit, $
 MAXERROR=maxerror
 	compile_opt idl2
-;	on_error, 2
+	on_error, 2
 	
 	;Defaults
+	tf_fit    = keyword_set(fit)
 	tf_smooth = keyword_set(tf_smooth)
 	if n_elements(type) eq 0 then type = 'P'
 
@@ -93,15 +94,20 @@ MAXERROR=maxerror
 	att_gap = where((attitude.tt2000[1:*]-attitude.tt2000) gt 175*1.d9/attitude.w[2,*], n_att_gap)
 	if n_att_gap gt 0 then begin
 		; TODO process phunwrap on continuous segments
-		message, /INFORMATIONAL, 'Data gap in definitive attitude: phase results may get corrupted'
+		MrPrintF, 'LogWarn', 'Data gap in definitive attitude: phase results may get corrupted'
 	endif
 	
-	;Get the index of the tag of the specified phase-type
-	iType = where(strmatch(tag_names(attitude), type, /FOLD_CASE))
-	if iType lt 0 then message, 'Invalid phase type: "' + type + '".'
+	;Get the proper phase
+	case strupcase(type) of
+		'P':  phase = reform(attitude.p[2,*])
+		'L':  phase = reform(attitude.l[2,*])
+		'W':  phase = reform(attitude.w[3,*])
+		'Z':  phase = reform(attitude.z[2,*])
+		else: message, 'Invalid phase type: "' + type + '".'
+	endcase
 	
 	;Unwrap the phase -- use doubles!
-	pphase = phunwrap(double(attitude.(iType)), MAXVAL=360.0)
+	pphase = phunwrap(double(temporary(phase)), MAXVAL=360.0)
 	
 	;Interpolate with doubles
 	t0    = attitude.tt2000[0]
@@ -112,10 +118,10 @@ MAXERROR=maxerror
 ;---------------------------------------------------------------------
 	if tf_smooth then begin
 		;Pick a smoothing window of 60.0 seconds
-		;   - Determine the median sampling interval and ...
-		;   - number of smoothing windows in the data interval.
+		;   - Determine the median sampling interval and
+		;     number of smoothing windows in the data interval.
 		windt = 60.0
-		dt    = median(attitude.tt2000[1:*]-attitude.tt2000)/1e9
+		dt    = median(attitude.tt2000[1:*]-attitude.tt2000)/1d9
 		nwin  = fix(windt/dt)
 
 		;Smooth the unwrapped phase and time
@@ -139,16 +145,20 @@ MAXERROR=maxerror
 	t_rel = [t_rel[0]-50, t_rel, t_rel[-1]+50]
 
 	;Fit data
+	;   - Ignores SMOOTH
 	if tf_fit then begin
 		;
-		; as of data for 3/19, this method is not successful when applied to one orbit of data.
-		;****we may want to do this at a higher level \\\\////  will lead to jumps at 24-hr day boundaries in srvy
-		; we really want to calculate smoothed phase, joining at perigee or allowing jumps at perigee.
-		; requires pre-processing, or an intermediate file to save results for next day.
+		; As of data for 3/19, this method is not successful when applied
+		; to one orbit of data.
+		;
+		; **** We may want to do this at a higher level
+		; \\\\//// Will lead to jumps at 24-hr day boundaries in srvy
+		; We really want to calculate smoothed phase, joining at perigee or allowing jumps at perigee.
+		; Requires pre-processing, or an intermediate file to save results for next day.
 		;
 		
 		;Do a 3rd order polynomial fit to phase
-		message, /INFORMATIONAL, 'Polynomial fit to phase'
+		MrPrintF, 'LogText', 'Polynomial fit to phase'
 
 		;Select all points within our desired time range
 		r  = where(attitude.tt2000 gt t_out[keep[0]] and attitude.tt2000 le t_out[keep[-1]])
@@ -169,8 +179,8 @@ MAXERROR=maxerror
 		pdiff = pfit - pphase[r]
 		bad   = where(abs(pdiff) gt maxerr, nbad)
 		if nbad gt 0  then begin
-			message, /INFORMATIONAL, string(nbad, maxerr, FORMAT= $
-			         '(I0, " points with error greater than ", I0, " degrees set to NaN")')
+			MrPrintF, 'LogWarn', nbad, maxerr, $
+			          FORMAT='(I0, " points with error greater than ", I0, " degrees set to NaN")'
 			pfit[bad] = !values.d_nan
 		endif
 		
@@ -182,8 +192,12 @@ MAXERROR=maxerror
 		pfit = [!values.d_nan, pfit, !values.d_nan]
 	endif
 
-	;Interpolate polynomial and/or smoothed phase onto output time grid
-	phase = interpol(pfit, t_rel, double(t_out-t0))
+;---------------------------------------------------------------------
+; Interpolate to Output Times ////////////////////////////////////////
+;---------------------------------------------------------------------
+
+	;Interpolate phase onto output time grid
+	phase = interpol(pfit, t_rel, double(t_out-t0), /NAN)
 
 	return, phase
 end

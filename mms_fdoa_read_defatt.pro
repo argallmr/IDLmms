@@ -49,6 +49,9 @@
 ; :History:
 ;    Modification History::
 ;       2015/06/29  -   Written by Matthew Argall
+;       2015/12/03  -   If possible, read one point before and point point after
+;                           the limits of the given time interval. This helps prevent
+;                           extrapolation. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -240,6 +243,8 @@ TAI=tai
 		
 		;Records to keep
 		irange = MrIndexRange(attitude.tt2000, trange)
+		if irange[0] gt 0 then irange[0] -= 1
+		if irange[1] lt n_elements(attitude.tt2000) - 1 then irange[1] += 1
 		
 		;Create a new structure with trimmed data
 		temp = { tt2000: attitude.tt2000[irange[0]:irange[1]], $
