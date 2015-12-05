@@ -94,8 +94,10 @@
 ;
 ; :History:
 ;    Modification History::
-;        2014-05-01  -   Written by Matthew Argall. Adapted from Ken Bromund's
-;                            mms_fg_sunpulse2phase.
+;        2014-06-13  -   Written by Ken Brommund
+;        2014-07-22  -   Last adaptation by Ken Brommund
+;        2014-05-01  -   Documentation, clearer gap handling, repurpose inputs/outputs. - MRA
+;        2014-11-26  -   Possible to redirect messages to log file. - MRA
 ;-
 function mms_dss_sunpulse2phase, hk, epoch, $
 FLAG=flag, $
@@ -182,7 +184,7 @@ SUNPULSE=sunpulse
 	if nPts eq 1 then begin
 		;Cannot determine first period accurately
 		if flag[0] ne 0 then $
-			message, 'Single period with flag ' + strtrim(flag[0], 2), /INFORMATIONAL
+			MrPrintF, 'LogWarn', 'Single period with flag ' + strtrim(flag[0], 2) 
 		
 		;Use the period given
 		dPulse      = period[0]
@@ -215,13 +217,12 @@ SUNPULSE=sunpulse
 	;Assume that the period does not change for gaps less than NMINGAP points
 	nMinGap = 4
 	iFill   = where(nInGap gt nMinGap, nGaps)
-	if nGaps gt 0 then iGaps = iGaps[*,iFill]
+	if nGaps gt 0 then iGaps = iGaps[iFill,*]
 
 	;Warn about large gaps
 	if nGaps gt 0 then begin
-		msg = string(FORMAT='(%"%i gaps > %0.2 seconds (%i spins) in sunpulse data.")', $
-		             nGaps, double(T_median) * 1d-9 * nMinGap, nMinGap)
-		message, msg, /INFORMATIONAL
+		MrPrintF, 'LogWarn', nGaps, double(T_median) * 1d-9 * nMinGap, nMinGap
+		          FORMAT='(%"%i gaps > %0.2f seconds (%i spins) in sunpulse data.")'
 	endif
 
 	;Insert a pseudo sun pulse before each big gap
@@ -231,9 +232,9 @@ SUNPULSE=sunpulse
 		;Index at which to add a pseudo pulse
 		;   - We already took care of the first interval
 		;   - Do so only for the gaps larger than NBIGGAPS periods
-		;   - IGAP is the index of the gap of interest.
+		;   - IGAP[i,1] is the index of the first data point following the gap.
 		;   - We want to add a point before the gap ends.
-		idx = iGaps[1,i]
+		idx = iGaps[i,1]
 		
 		;Add a pseudo sunpulse
 		if valid_period[idx] then begin
@@ -246,7 +247,7 @@ SUNPULSE=sunpulse
 			flag         = [ flag[1:idx-1],          3,            flag[idx:*]         ]
 	
 			;Bump the gap indices forward one
-			iGaps[igap+1:*] += 1
+			iGaps[igap+1:*,*] += 1
 		endif
 	endfor
 	
@@ -259,14 +260,14 @@ SUNPULSE=sunpulse
 	;Median smooth
 	nMedFilt  = 7
 	nHalfFilt = nMedFilt / 3
-	istart    = 1
+	istart    = 0
 
 	;There is one more interval than the number of gaps.
 	for i = 0, nGaps do begin
 		;End of smooth interval
 		if i eq nGaps $
 			then istop = n_elements(dPulse) - 1 $
-			else istop = iGaps[1,i]
+			else istop = iGaps[i,0]
 		
 		;Extract for ease of use
 		temp_pulse  = sunpulse[istart:istop]
@@ -282,7 +283,7 @@ SUNPULSE=sunpulse
 			T_filt = median(temp_dPulse, nMedFilt)
 			
 			;Correct the first and last half filter window
-			T_filt[0:nHalfFilt]                   = T_filt[nHalfFilt+1]
+			T_filt[0:nHalfFilt]             = T_filt[nHalfFilt+1]
 			T_filt[nPts-nHalfFilt-1:nPts-1] = T_filt[nPts-nHalfFilt-2]
 		endif else begin
 			;Take the median value
@@ -297,24 +298,24 @@ SUNPULSE=sunpulse
 		;Warn that no valid sunpulses exist
 		endif else begin
 			ttemp = MrCDF_Epoch_Encode(temp_pulse[[0, nPts-1]])
-			msg = string( FORMAT='(%"No valid periods in interval %s - %s")', $
-		                  strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20)
+			          FORMAT='(%"No valid periods in interval %s - %s")'
 		endelse
 		
 		;Number of spins between sunpulses
 		;   - Recall, DPULSE is the time between sun pulses, not the reported period
 		;   - There could still be gaps smaller than NMINGAP periods
-		nspins = temp_dPulse / T_median
+		nSpins = temp_dPulse / T_median
 		
-		;Find spins that are not integer multiples of the median period
-		iNotIntSpin = where( abs( nspins - round(nspins) ) gt 0.25, nNotIntSpin )
+		;Number of spins between each pulse should be an integer number
+		;   - (between 1 and NMINGAP-1)
+		;   - If not, then the spin in changing rapidly
+		iNotIntSpin = where( abs( nSpins - round(nSpins) ) gt 0.25, nNotIntSpin )
 		if nNotIntSpin gt 0 then begin
 			;Warning message
 			ttemp = MrCDF_Epoch_Encode(temp_pulse[[0, nPts-1]])
-			msg = string( FORMAT='(%"No valid periods in interval %s - %s")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+			          FORMAT='(%"Spin in changing quickly in interval %s - %s")'
 			
 			;Set the flag
 			temp_dFlag[iNotIntSpin] = 2
@@ -324,6 +325,10 @@ SUNPULSE=sunpulse
 		;   - Divide total time by number of expected spins
 		dPulse[istart:istop]      /= round(nspins)
 		dPulse_flag[istart:istop]  = temp_dFlag
+		
+		;Next interval
+		;   - Point just after data gap.
+		if i ne nGaps then istart = iGaps[i,1]
 	endfor
 
 ;-----------------------------------------------------
@@ -340,20 +345,19 @@ SUNPULSE=sunpulse
 	;
 	for i = 0, nGaps - 1 do begin
 		;Index of the point just prior to a data gap
-		idx = iGaps[0,i]
+		idx = iGaps[i,1]
 		
 		;Period just prior to a large data gap
 		;   - Use the DSS period, if it is valid
 		;   - Cannot determine the period before the data begins
 		if valid_period[idx] then begin
 			T1 = period[idx]
-		endif else if idx gt 1 then begin
+		endif else if idx gt 0 then begin
 			T1 = dPulse[idx]
 		endif else begin
 			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
-			msg = string( FORMAT='(%"Cannot determine period before gap at %s")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+			          FORMAT='(%"Cannot determine period before gap at %s")'
 			T1 = !values.f_nan
 		endelse
 		
@@ -365,9 +369,8 @@ SUNPULSE=sunpulse
 		;     single point stranded between two gaps.
 		if idx + 1 eq iGaps[1,i] then begin
 			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
-			msg = string( FORMAT='(%"Cannot determine period after gap at %s")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+			          FORMAT='(%"Cannot determine period after gap at %s")'
 			T2 = !values.f_nan
 		endif else begin
 			T2 = dPulse[idx+1]
@@ -386,13 +389,12 @@ SUNPULSE=sunpulse
 			; Do they differ by more than half a spin?
 			if abs(nSpin1 - nSpin2) ge 0.5 then begin
 				ttemp = MrCDF_Epoch_Encode( pulse[idx] )
-				msg = string( FORMAT='(%"Spin rates that bound gap at %s differ by >= 0.5 spins.")', $
-				              strmid(ttemp, 0, 20) )
-				message, msg, /INFORMATIONAL
+				MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+				          FORMAT='(%"Spin rates that bound gap at %s differ by >= 0.5 spins.")'
 				dPulse_flag[idx] = 3
 			endif
 			
-		;Use the first spin period if it is < 10 degrees from expected
+		;Use the spin period before the gap if it is < 10 degrees from expected
 		;  10 = 360 / (9 * 4) = 360 * 1/9 * 1/4 = 360 * 0.25 * 0.111
 		endif else if abs(nSpin1 - round(nSpin1)) lt 0.25 * 0.111 then begin
 			nSpins           = nSpin1
@@ -400,20 +402,18 @@ SUNPULSE=sunpulse
 			
 			;Warn
 			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
-			msg = string( FORMAT='(%"Using period at beginning of gap %s.")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+			          FORMAT='(%"Using period before gap at %s.")'
 			
-		;Use the second spin period
+		;Use the spin period after the gap
 		endif else if abs(nSpin2 - round(nSpin2)) lt 0.25 * 0.111 then begin
 			nSpins           = nSpin2
 			dPulse_flag[idx] = 4
 			
 			;Warn
 			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
-			msg = string( FORMAT='(%"Using period at beginning of gap %s.")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
+			          FORMAT='(%"Using period at following gap at %s.")'
 		
 		;Use the average period
 		endif else begin
@@ -422,24 +422,41 @@ SUNPULSE=sunpulse
 			
 			;Warn
 			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
-			msg = string( FORMAT='(%"Using average period before and after gap %s")', $
-			              strmid(ttemp, 0, 20) )
-			message, msg, /INFORMATIONAL
+			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20)
+			          FORMAT='(%"Using average period before and after gap %s")'
 		endelse
 		
 		;Select the average period
+		;   - DPULSE is the time between sunpulses, not the period.
+		;   - DPULSE just before a gap is the total time in the gap.
+		;   - By dividing by NSPINS, we find the average period
+		;     within the gap.
 		dPulse[idx] /= nSpins
 	endfor
 
 ;-----------------------------------------------------
 ; Determine Spin Phase \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;
+	; By interpolating over large data gaps, we adjust the spin
+	; period just before a data. If there are N spins in the gap,
+	; then N*T_spin should bring us across the gap smoothly.
+	;
+	; The way we use this information is to locate the SUNPULSE
+	; that occurs before each value in EPOCH. By subtracting
+	; the two values, we obtain the time elapsed since the
+	; previous sunpulse (i.e. the amount of time elapsed since
+	; the beginning of the spin). We then use the spin period to
+	; convert to degrees (spin phase).
+	;
+
+
 	;Determine where times are located within the sunpulse array
 	inds = value_locate(sunpulse, epoch) > 0
 
 	;Compute phase
 	;   - degrees * nano-seconds / ( nano-seconds / spin )
-	phase = 360.0 * double(epoch - sunpulse[inds]) / double(period[inds])
+	phase = 360.0 * double(epoch - sunpulse[inds]) / double(dPulse[inds])
 	phase = phase mod 360.0
 
 ;-----------------------------------------------------
@@ -449,16 +466,20 @@ SUNPULSE=sunpulse
 	iBefore = where(epoch lt sunpulse[0], nBefore)
 	if nBefore gt 0 then begin
 		nExtrap = MrCDF_epoch2sse(epoch[0], sunpulse[0]) / T_median
-		if nExtrap gt 3 then $
-			message, 'Extrapolating more than 3 spins before first sunpulse.', /INFORMATIONAL
+		if nExtrap gt 3 then begin
+			MrPrintF, 'LogWarn', nExtrap, $
+			          FORMAT='(%"Extrapolating %i spins before first sunpulse.")'
+		endif
 	endif
 	
 	;Extrapolate after
 	iAfter = where(epoch gt sunpulse[n_elements(sunpulse)-1], nAfter)
 	if nAfter gt 0 then begin
 		nExtrap = MrCDF_epoch2sse(epoch[n_elements(epoch)-1], sunpulse[n_elements(sunpulse)-1]) / T_median
-		if nExtrap gt 3 then $
-			message, 'Extrapolating more than 3 spins before first sunpulse.', /INFORMATIONAL
+		if nExtrap gt 3 then begin
+			MrPrintF, 'LogWarn', nExtrap, $
+			          FORMAT='(%"Extrapolating %i spins after last sunpulse.")'
+		endif
 	endif
 	
 	return, phase
