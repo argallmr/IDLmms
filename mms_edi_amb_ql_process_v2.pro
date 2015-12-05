@@ -130,7 +130,7 @@ LOG_DIR=log_dir
 	mms_unh_init
 	
 	;Create an error logging object
-	oLog = MrLogFile(filepath('mms_edi.log', ROOT_DIR=!mms_init.log_path), /TIMESTAMP)
+	oLog = MrLogFile(filepath('mms_edi_amb_ql.log', ROOT_DIR=!mms_init.log_path), /TIMESTAMP)
 
 ;-----------------------------------------------------
 ; Defaults \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -345,11 +345,11 @@ LOG_DIR=log_dir
 			ql_code[ql_count]  = code
 			ql_count++
 			
-			;Allocate more memory
+			;Allocate more memory (double allocation each time)
 			if ql_count gt nalloc then begin
-				nalloc  *= 2
-				ql_code  = [ql_code,  bytarr(nalloc)]
-				ql_files = [ql_files, strarr(nalloc)]
+				nalloc   += ql_count
+				ql_code   = [ql_code,  bytarr(ql_count)]
+				ql_files  = [ql_files, strarr(ql_count)]
 			endif
 			
 			;Report results

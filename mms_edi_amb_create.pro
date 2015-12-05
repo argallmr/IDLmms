@@ -90,18 +90,33 @@
 function edi_amb_brst_pa_0_180, edi, pa, pa_lo, pa_hi
 	compile_opt idl2
 	on_error, 2
-	
+
 	;Interpolate pitch
-	;   - Same method as for AZIMUTH
-;	iangle     = value_locate(edi.epoch_angle, edi.epoch_gdu1)
-;	pitch_gdu1 = edi.pitch_gdu1[iangle]
-;	pitch_gdu2 = edi.pitch_gdu2[iangle]
+	;   - v0.6.0 and earlier
+	if n_elements(edi.epoch_angle) ne n_elements(edi.epoch_gdu1) then begin
+		;Print a warning
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogWarn', 'EPOCH_ANGLE and EPOCH_GDU1 do not have same number of elements.'
+		MrPrintF, 'LogWarn', n_elements(edi.epoch_angle), FORMAT='(%"   EPOCH_ANGLE:  %i")'
+		MrPrintF, 'LogWarn', n_elements(edi.epoch_gdu1),  FORMAT='(%"   EPOCH_GDU1:   %i")'
+		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogText', ''
+		
+		;Expand the variables
+		iangle     = value_locate(edi.epoch_angle, edi.epoch_gdu1) > 0
+		pitch_gdu1 = edi.pitch_gdu1[iangle]
+		pitch_gdu2 = edi.pitch_gdu2[iangle]
+	endif else begin
+		pitch_gdu1 = edi.pitch_gdu1[iangle]
+		pitch_gdu2 = edi.pitch_gdu2[iangle]
+	endelse
 	
 ;-----------------------------------------------------
 ; PA 0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	i0_gdu1 = where(edi.pitch_gdu1 eq 0.0, n0_gdu1)
-	i0_gdu2 = where(edi.pitch_gdu2 eq 0.0, n0_gdu2)
+	i0_gdu1 = where(pitch_gdu1 eq 0.0, n0_gdu1)
+	i0_gdu2 = where(pitch_gdu2 eq 0.0, n0_gdu2)
 	
 	;GDU1 and GDU2
 	;   - See notes in "edi_amb_brst_pa". PA is ordered as
@@ -152,8 +167,8 @@ function edi_amb_brst_pa_0_180, edi, pa, pa_lo, pa_hi
 ;-----------------------------------------------------
 ; PA 180 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	i180_gdu1 = where(edi.pitch_gdu1 eq 180.0, n180_gdu1)
-	i180_gdu2 = where(edi.pitch_gdu2 eq 180.0, n180_gdu2)
+	i180_gdu1 = where(temporary(pitch_gdu1) eq 180.0, n180_gdu1)
+	i180_gdu2 = where(temporary(pitch_gdu2) eq 180.0, n180_gdu2)
 	
 	;GDU1 and GDU2
 	;   - See notes in "edi_amb_brst_pa". PA is ordered as
@@ -847,6 +862,186 @@ end
 
 
 ;+
+;   Sort burst mode data by pitch angle instead of by GDU.
+;
+;  :Params:
+;       EDI:        in, required, type=struct
+;                   A structure of EDI L1A data with the following tags:
+;                       EPOCH_GDU1  - TT2000 epoch times for GDU1
+;                       EPOCH_GDU2  - TT2000 epoch times for GDU2
+;                       EPOCH_ANGLE - TT2000 epoch times for PITCH_GDU1 and PITCH_GDU2
+;                       PITCH_GDU1  - Pitch angle state of GDU1 (typically 0, 180, or 90)
+;                       PITCH_GDU2  - Pitch angle state of GDU2 (typically 0, 180, or 90)
+;
+; :Returns:
+;      EDI_OUT:     A structure with the following tags::
+;                       TT2000_0    - Time tags for 0 degree pitch angle counts
+;                       TT2000_180  - Time tags for 180 degree pitch angle counts
+;                       COUNTS1_0   - counts1_gdu[12] sorted by pitch angle 0.
+;                       COUNTS2_0   - counts2_gdu[12] sorted by pitch angle 0.
+;                       COUNTS3_0   - counts3_gdu[12] sorted by pitch angle 0.
+;                       COUNTS4_0   - counts4_gdu[12] sorted by pitch angle 0.
+;                       COUNTS1_180 - counts1_gdu[12] sorted by pitch angle 180.
+;                       COUNTS2_180 - counts2_gdu[12] sorted by pitch angle 180.
+;                       COUNTS3_180 - counts3_gdu[12] sorted by pitch angle 180.
+;                       COUNTS4_180 - counts4_gdu[12] sorted by pitch angle 180.
+;                       GDU_0       - Flag to sort PA 0 counts by GDU.
+;                       GDU_180     - Flag to sort PA 180 counts by GDU.
+;-
+function edi_amb_brst_0_180, edi
+	compile_opt idl2
+	on_error, 2
+
+	;Interpolate pitch
+	;   - v0.6.0 and earlier
+	if n_elements(edi.epoch_angle) ne n_elements(edi.epoch_gdu1) then begin
+		;Print a warning
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogWarn', 'EPOCH_ANGLE and EPOCH_GDU1 do not have same number of elements.'
+		MrPrintF, 'LogWarn', n_elements(edi.epoch_angle), FORMAT='(%"   EPOCH_ANGLE:  %i")'
+		MrPrintF, 'LogWarn', n_elements(edi.epoch_gdu1),  FORMAT='(%"   EPOCH_GDU1:   %i")'
+		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogText', ''
+		
+		;Expand the variables
+		iangle     = value_locate(edi.epoch_angle, edi.epoch_gdu1) > 0
+		pitch_gdu1 = edi.pitch_gdu1[iangle]
+		pitch_gdu2 = edi.pitch_gdu2[iangle]
+	endif else begin
+		pitch_gdu1 = edi.pitch_gdu1[iangle]
+		pitch_gdu2 = edi.pitch_gdu2[iangle]
+	endelse
+
+;-----------------------------------------------------
+; EDI: Sort By Pitch Angle 0 \\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;Find 0 and 180 pitch angles
+	i0_gdu1   = where(pitch_gdu1 eq 0, n0_gdu1)
+	i0_gdu2   = where(pitch_gdu2 eq 0, n0_gdu2)
+
+	;Select 0 pitch angle
+	if n0_gdu1 gt 0 && n0_gdu2 gt 0 then begin
+		t_0       = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2] ]
+		counts1_0 = [ edi.counts1_gdu1[i0_gdu1], edi.counts1_gdu2[i0_gdu2] ]
+		counts2_0 = [ edi.counts2_gdu1[i0_gdu1], edi.counts2_gdu2[i0_gdu2] ]
+		counts3_0 = [ edi.counts3_gdu1[i0_gdu1], edi.counts3_gdu2[i0_gdu2] ]
+		counts4_0 = [ edi.counts4_gdu1[i0_gdu1], edi.counts4_gdu2[i0_gdu2] ]
+	
+		;Sort times
+		isort     = sort(t_0)
+		t_0       = t_0[isort]
+		counts1_0 = counts1_0[isort]
+		counts2_0 = counts2_0[isort]
+		counts3_0 = counts3_0[isort]
+		counts4_0 = counts4_0[isort]
+	
+		;Mark GDU
+		gdu_0          = bytarr(n0_gdu1 + n0_gdu2)
+		gdu_0[i0_gdu1] = 1B
+		gdu_0[i0_gdu2] = 2B
+
+	;Only GDU1 data
+	endif else if n0_gdu1 gt 0 then begin
+		t_0       = edi.epoch_gdu1[i0_gdu1]
+		counts1_0 = edi.counts1_gdu1[i0_gdu1]
+		counts2_0 = edi.counts2_gdu1[i0_gdu1]
+		counts3_0 = edi.counts3_gdu1[i0_gdu1]
+		counts4_0 = edi.counts4_gdu1[i0_gdu1]
+		gdu_0     = replicate(1B, n0_gdu1)
+
+	;Only GDU2 data
+	endif else if n0_gdu2 gt 0 then begin
+		t_0       = edi.epoch_gdu2[i0_gdu2]
+		counts1_0 = edi.counts1_gdu2[i0_gdu2]
+		counts2_0 = edi.counts2_gdu2[i0_gdu2]
+		counts3_0 = edi.counts3_gdu2[i0_gdu2]
+		counts4_0 = edi.counts4_gdu2[i0_gdu2]
+		gdu_0     = replicate(2B, n0_gdu2)
+
+	;No EDI data
+	endif else begin
+		MrPrintF, 'LogText', 'No 0 degree pitch angle data.'
+		t_0      = 0LL
+		counts_0 = -1S
+	endelse
+
+;-----------------------------------------------------
+; EDI: Sort By Pitch Angle 180 \\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	i180_gdu1 = where( temporary(pitch_gdu1) eq 180, n180_gdu1)
+	i180_gdu2 = where( temporary(pitch_gdu2) eq 180, n180_gdu2)
+
+	;Select 180 pitch angle
+	if n180_gdu1 gt 0 && n180_gdu2 gt 0 then begin
+		t_180       = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2] ]
+		counts1_180 = [ edi.counts1_gdu1[i180_gdu1], edi.counts1_gdu2[i180_gdu2] ]
+		counts2_180 = [ edi.counts2_gdu1[i180_gdu1], edi.counts2_gdu2[i180_gdu2] ]
+		counts3_180 = [ edi.counts3_gdu1[i180_gdu1], edi.counts3_gdu2[i180_gdu2] ]
+		counts4_180 = [ edi.counts4_gdu1[i180_gdu1], edi.counts4_gdu2[i180_gdu2] ]
+	
+		;Sort times
+		isort       = sort(t_180)
+		t_180       = t_180[isort]
+		counts1_180 = counts1_180[isort]
+		counts2_180 = counts2_180[isort]
+		counts3_180 = counts3_180[isort]
+		counts4_180 = counts4_180[isort]
+	
+		;Mark GDU
+		gdu_180            = bytarr(n180_gdu1 + n180_gdu2)
+		gdu_180[i180_gdu1] = 1B
+		gdu_180[i180_gdu2] = 2B
+
+	;Only GDU1 data
+	endif else if n180_gdu1 gt 0 then begin
+		t_180       = edi.epoch_gdu1[i180_gdu1]
+		counts1_180 = edi.counts1_gdu1[i180_gdu1]
+		counts2_180 = edi.counts2_gdu1[i180_gdu1]
+		counts3_180 = edi.counts3_gdu1[i180_gdu1]
+		counts4_180 = edi.counts4_gdu1[i180_gdu1]
+		gdu_180     = replicate(1B, n180_gdu1)
+
+	;Only GDU2 data
+	endif else if n180_gdu2 gt 0 then begin
+		t_180       = edi.epoch_gdu2[i180_gdu2]
+		counts1_180 = edi.counts1_gdu2[i180_gdu2]
+		counts2_180 = edi.counts2_gdu2[i180_gdu2]
+		counts3_180 = edi.counts3_gdu2[i180_gdu2]
+		counts4_180 = edi.counts4_gdu2[i180_gdu2]
+		gdu_180     = replicate(2B, n180_gdu2)
+	
+	;No EDI data
+	endif else begin
+		MrPrintF, 'LogText', 'No 180 degree pitch angle data.'
+		t_180 = 0LL
+		counts_180 = -1S
+	endelse
+
+;-----------------------------------------------------
+; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	edi_out = { tt2000_0:    temporary(t_0),         $
+	            tt2000_180:  temporary(t_180),       $
+	            counts1_0:   temporary(counts1_0),   $
+	            counts2_0:   temporary(counts2_0),   $
+	            counts3_0:   temporary(counts3_0),   $
+	            counts4_0:   temporary(counts4_0),   $
+	            counts1_180: temporary(counts1_180), $
+	            counts2_180: temporary(counts2_180), $
+	            counts3_180: temporary(counts3_180), $
+	            counts4_180: temporary(counts4_180), $
+	            gdu_0:       temporary(gdu_0),       $
+	            gdu_180:     temporary(gdu_180)      $
+	          }
+
+	return, edi_out
+end
+
+
+;+
 ;   Sort survey data by pad into 0 and 180 degree counts.
 ;
 ; :Params:
@@ -1314,177 +1509,6 @@ end
 
 
 ;+
-;   Sort burst mode data by pitch angle instead of by GDU.
-;
-;  :Params:
-;       EDI:        in, required, type=struct
-;                   A structure of EDI L1A data with the following tags:
-;                       EPOCH_GDU1  - TT2000 epoch times for GDU1
-;                       EPOCH_GDU2  - TT2000 epoch times for GDU2
-;                       EPOCH_ANGLE - TT2000 epoch times for PITCH_GDU1 and PITCH_GDU2
-;                       PITCH_GDU1  - Pitch angle state of GDU1 (typically 0, 180, or 90)
-;                       PITCH_GDU2  - Pitch angle state of GDU2 (typically 0, 180, or 90)
-;
-; :Returns:
-;      EDI_OUT:     A structure with the following tags::
-;                       TT2000_0    - Time tags for 0 degree pitch angle counts
-;                       TT2000_180  - Time tags for 180 degree pitch angle counts
-;                       COUNTS1_0   - counts1_gdu[12] sorted by pitch angle 0.
-;                       COUNTS2_0   - counts2_gdu[12] sorted by pitch angle 0.
-;                       COUNTS3_0   - counts3_gdu[12] sorted by pitch angle 0.
-;                       COUNTS4_0   - counts4_gdu[12] sorted by pitch angle 0.
-;                       COUNTS1_180 - counts1_gdu[12] sorted by pitch angle 180.
-;                       COUNTS2_180 - counts2_gdu[12] sorted by pitch angle 180.
-;                       COUNTS3_180 - counts3_gdu[12] sorted by pitch angle 180.
-;                       COUNTS4_180 - counts4_gdu[12] sorted by pitch angle 180.
-;                       GDU_0       - Flag to sort PA 0 counts by GDU.
-;                       GDU_180     - Flag to sort PA 180 counts by GDU.
-;-
-function edi_amb_brst_0_180, edi
-	compile_opt idl2
-	on_error, 2
-	
-	;In file versions before v0.6.1, PITCH_GDU[12] was not expanded
-	if n_elements(edi.pitch_gdu1) ne n_elements(edi.counts1_gdu1) then begin
-		;Log a warning
-		MrPrintF, 'LogWarn', 'PITCH and COUNTS have incompatible sizes.'
-		
-		;Interpolate pitch angle.
-		;   - Same method as AZIMUTH
-		iangle     = value_locate(edi.epoch_angle, edi.epoch_gdu1)
-		pitch_gdu1 = edi.pitch_gdu1[iangle]
-		pitch_gdu2 = edi.pitch_gdu2[iangle]
-	endif
-
-;-----------------------------------------------------
-; EDI: Sort By Pitch Angle 0 \\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-
-	;Find 0 and 180 pitch angles
-	i0_gdu1   = where(edi.pitch_gdu1 eq 0, n0_gdu1)
-	i0_gdu2   = where(edi.pitch_gdu2 eq 0, n0_gdu2)
-
-	;Select 0 pitch angle
-	if n0_gdu1 gt 0 && n0_gdu2 gt 0 then begin
-		t_0       = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2] ]
-		counts1_0 = [ edi.counts1_gdu1[i0_gdu1], edi.counts1_gdu2[i0_gdu2] ]
-		counts2_0 = [ edi.counts2_gdu1[i0_gdu1], edi.counts2_gdu2[i0_gdu2] ]
-		counts3_0 = [ edi.counts3_gdu1[i0_gdu1], edi.counts3_gdu2[i0_gdu2] ]
-		counts4_0 = [ edi.counts4_gdu1[i0_gdu1], edi.counts4_gdu2[i0_gdu2] ]
-	
-		;Sort times
-		isort     = sort(t_0)
-		t_0       = t_0[isort]
-		counts1_0 = counts1_0[isort]
-		counts2_0 = counts2_0[isort]
-		counts3_0 = counts3_0[isort]
-		counts4_0 = counts4_0[isort]
-	
-		;Mark GDU
-		gdu_0          = bytarr(n0_gdu1 + n0_gdu2)
-		gdu_0[i0_gdu1] = 1B
-		gdu_0[i0_gdu2] = 2B
-
-	;Only GDU1 data
-	endif else if n0_gdu1 gt 0 then begin
-		t_0       = edi.epoch_gdu1[i0_gdu1]
-		counts1_0 = edi.counts1_gdu1[i0_gdu1]
-		counts2_0 = edi.counts2_gdu1[i0_gdu1]
-		counts3_0 = edi.counts3_gdu1[i0_gdu1]
-		counts4_0 = edi.counts4_gdu1[i0_gdu1]
-		gdu_0     = replicate(1B, n0_gdu1)
-
-	;Only GDU2 data
-	endif else if n0_gdu2 gt 0 then begin
-		t_0       = edi.epoch_gdu2[i0_gdu2]
-		counts1_0 = edi.counts1_gdu2[i0_gdu2]
-		counts2_0 = edi.counts2_gdu2[i0_gdu2]
-		counts3_0 = edi.counts3_gdu2[i0_gdu2]
-		counts4_0 = edi.counts4_gdu2[i0_gdu2]
-		gdu_0     = replicate(2B, n0_gdu2)
-
-	;No EDI data
-	endif else begin
-		MrPrintF, 'LogText', 'No 0 degree pitch angle data.'
-		t_0      = 0LL
-		counts_0 = -1S
-	endelse
-
-;-----------------------------------------------------
-; EDI: Sort By Pitch Angle 180 \\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	i180_gdu1 = where(edi.pitch_gdu1 eq 180, n180_gdu1)
-	i180_gdu2 = where(edi.pitch_gdu2 eq 180, n180_gdu2)
-
-	;Select 180 pitch angle
-	if n180_gdu1 gt 0 && n180_gdu2 gt 0 then begin
-		t_180       = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2] ]
-		counts1_180 = [ edi.counts1_gdu1[i180_gdu1], edi.counts1_gdu2[i180_gdu2] ]
-		counts2_180 = [ edi.counts2_gdu1[i180_gdu1], edi.counts2_gdu2[i180_gdu2] ]
-		counts3_180 = [ edi.counts3_gdu1[i180_gdu1], edi.counts3_gdu2[i180_gdu2] ]
-		counts4_180 = [ edi.counts4_gdu1[i180_gdu1], edi.counts4_gdu2[i180_gdu2] ]
-	
-		;Sort times
-		isort       = sort(t_180)
-		t_180       = t_180[isort]
-		counts1_180 = counts1_180[isort]
-		counts2_180 = counts2_180[isort]
-		counts3_180 = counts3_180[isort]
-		counts4_180 = counts4_180[isort]
-	
-		;Mark GDU
-		gdu_180            = bytarr(n180_gdu1 + n180_gdu2)
-		gdu_180[i180_gdu1] = 1B
-		gdu_180[i180_gdu2] = 2B
-
-	;Only GDU1 data
-	endif else if n180_gdu1 gt 0 then begin
-		t_180       = edi.epoch_gdu1[i180_gdu1]
-		counts1_180 = edi.counts1_gdu1[i180_gdu1]
-		counts2_180 = edi.counts2_gdu1[i180_gdu1]
-		counts3_180 = edi.counts3_gdu1[i180_gdu1]
-		counts4_180 = edi.counts4_gdu1[i180_gdu1]
-		gdu_180     = replicate(1B, n180_gdu1)
-
-	;Only GDU2 data
-	endif else if n180_gdu2 gt 0 then begin
-		t_180       = edi.epoch_gdu2[i180_gdu2]
-		counts1_180 = edi.counts1_gdu2[i180_gdu2]
-		counts2_180 = edi.counts2_gdu2[i180_gdu2]
-		counts3_180 = edi.counts3_gdu2[i180_gdu2]
-		counts4_180 = edi.counts4_gdu2[i180_gdu2]
-		gdu_180     = replicate(2B, n180_gdu2)
-	
-	;No EDI data
-	endif else begin
-		MrPrintF, 'LogText', 'No 180 degree pitch angle data.'
-		t_180 = 0LL
-		counts_180 = -1S
-	endelse
-
-;-----------------------------------------------------
-; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	
-	edi_out = { tt2000_0:    temporary(t_0),         $
-	            tt2000_180:  temporary(t_180),       $
-	            counts1_0:   temporary(counts1_0),   $
-	            counts2_0:   temporary(counts2_0),   $
-	            counts3_0:   temporary(counts3_0),   $
-	            counts4_0:   temporary(counts4_0),   $
-	            counts1_180: temporary(counts1_180), $
-	            counts2_180: temporary(counts2_180), $
-	            counts3_180: temporary(counts3_180), $
-	            counts4_180: temporary(counts4_180), $
-	            gdu_0:       temporary(gdu_0),       $
-	            gdu_180:     temporary(gdu_180)      $
-	          }
-
-	return, edi_out
-end
-
-
-;+
 ;   Sort survey mode data by pitch angle instead of by GDU.
 ;
 ;  :Params:
@@ -1708,7 +1732,7 @@ FGM_FILES=fgm_files
 	;Read Data
 	;   - Automatically comines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
-	edi = mms_edi_read_l1a_amb(amb_files, tstart, tend)
+	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend)
 
 	;Sort by 0 and 180 pitch angles
 	if tf_brst $
@@ -1770,7 +1794,7 @@ FGM_FILES=fgm_files
 		MrPrintF, 'LogErr'
 		return, ''
 	endif
-	
+
 	;Create the output structure
 	edi_out = { tt2000_tt:   reform(edi.epoch_timetag), $
 	            energy_gdu1: reform(edi.energy_gdu1), $

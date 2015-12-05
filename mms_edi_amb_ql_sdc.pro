@@ -48,44 +48,13 @@
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       SC:         in, optional, type=string/strarr, default=['mms1'\, 'mms2'\, 'mms3'\, 'mms4']
-;                   Spacecraft for which to process data. The empty string is equivalent
-;                       to choosing the default value. Options are::
-;                       mms1, mms2, mms3, or mms4
-;       MODE:       in, optional, type=string/strarr, default='srvy'
-;                   Telemetry mode of the data to be processed. The empty string is
-;                       equivalent to choosing the default value. Options are: 
-;                       'srvy' and/or 'brst'
-;       DATE_START: in, optional, type=string, default=current date
-;                   First date of data to be processed. Formatted as 'YYYY-MM-DD'. The
-;                       empty string is equivalent to choosing the default value.
-;       DATE_END:   in, optional, type=string, default=`DATE_START`
-;                   Last date of data to be processed. Formatted as 'YYYY-MM-DD'. If
-;                       not defined, the value of `DATE_START` will be used and one
-;                       day of data will be processed. If DATE_END is the empty string,
-;                       then it will be set equal to the current date.
-;
-; :Keywords:
-;       COUNT:      out, optional, type=integer
-;                   Number of files created.
-;       CREATE_LOG: in, optional, type=boolean, default=1
-;                   If set, a log file will be created. If not, messages will be
-;                       directed to the current error logging file (defaults to the
-;                       console window -- see MrStdLog.pro)
-;       FLATTEN:    in, optional, type=boolean, default=1
-;                   If set, all files will be saved to their root directories, without
-;                       creating the standard SDC directory structure. This means
-;                       `OUTPUT_DIR` and `LOG_DIR` will be the destination directories.
-;       OUTPUT_DIR: in, optional, type=string, default='/nfs/edi'
-;                   Root directory in which to save data. Files are actually saved to
-;                       OUTPUT_DIR/sc/instr/mode/level/year/month[/day] to mimick the
-;                       MMS SDC data directory structure. "/day" is included only if
-;                       burst files are being processed.
-;       LOG_DIR:    in, optional, type=string, default='/nfs/edi'
-;                   Root directory in which to save log files. Files are actually saved to
-;                       LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
-;                       MMS SDC data directory structure. "/day" is included only if
-;                       burst files are being processed.
+;       FAST_FILE:  in, optional, type=string
+;                   A single fast srvy or brst mode EDI ambient file.
+;       SLOW_FILE:  in, optional, type=string
+;                   A single slow srvy mode EDI ambient file. If provided, `FAST_FILE`
+;                       must be a fast srvy file.
+;       QL_FILE:    out, optional, type=string
+;                   Named variable to recieve the name of the generated CDF file.
 ;
 ; :Returns:
 ;       STATUS:     out, required, type=byte
@@ -105,6 +74,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/11/20  -   Written by Matthew Argall
+;       2015/11/24  -   Errors return error code 100 (error) instead of 1 (warning) - MRA
 ;-
 function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 	compile_opt idl2
@@ -120,7 +90,7 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 		log = MrStdLog(-2)
 		
 		;Error status
-		status  = 1
+		status  = 100
 		ql_file = ''
 		
 		;Return error code
@@ -128,6 +98,7 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 	endif
 
 	;Initialize
+	;   - Setup directory structure
 	mms_unh_init
 
 ;-----------------------------------------------------
@@ -215,7 +186,7 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 
 	;Process data
 	edi_ql = mms_edi_amb_create(amb_files)
-	if n_elements(edi_ql) eq 0 then return, 1
+	if n_elements(edi_ql) eq 0 then return, 100
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
