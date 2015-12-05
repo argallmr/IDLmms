@@ -1,11 +1,11 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_compare_ql
+;    mms_fgm_test_divcurlB
 ;
 ; PURPOSE:
 ;+
-;   Compare EDI and EDP electric fields.
+;   Compare the curlometer and reciprocal vector spacial gradient techniques.
 ;
 ; :Categories:
 ;    MMS, EDI, EDP, QL
@@ -114,7 +114,6 @@ function mms_fgm_test_divcurlB, mode, tstart, tend
 	r1 = (r2 = (r3 = (r4 = !Null)))
 	b1 = (b2 = (b3 = (b4 = !Null)))
 
-stop
 ;-------------------------------------------------------
 ; Plot Data ////////////////////////////////////////////
 ;-------------------------------------------------------
