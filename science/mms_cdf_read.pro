@@ -86,7 +86,7 @@ _REF_EXTRA=extra
 	endif else if count gt 3 then begin
 		MrPrintF, 'LogWarn', count, FORMAT='(%"Reading %i files...")'
 	endif
-	
+
 	;Find the variable name
 	variable = mms_cdf_variables(varname, sc, instr, mode, level, optdesc)
 	if n_elements(variable) eq 0 then return, !Null

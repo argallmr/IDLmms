@@ -684,6 +684,87 @@ end
 
 
 ;+
+;   Array of FGM variable names
+;
+; :Params:
+;       SC:             in, required, type=string
+;                       Spacecraft identifier. Options are: "mms1", "mms2", "mms3", "mms4"
+;       INSTR:          in, required, type=string
+;                       Instrument identifier. Options are: "afg", "dfg"
+;       MODE:           in, required, type=string
+;                       Data rate mode. Options are: "slow", "fast", "srvy", "brst", "f128"
+;       LEVEL:          in, required, type=string
+;                       Data level. Options are: "l1a", "l1b", "l2pre"
+;
+; :Returns:
+;       VARS:           String array of variable names.
+;-
+function mms_cdf_scm_variables, sc, instr, mode, level, optdesc
+	compile_opt idl2
+	on_error, 2
+	
+;-------------------------------------------------------
+; L1A //////////////////////////////////////////////////
+;-------------------------------------------------------
+	if level eq 'l1a' then begin
+
+	;-------------------------------------------------------
+	; FAST & SLOW //////////////////////////////////////////
+	;-------------------------------------------------------
+		if (mode eq 'fast' && optdesc eq 'scf') || $
+		   (mode eq 'slow' && optdesc eq 'scs') $
+		then begin
+			vars = [ 'Epoch', $
+			         'epoch_timetag', $
+			         'delta_t', $
+			         'course_timetag', $
+			         'fine_time', $
+			         'seg_cnt', $
+			         'samp_per_pkt', $
+			         'epoch_crsf', $
+			         'crsf_10min', $
+			         mms_construct_varname(sc, instr,   'samplerate', optdesc), $
+			         mms_construct_varname(sc, instr,   'scm1',       'enable'), $
+			         mms_construct_varname(sc, instr,   'scm2',       'enable'), $
+			         mms_construct_varname(sc, instr,   'scm3',       'enable'), $
+			         mms_construct_varname(sc, instr,   'label'), $
+			         mms_construct_varname(sc, instr,   optdesc,      '123'), $
+			         mms_construct_varname(sc, 'epoch', 'preamp'), $
+			         mms_construct_varname(sc, instr,   'preamp'), $
+			         mms_construct_varname(sc, 'epoch', 'sensortemp'), $
+			         mms_construct_varname(sc, instr,   'sensortemp') $
+			       ]
+		endif else begin
+			message, 'No files for "' + strjoin([sc, instr, mode, level, optdesc], '_') + '".'
+		endelse
+	
+;-------------------------------------------------------
+; L1A //////////////////////////////////////////////////
+;-------------------------------------------------------
+	endif else if level eq 'l1b' then begin
+		;FAST & SLOW
+		if (mode eq 'fast' && optdesc eq 'scf') ||$
+		   (mode eq 'slow' && optdesc eq 'scs') $
+		then begin
+			vars = [ 'Epoch', $
+			         mms_construct_varname(sc, instr,   optdesc, 'scm123'), $
+			         mms_construct_varname(sc, instr,   optdesc, 'scm123_labl_1'), $
+			         mms_construct_varname(sc, instr,   'qf',    'scm123') $
+			       ]
+		endif
+	
+;-------------------------------------------------------
+; Wrong Level /////////////////////////////////////////
+;-------------------------------------------------------
+	endif else begin
+		message, 'No files for "' + strjoin([sc, instr, mode, level, optdesc], '_') + '".'
+	endelse
+	
+	return, vars
+end
+
+
+;+
 ;   Return CDF variable names.
 ;
 ; :Examples:
@@ -752,6 +833,7 @@ SUFFIX=tf_suffix
 		'afg': vars = mms_cdf_fgm_variables(sc, instr, mode, level)
 		'dfg': vars = mms_cdf_fgm_variables(sc, instr, mode, level)
 		'edp': vars = mms_cdf_edp_variables(sc, instr, mode, level, optdesc)
+		'scm': vars = mms_cdf_scm_variables(sc, instr, mode, level, optdesc)
 		else: message, 'Instrument not recognized: "' + instr + '".'
 	endcase
 	

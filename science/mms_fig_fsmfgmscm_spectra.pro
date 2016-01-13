@@ -53,7 +53,7 @@
 ;       EIGVECS:        out, optional, type=3x3 float
 ;                       Rotation matrix (into the minimum variance coordinate system).
 ;-
-function mms_fig_fsm_psd, sc, mode, tstart, tend, $
+function mms_fig_fsmfgmscm_spectra, sc, mode, tstart, tend, $
 EIGVECS=eigvecs
 	compile_opt strictarr
 
@@ -69,13 +69,6 @@ EIGVECS=eigvecs
 ;-----------------------------------------------------
 ; Find Data Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;FSM Magnetic Field
-	fsmopt   = 'fsm-split'
-	fsm_mode = mode eq 'brst' ? mode : 'srvy'
-	mms_fsm_l2plus_read, sc, fsm_mode, fsmopt, tstart, tend, $
-	                     B_GSE = b_fsm, $
-	                     TIME  = t_fsm
-	
 	;FGM Magnetic Field
 	fgm_mode = mode eq 'brst' ? mode : 'srvy'
 	mms_fgm_ql_read, sc, 'dfg', fgm_mode, 'l2pre', tstart, tend, $
@@ -86,17 +79,19 @@ EIGVECS=eigvecs
 	scopt = 'sc' + strmid(mode, 0, 1)
 	scm_fname = mms_find_file(sc, 'scm', mode, 'l2', $
 	                          DIRECTORY = '/nfs/fsm/scm/', $
-	                          OPTDESC   = scopt + '-2s', $
+	                          OPTDESC   = scopt + '-64s', $
 	                          SEARCHSTR = str, $
 	                          TSTART    = tstart, $
 	                          TEND      = tend)
-	if scm_fname[0] eq '' then message, 'Cannot find SCM file: "' + scm_fname[0] + '".'
 	oscm = MrCDF_File(scm_fname)
 	b_scm = oscm -> Read(sc + '_scm_b_gse', DEPEND_0=t_scm, REC_START=tstart, REC_END=tend)
 	obj_destroy, oscm
 	
-;	b_scm = mms_cdf_read(scopt + '_123', sc, 'scm', mode, 'l1a', tstart, tend, scopt, DEPEND_0=t_scm)
-
+	;FSM Magnetic Field
+	fsm_mode = mode eq 'brst' ? mode : 'srvy'
+	mms_fsm_ql_read, sc, fsm_mode, tstart, tend, $
+	                 B_DMPA = b_fsm, $
+	                 TIME   = t_fsm
 
 	;Separate |B|
 	bmag  = b_fgm[3,*]
@@ -111,145 +106,108 @@ EIGVECS=eigvecs
 	t_fgm_ssm = MrCDF_epoch2ssm( temporary(t_fgm), t0)
 	t_scm_ssm = MrCDF_epoch2ssm( temporary(t_scm), t0)
 	
-	nfft   = 1024
+	nfft   = 512
 	nshift = nfft / 4.0
-	
-	;FSM
-;	b_fsm_psd = MrPSD( b_fsm_dmpa, n_elements(t_fsm_ssm), 1.0/32.0, 0, $
-;	                   DIMENSION   = 2, $
-;	                   FMAX        = 8, $
-;	                   FREQUENCIES = f_fsm, $
-;	                   T0          = t_fsm_ssm[0], $
-;	                   TIME        = t_fsm_psd )
-	
-	;FGM
-;	b_fgm_psd = MrPSD( b_fgm_dmpa, n_elements(t_fgm_ssm), 1.0/16.0, 0, $
-;	                   DIMENSION   = 2, $
-;	                   FREQUENCIES = f_fgm, $
-;	                   T0          = t_fgm_ssm[0], $
-;	                   TIME        = t_fgm_psd )
 
-	;Remove leading dimension
-;	b_fsm_psd = reform(b_fsm_psd, /OVERWRITE)
-;	b_fgm_psd = reform(b_fgm_psd, /OVERWRITE)
-
-	;Median sampling interval
-	dt_fsm = median( t_fsm_ssm[1:*] - t_fsm_ssm )
-	dt_fgm = median( t_fgm_ssm[1:*] - t_fgm_ssm )
-	dt_scm = median( t_scm_ssm[1:*] - t_scm_ssm )
-
-	;
-	;Compute the power spectral density
-	;
+	;Sampling rates
+	dt_fsm = median(t_fsm_ssm[1:*] - t_fsm_ssm)
+	dt_fgm = median(t_fgm_ssm[1:*] - t_fgm_ssm)
+	dt_scm = median(t_scm_ssm[1:*] - t_scm_ssm)
 
 	;FSM
-	bx_fsm_psd = fft_powerspectrum(b_fsm[0,*], dt_fsm, FREQ=f_fsm)
-	by_fsm_psd = fft_powerspectrum(b_fsm[1,*], dt_fsm)
-	bz_fsm_psd = fft_powerspectrum(b_fsm[2,*], dt_fsm)
+	b_fsm_psd = MrPSD( b_fsm, nfft, dt_fsm, nshift, $
+	                   DIMENSION   = 2, $
+	                   FMAX        = 8, $
+	                   FREQUENCIES = f_fsm, $
+	                   T0          = t_fsm_ssm[0], $
+	                   TIME        = t_fsm_psd )
 	
 	;FGM
-	bx_fgm_psd = fft_powerspectrum(b_fgm[0,*], dt_fgm, FREQ=f_fgm)
-	by_fgm_psd = fft_powerspectrum(b_fgm[1,*], dt_fgm)
-	bz_fgm_psd = fft_powerspectrum(b_fgm[2,*], dt_fgm)
+	b_fgm_psd = MrPSD( b_fgm, nfft, dt_fgm, nshift, $
+	                   DIMENSION   = 2, $
+	                   FREQUENCIES = f_fgm, $
+	                   T0          = t_fgm_ssm[0], $
+	                   TIME        = t_fgm_psd )
 	
 	;SCM
-	bx_scm_psd = fft_powerspectrum(b_scm[0,*], dt_scm, FREQ=f_scm)
-	by_scm_psd = fft_powerspectrum(b_scm[1,*], dt_scm)
-	bz_scm_psd = fft_powerspectrum(b_scm[2,*], dt_scm)
+	b_scm_psd = MrPSD( b_scm, nfft, dt_scm, nshift, $
+	                   DIMENSION   = 2, $
+	                   FREQUENCIES = f_scm, $
+	                   T0          = t_scm_ssm[0], $
+	                   TIME        = t_scm_psd )
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 
 	;Create the window
-	win = MrWindow(LAYOUT=[1,3], XSIZE=600, XGAP=0.5, YGAP=0.5, YSIZE=650, REFRESH=0)
+	win = MrWindow(LAYOUT=[1,3], OXMARGIN=[10,15], XSIZE=800, XGAP=0.5, YGAP=0.5, YSIZE=650, REFRESH=0)
 
-	;Bx FSM
-	px_scm = MrPlot(f_scm, bx_scm_psd, $
-	                /CURRENT, $
-	                /XLOG, $
-	                /YLOG, $
-	                LAYOUT      = [1,3,1], $
-	                NAME        = 'Bx PSD', $
-	                TITLE       = 'FSM, FGM & SCM PSD', $
-	                XRANGE      = xrange, $
-	                XTICKFORMAT = '(a1)', $
-	                YTITLE      = 'Bx PSD!C(nT^2/Hz)')
+	;B FSM
+	im_fsm = MrImage( b_fsm_psd[*,*,0], t_fsm_psd, f_fsm, $
+	                  /AXES, $
+	                  /CURRENT, $
+	                  /SCALE, $
+	                  /LOG, $
+	                  /YLOG, $
+	                  CTINDEX     = 13, $
+	                  LAYOUT      = [1,3,1], $
+	                  NAME        = 'B PSD FSM', $
+	                  RANGE       = range, $
+	                  TITLE       = 'PSD Comparison from FSM, DFG & SCM', $
+	                  XTICKFORMAT = '(a1)', $
+	                  YTITLE      = 'f!C(Hz)')
+	
+	;B FGM
+	im_fgm = MrImage( b_fgm_psd[*,*,0], t_fgm_psd, f_fgm, $
+	                  /AXES, $
+	                  /CURRENT, $
+	                  /SCALE, $
+	                  /LOG, $
+	                  /YLOG, $
+	                  CTINDEX     = 13, $
+	                  LAYOUT      = [1,3,2], $
+	                  NAME        = 'B PSD FGM', $
+	                  RANGE       = range, $
+	                  XTICKFORMAT = '(a1)', $
+	                  YTITLE      = 'f!C(Hz)')
+	
+	;B SCM
+	im_scm = MrImage( b_scm_psd[*,*,0], t_scm_psd, f_scm, $
+	                  /AXES, $
+	                  /CURRENT, $
+	                  /SCALE, $
+	                  /LOG, $
+	                  /YLOG, $
+	                  CTINDEX     = 13, $
+	                  LAYOUT      = [1,3,3], $
+	                  NAME        = 'B PSD SCM', $
+	                  RANGE       = range, $
+	                  XTICKFORMAT = 'time_labels', $
+	                  YTITLE      = 'f!C(Hz)')
+	
+	
+	;CB FSM
+	cb_fsm = MrColorBar(LOCATION    = 'Right', $
+	                    OFFSET      = 0.5, $
+	                    ORIENTATION = 1, $
+	                    TARGET      = im_fsm, $
+	                    TITLE       = 'B!C(nT^2/Hz)')
+	
+	;CB FGM
+	cb_fgm = MrColorBar(LOCATION    = 'Right', $
+	                    OFFSET      = 0.5, $
+	                    ORIENTATION = 1, $
+	                    TARGET      = im_fgm, $
+	                    TITLE       = 'B!C(nT^2/Hz)')
+	
+	;CB SCM
+	cb_scm = MrColorBar(LOCATION    = 'Right', $
+	                    OFFSET      = 0.5, $
+	                    ORIENTATION = 1, $
+	                    TARGET      = im_scm, $
+	                    TITLE       = 'B!C(nT^2/Hz)')
 
-	;By FSM
-	py_scm = MrPlot(f_scm, by_scm_psd, $
-	                /CURRENT, $
-	                /XLOG, $
-	                /YLOG, $
-	                LAYOUT      = [1,3,2], $
-	                NAME        = 'By PSD', $
-	                XRANGE      = xrange, $
-	                XTICKFORMAT = '(a1)', $
-	                YTITLE      = 'By PSD!C(nT^2/Hz)')
-
-	;Bz scm
-	pz_scm = MrPlot(f_scm, bz_scm_psd, $
-	                /CURRENT, $
-	                /XLOG, $
-	                /YLOG, $
-	                LAYOUT      = [1,3,3], $
-	                NAME        = 'Bz PSD', $
-	                XRANGE      = xrange, $
-	                XTITLE      = 'f (Hz)', $
-	                YTITLE      = 'Bz PSD!C(nT^2/Hz)')
-
-	;Bx FGM
-	px_fgm = MrPlot(f_fgm, bx_fgm_psd, $
-	                /XLOG, $
-	                /YLOG, $
-	                COLOR       = 'Blue', $
-	                NAME        = 'Bx FGM PSD', $
-	                OVERPLOT    = px_scm)
-
-	;By FGM
-	py_fgm = MrPlot(f_fgm, by_fgm_psd, $
-	                /YLOG, $
-	                COLOR       = 'Blue', $
-	                NAME        = 'By FGM PSD', $
-	                OVERPLOT    = py_scm)
-
-	;Bz FGM
-	pz_fgm = MrPlot(f_fgm, bz_fgm_psd, $
-	                /YLOG, $
-	                COLOR       = 'Blue', $
-	                NAME        = 'Bz FGM PSD', $
-	                OVERPLOT    = pz_scm)
-
-	;Bx SCM
-	px_fsm = MrPlot(f_fsm, bx_fsm_psd, $
-	                /XLOG, $
-	                /YLOG, $
-	                COLOR       = 'Red', $
-	                NAME        = 'Bx FSM PSD', $
-	                OVERPLOT    = px_scm)
-
-	;By fsm
-	py_fsm = MrPlot(f_fsm, by_fsm_psd, $
-	                /YLOG, $
-	                COLOR       = 'Red', $
-	                NAME        = 'By FSM PSD', $
-	                OVERPLOT    = py_scm)
-
-	;Bz fsm
-	pz_fsm = MrPlot(f_fsm, bz_fsm_psd, $
-	                /YLOG, $
-	                COLOR       = 'Red', $
-	                NAME        = 'Bz FSM PSD', $
-	                OVERPLOT    = pz_scm)
-
-	;Legend
-	lb = MrLegend(ALIGNMENT = 'NE', $
-	              POSITION  = [1.0, 1.0], $
-	              /RELATIVE, $
-	              SAMPLE_WIDTH = 0, $
-	              TEXT_COLOR   = ['Black', 'Blue', 'Red'], $
-	              LABEL        = ['SCM', 'DFG', 'FSM'], $
-	              TARGET       = [px_scm, px_fgm, px_fsm])
 
 	win -> Refresh
 	return, win
