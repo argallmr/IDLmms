@@ -109,7 +109,7 @@ function mms_bestarg_inputs_file, directory, t_avg, t_err, b_avg, b_stdev, $
 			theCDF -> Delete
 			obj_destroy, theCDF
 		endif
-		void = cgErrorMsg()
+		MrPrintF, 'LogErr'
 		return, ''
 	endif
 	
@@ -334,7 +334,7 @@ FILENAME=filename
 	if the_error ne 0 then begin
 		catch, /cancel
 		if obj_valid(win) then obj_destroy, win
-		void = cgErrorMsg()
+		MrPrintF, 'LogErr'
 		return, obj_new()
 	endif
 

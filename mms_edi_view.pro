@@ -24,7 +24,7 @@ FILENAME=filename
 	if the_error ne 0 then begin
 		catch, /cancel
 		if obj_valid(win) then obj_destroy, win
-		void = cgErrorMsg()
+		MrPrintF, 'LogErr'
 		return, obj_new()
 	endif
 
