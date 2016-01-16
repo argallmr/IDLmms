@@ -4,37 +4,9 @@
 ; NAME:
 ;   mms_find_file 
 ;
-;*****************************************************************************************
-;   Copyright (c) 2014, Matthew Argall                                                   ;
-;   All rights reserved.                                                                 ;
-;                                                                                        ;
-;   Redistribution and use in source and binary forms, with or without modification,     ;
-;   are permitted provided that the following conditions are met:                        ;
-;                                                                                        ;
-;       * Redistributions of source code must retain the above copyright notice,         ;
-;         this list of conditions and the following disclaimer.                          ;
-;       * Redistributions in binary form must reproduce the above copyright notice,      ;
-;         this list of conditions and the following disclaimer in the documentation      ;
-;         and/or other materials provided with the distribution.                         ;
-;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may be used to endorse or promote products derived from this      ;
-;         software without specific prior written permission.                            ;
-;                                                                                        ;
-;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
-;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
-;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
-;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
-;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
-;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
-;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
-;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
-;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
-;   DAMAGE.                                                                              ;
-;*****************************************************************************************
-;
 ; PURPOSE:
 ;+
-;   The purpose of this program is to provide information about the available simulations.
+;   Find MMS data files.
 ;
 ; :Categories:
 ;    Bill Daughton, Simulation
@@ -84,6 +56,7 @@
 ;-
 function mms_find_file, sc, instr, mode, level, $
 COUNT=nfiles, $
+DROPBOX=dropbox, $
 DIRECTORY=directory, $
 OPTDESC=optdesc, $
 RELAXED_TSTART=relaxed_tstart, $
@@ -101,6 +74,7 @@ UNIFORM=uniform
 	relaxed_tstart = keyword_set(relaxed_tstart)
 	uniform = n_elements(uniform) eq 0 ? 1 : keyword_set(uniform)
 	if n_elements(directory) eq 0 then directory = ''
+	if n_elements(dropbox)   eq 0 then dropbox   = ''
 	if n_elements(sdc_root)  eq 0 then sdc_root  = ''
 	if n_elements(timeorder) eq 0 then timeorder = ''
 ;	if n_elements(tstart)    eq 0 then tstart    = ''
@@ -137,6 +111,27 @@ UNIFORM=uniform
 		                      TIMEORDER = torder, $
 		                      TSTART    = tstart, $
 		                      TEND      = tend)
+		
+		;Search in the dropbox as well?
+		if dropbox ne '' then begin
+			;Reform the file name
+			fbase        = file_basename(fpattern[i])
+			fpattern_new = filepath(fbase, ROOT_DIR=dropbox)
+			
+			;Search for the file
+			files_box = MrFile_Search(fpattern[i], $
+			                          /CLOSEST, $
+			                          COUNT     = nDropbox, $
+			                          TIMEORDER = torder, $
+			                          TSTART    = tstart, $
+			                          TEND      = tend)
+			
+			;Append files
+			if nDropbox gt 0 then begin
+				files = [files, files_box]
+				
+			endif
+		endif
 
 		;Because MMS file names contain a start time, but no end time,
 		;the first file returned by MrFile_Search may not lie between

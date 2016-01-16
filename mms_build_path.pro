@@ -162,7 +162,7 @@ NOPATH=nopath
 	       level   + '_'  + $
 	       optdesc + (optdesc[0] eq '' ? '' : '_') + $
 	       tstart  + '_v' + $
-	       version + (suffix[0] eq '' ? '' : '_')  + $
+	       version        + $
 	       suffix
 	
 	;Return which part?
