@@ -100,7 +100,7 @@ QUALITY=quality
 		catch, /CANCEL
 		if n_elements(cdfIDs) gt 0 then $
 			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
-		MrPrintF, 'LogErr', ''
+		MrPrintF, 'LogErr'
 		return, !Null
 	endif
 	

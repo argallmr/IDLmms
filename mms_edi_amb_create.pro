@@ -1673,6 +1673,12 @@ end
 ; :Keywords:
 ;       OUTDIR:     in, optional, type=string, default='/nfs/edi/amb/'
 ;                   Directory in which to save data.
+;       STATUS:     out, required, type=byte
+;                   An error code. Values are:::
+;                       OK      = 0
+;                       Warning = 1-99
+;                       Error   = 100-255
+;                           105      -  Trapped error
 ;
 ; :Returns:
 ;       EDI_OUT:    Structure of processed data. Fields are::
@@ -1700,12 +1706,17 @@ end
 ;                       PA4_180     - Pitch angle associated with COUNTS4_180 (L2 only)
 ;-
 function mms_edi_amb_create, amb_files, tstart, tend, $
-FGM_FILES=fgm_files
+FGM_FILES=fgm_files, $
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
+		
+		;TODO: Give error codes to specific errors.
+		status = 105
+		
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
@@ -1730,7 +1741,7 @@ FGM_FILES=fgm_files
 ; Sort into 0 and 180 Degree PA \\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Read Data
-	;   - Automatically comines slow and fast survey data
+	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
 	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend)
 
@@ -1809,5 +1820,6 @@ FGM_FILES=fgm_files
 	;Pitch angle (burst only)
 	if nFGM gt 0 then edi_out = create_struct(edi_out, temporary(pa_0_180))
 
+	status = 0
 	return, edi_out
 end

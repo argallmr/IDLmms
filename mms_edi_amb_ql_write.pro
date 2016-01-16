@@ -36,11 +36,6 @@
 ;   Process EDI ambient mode data to produce a quick-look data product with counts
 ;   sorted by 0 and 180 degree pitch angle.
 ;
-;   Calling Sequence::
-;       FILES = mms_edi_ql_amb_process(AMB_DATA)
-;       FILES = mms_edi_ql_amb_process(AMB_DATA, FILENAME)
-;       FILES = mms_edi_ql_amb_process(AMB_DATA, METADATA)
-;
 ; :Categories:
 ;    MMS, EDI, QL, Ambient
 ;
@@ -91,8 +86,9 @@
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
 ;-
-function mms_edi_amb_ql_write, amb_data, $
-FILENAME=filename, $
+function mms_edi_amb_ql_write, sc, mode, tstart, amb_data, $
+DROPBOX=dropbox, $
+DATA_PATH=data_path, $
 PARENTS=parents
 	compile_opt idl2
 	
@@ -117,39 +113,15 @@ PARENTS=parents
 	vx      = strtrim(version[1], 2)
 	vy      = strtrim(version[2], 2)
 	vz      = strtrim(version[3], 2)
+	
+	;Constants for output file
+	instr   = 'edi'
+	level   = 'ql'
+	optdesc = 'amb'
 
 ;------------------------------------;
-; Check Keywords                     ;
+; Check Inputs                       ;
 ;------------------------------------;
-	
-	;Parse information from the parents
-	if n_elements(parents) gt 0 then begin
-		;Find an EDI parent file
-		ifile      = where( stregex(parents, '_edi_', /BOOLEAN), nfile )
-		edi_parent = parents[ifile[0]]
-		
-		;Dissect the name
-		mms_dissect_filename, edi_parent, SC=sc, MODE=mode, TSTART=tstart
-		mode = mode eq 'brst' ? 'brst' : 'srvy'
-	endif else begin
-		parents = ' '
-	endelse
-	
-	;Dissect a file name
-	if n_elements(filename) gt 0 $
-		then mms_dissect_filename, filename, SC=sc, MODE=mode, TSTART=tstart, DIRECTORY=outdir $
-		else filename = ''
-	
-	;Check if the system variable exists
-	defsysv, '!mms_init', EXISTS=tf_sysv
-	if tf_sysv then begin
-		status  = !mms_init.status
-		outdir  = !mms_init.dropbox
-		sdcroot = !mms_init.data_path
-	endif else begin
-		status  = 0
-		sdcroot = ''
-	endelse
 	
 	;Defaults
 	if n_elements(sc)      eq 0 || sc      eq '' then sc     = 'mms#'
@@ -159,38 +131,32 @@ PARENTS=parents
 		MrCDF_Epoch_Breakdown, amb_data.tt2000_0[0], yr, mo, day, hr, mn, sec
 		tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec)
 	endif
-
-;------------------------------------;
-; Get the Latest Z-Version           ;
-;------------------------------------;
-	;Constants
-	instr   = 'edi'
-	level   = 'ql'
-	optdesc = 'amb'
-
-	;Create a fully qualified file name
-	;   - Both to DROPBOX and to DATA_PATH_ROOT
-	vxy     = vx + '.' + vy + '.'
-	dbfile  = mms_build_path(outdir,  sc, instr, mode, level, optdesc, tstart, vxy, /NOMKDIR, DEPTH='/')
-	sdcfile = mms_build_path(sdcroot, sc, instr, mode, level, optdesc, tstart, vxy, /NOMKDIR)
-
-	;Check the z-version
-	z_db  = unh_version(dbfile)
-	z_sdc = unh_version(sdcfile)
-	vz    = string(fix(z_db) > fix(z_sdc), FORMAT='(i0)')
 	
-	;Final version
-	version = string(vx, vy, vz, FORMAT='(%"%i.%i.%i")')
+	;Check if the system variable exists
+	defsysv, '!mms_init', EXISTS=tf_sysv
+	if tf_sysv then begin
+		if n_elements(dropbox)   eq 0 then dropbox   = !mms_init.dropbox
+		if n_elements(data_path) eq 0 then data_path = !mms_init.data_path
+	endif else begin
+		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
+		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
+	endelse
 
 ;------------------------------------;
 ; Create Output File Name            ;
 ;------------------------------------;
+	;Output file
+	version = vx + '.' + vy + '.' + vz
+	amb_file = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
 	
-	;Create the final file name
-	;   - Save to DROPBOX
-	if filename eq '' $
-		then amb_file = mms_build_path(outdir, sc, instr, mode, level, optdesc, tstart, version, /NOMKDIR, DEPTH='/') $
-		else amb_file = filename
+	;Find the latest z-version
+	;   - Look in both DROPBOX and DATA_PATH
+	vz = mms_latest_zversion(dropbox, amb_file, ROOT=data_path)
+	
+	;Reform the file name
+	version = vx + '.' + vy + '.' + string(vz, FORMAT='(i0)')
+	amb_file = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
+	amb_file = filepath(amb_file, ROOT_DIR=dropbox)
 
 	;Notify where file is located
 	MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
@@ -212,12 +178,12 @@ PARENTS=parents
 	if ~isa(amb_data.counts1_0,    'UINT')   then message, 'amb_data.counts1_0 must be UINT.'
 	if ~isa(amb_data.counts1_180,  'UINT')   then message, 'amb_data.counts1_180 must be UINT.'
 	if mode eq 'brst' then begin
-		if ~isa(amb_data.counts2_0,    'UINT')   then message, 'amb_data.counts2_0 must be UINT.'
-		if ~isa(amb_data.counts3_0,    'UINT')   then message, 'amb_data.counts3_0 must be UINT.'
-		if ~isa(amb_data.counts4_0,    'UINT')   then message, 'amb_data.counts4_0 must be UINT.'
-		if ~isa(amb_data.counts2_180,  'UINT')   then message, 'amb_data.counts2_180 must be UINT.'
-		if ~isa(amb_data.counts3_180,  'UINT')   then message, 'amb_data.counts3_180 must be UINT.'
-		if ~isa(amb_data.counts4_180,  'UINT')   then message, 'amb_data.counts4_180 must be UINT.'
+		if ~isa(amb_data.counts2_0,    'UINT') then message, 'amb_data.counts2_0 must be UINT.'
+		if ~isa(amb_data.counts3_0,    'UINT') then message, 'amb_data.counts3_0 must be UINT.'
+		if ~isa(amb_data.counts4_0,    'UINT') then message, 'amb_data.counts4_0 must be UINT.'
+		if ~isa(amb_data.counts2_180,  'UINT') then message, 'amb_data.counts2_180 must be UINT.'
+		if ~isa(amb_data.counts3_180,  'UINT') then message, 'amb_data.counts3_180 must be UINT.'
+		if ~isa(amb_data.counts4_180,  'UINT') then message, 'amb_data.counts4_180 must be UINT.'
 	endif
 
 	;Open the CDF file
@@ -447,7 +413,7 @@ PARENTS=parents
 	;COUNTS1_0
 	oamb -> WriteVarAttr, counts1_0_vname, 'CATDESC',      'Field-aligned electrons from the counts1 anode. Actual ' + $
 	                                                       'pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                       'data guide for more details.'
+	                                                       'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_0_vname, 'DEPEND_0',      t_0_vname
 	oamb -> WriteVarAttr, counts1_0_vname, 'DISPLAY_TYPE', 'time_series'
 	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     '0 degree electron counts'
@@ -463,7 +429,7 @@ PARENTS=parents
 	;COUNTS1_180
 	oamb -> WriteVarAttr, counts1_180_vname, 'CATDESC',      'Anti-field-aligned electrons from the counts1 anode. Actual ' + $
 	                                                         'pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                         'data guide for more details.'
+	                                                         'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_180_vname, 'DEPEND_0',      t_180_vname
 	oamb -> WriteVarAttr, counts1_180_vname, 'DISPLAY_TYPE', 'time_series'
 	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     '180 degree electron counts'
@@ -481,7 +447,7 @@ PARENTS=parents
 		;COUNTS2_PA0
 		oamb -> WriteVarAttr, counts2_0_vname, 'CATDESC',      'Field-aligned electrons from the counts2 anode. Actual ' + $
 		                                                       'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                       'data guide for more details.'
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts2_0_vname, 'DEPEND_0',      t_0_vname
 		oamb -> WriteVarAttr, counts2_0_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts2_0_vname, 'FIELDNAM',     'Electron Counts PA0'
@@ -497,7 +463,7 @@ PARENTS=parents
 		;COUNTS3_PA0
 		oamb -> WriteVarAttr, counts3_0_vname, 'CATDESC',      'Field-aligned electrons from the counts3 anode. Actual ' + $
 		                                                       'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                       'data guide for more details.'
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts3_0_vname, 'DEPEND_0',      t_0_vname
 		oamb -> WriteVarAttr, counts3_0_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts3_0_vname, 'FIELDNAM',     'Electron Counts PA0'
@@ -513,7 +479,7 @@ PARENTS=parents
 		;COUNTS4_PA0
 		oamb -> WriteVarAttr, counts4_0_vname, 'CATDESC',      'Field-aligned electrons from the counts4 anode. Actual ' + $
 		                                                       'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                       'data guide for more details.'
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts4_0_vname, 'DEPEND_0',      t_0_vname
 		oamb -> WriteVarAttr, counts4_0_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts4_0_vname, 'FIELDNAM',     'Electron Counts PA0'
@@ -529,7 +495,7 @@ PARENTS=parents
 		;COUNTS2_PA180
 		oamb -> WriteVarAttr, counts2_180_vname, 'CATDESC',      'Anti-field-aligned electrons from the counts2 anode. Actual ' + $
 		                                                         'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                         'data guide for more details.'
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts2_180_vname, 'DEPEND_0',      t_180_vname
 		oamb -> WriteVarAttr, counts2_180_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts2_180_vname, 'FIELDNAM',     'Electron Counts PA180'
@@ -545,7 +511,7 @@ PARENTS=parents
 		;COUNTS3_PA180
 		oamb -> WriteVarAttr, counts3_180_vname, 'CATDESC',      'Anti-field-aligned electrons from the counts3 anode. Actual ' + $
 		                                                         'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                         'data guide for more details.'
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts3_180_vname, 'DEPEND_0',      t_180_vname
 		oamb -> WriteVarAttr, counts3_180_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts3_180_vname, 'FIELDNAM',     'Electron Counts PA180'

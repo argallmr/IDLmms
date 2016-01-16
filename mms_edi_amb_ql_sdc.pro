@@ -59,9 +59,14 @@
 ; :Returns:
 ;       STATUS:     out, required, type=byte
 ;                   An error code. Values are:::
-;                       0        -  Everything OK
-;                       1-99     -  Warning
-;                       100-255  -  Error
+;                       OK      = 0
+;                       Warning = 1-99
+;                       Error   = 100-255
+;                           100      -  Trapped error
+;                           101      -  Bad inputs given
+;                           102      -  No EDI files found
+;                           105      -  Error from mms_edi_amb_create
+;                           110      -  Error from mms_edi_amb_ql_write
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -75,8 +80,13 @@
 ;    Modification History::
 ;       2015/11/20  -   Written by Matthew Argall
 ;       2015/11/24  -   Errors return error code 100 (error) instead of 1 (warning) - MRA
+;       2016/01/15  -   Changed in puts from FAST_FILE, SLOW_FILE, QL_FILE to
+;                           SC, MODE, TSTART. - MRA
 ;-
-function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
+function mms_edi_amb_ql_sdc, sc, mode, tstart, $
+DATA_PATH=data_path, $
+DROPTBOX=dropbox, $
+LOG_PATH=log_path
 	compile_opt idl2
 	
 	catch, the_error
@@ -89,8 +99,8 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 		;Close log file
 		log = MrStdLog(-2)
 		
-		;Error status
-		status  = 100
+		;Unexpected trapped error
+		if n_elements(status) eq 0 then status  = 100
 		ql_file = ''
 		
 		;Return error code
@@ -104,72 +114,112 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;
-	; EDI can be in ambient mode or electric field mode. It may be
-	; possible to have a fast or slow file without its complement.
-	;
-	
-	;Data rate mode of the input files
-	fmode1  = ''
-	fmode2  = ''
-	tf_brst = 0
+	;Assume error with inputs
+	status = 100
 
-	;First file
-	if n_elements(fast_file) gt 0 && fast_file[0] ne '' then begin
-		;Check if the file exists
-		if ~file_test(fast_file, /READ, /REGULAR) $
-			then message, 'EDI AMB file must exist and be readable: "' + fast_file + '".'
-		
-		;Which mode?
-		mms_dissect_filename, fast_file, MODE=fmode1
-		tf_brst = fmode1 eq 'brst'
-	endif
+	;Check type
+	if ~isa(sc,     /SCALAR, 'STRING') then message, 'SC must be a scalar string.'
+	if ~isa(mode,   /SCALAR, 'STRING') then message, 'MODE must be a scalar string.'
+	if ~isa(tstart, /SCALAR, 'STRING') then message, 'TSTART must be a scalar string.'
 	
-	;Second file
-	if n_elements(slow_file) gt 0 && slow_file[0] ne '' then begin
-		;Check if the file exists
-		if tf_brst then message, 'Only one input parameter allowed for burst processing.'
-		if ~file_test(slow_file, /READ, /REGULAR) $
-			then message, 'EDI AMB file must exist and be readable: "' + slow_file + '".'
-			
-		;Which mode
-		mms_dissect_filename, slow_file, MODE=fmode2
-	endif
+	;Check value
+	if max(sc eq ['mms1', 'mms2', 'mms3', 'mms4']) eq 0 $
+		then message, 'SC must be "mms1", "mms2", "mms3", or "mms4".'
+	if max(mode eq ['brst', 'srvy']) eq 0 $
+		then message, 'MODE must be "srvy" or "brst".'
 	
-	;Combine the files
-	if fmode1 ne '' then amb_files = fast_file
-	if fmode2 ne '' then amb_files = fmode1 eq '' ? slow_file : [amb_files, slow_file]
+	;Defaults
+	if n_elements(data_path) eq 0 then data_path = !mms_init.data_path
+	if n_elements(dropbox)   eq 0 then dropbox   = !mms_init.dropbox
+	if n_elements(log_path)  eq 0 then log_path  = !mms_init.log_path
+
+	;Check permissions
+	if ~file_test(log_path, /DIRECTORY, /WRITE) $
+		then message, 'LOG_PATH must exist and be writeable.'
+	if ~file_test(data_path, /DIRECTORY, /READ) $
+		then message, 'DATA_PATH directory must exist and be readable.'
+	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
+		then message, 'DROPBOX directory must exist and be read- and writeable.'
+
+	;Constants for data to be processed
+	instr   = 'edi'
+	level   = 'l1a'
+	optdesc = 'amb'
+	status  = 0
 	
-	;Output
-	outmode    = tf_brst ? 'brst' : 'srvy'
-	outlevel   = 'ql'
+	;Constants for output
+	outmode  = mode
+	outlevel = 'ql'
 
 ;-----------------------------------------------------
-; Dissect the Filename \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	mms_dissect_filename, amb_files[0], SC=sc,          INSTR=instr, $
-	                                    TSTART=fstart,  VERSION=version, $
-	                                    OPTDESC=optdesc
-
-;-----------------------------------------------------
-; Create a Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;
-	;Create a log file
-	;   - If not, all errors will be written to console (IDL's stderr)
-	;
+	;Parse input time
+	mms_parse_time, tstart, syr, smo, sday, shr, smin, ssec
 	
 	;Current time
 	caldat, systime(0, /JULIAN, /UTC), month, day, year, hour, minute, second
 	now = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', year, month, day, hour, minute, second)
 
-	;Create the file name
-	;   - Take file name components from the first input file.
-	flog = mms_build_path(!mms_init.log_path, sc, instr, outmode, outlevel, $
-	                      optdesc, fstart, version, now + '.log', DEPTH='dd')
+	;Build log file
+	fLog = strjoin([sc, instr, mode, level, optdesc, tstart, now], '_') + '.log'
+	
+	;Build log directory
+	;   - Create the directory if it does not exist
+	;   - log_path/amb/ql/mode/year/month[/day]
+	fDir = mode eq 'brst' ? filepath('', ROOT_DIR=log_path, SUBDIRECTORY=[sc, instr, mode, outlevel, optdesc, syr, smo, sday]) $
+	                      : filepath('', ROOT_DIR=log_path, SUBDIRECTORY=[sc, instr, mode, outlevel, optdesc, syr, smo])
+	if ~file_test(fDir, /DIRECTORY) then file_mkdir, fDir
+	
+	;Create the log file
+	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
-	;Create the error logging object
-	oLog = MrStdLog(flog)
+;-----------------------------------------------------
+; Find FAST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Find FAST/BRST files
+	if mode eq 'brst' || mode eq 'srvy' || mode eq 'fast' then begin
+		;fast or burst?
+		fmode = mode eq 'brst' ? mode : 'fast'
+	
+		;Search for the file
+		edi_files = mms_latest_file(dropbox, sc, instr, fmode, level, tstart, $
+		                            OPTDESC=optdesc, ROOT=data_path)
+		
+		;No FAST/BRST files found
+		if edi_files eq '' then begin
+			MrPrintF, 'LogText', string(sc, instr, fmode, level, optdesc, tend, $
+			                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+		endif
+	endif
+	
+;-----------------------------------------------------
+; Find SLOW Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;No "slow" files if we are searching for "brst"
+	if mode eq 'srvy' || mode eq 'slow' then begin
+		slow_file = mms_latest_file(dropbox, sc, instr, 'slow', level, tstart, $
+		                            OPTDESC=optdesc, ROOT=data_path)
+		
+		;No SLOW files found
+		if slow_file eq '' then begin
+			MrPrintF, 'LogText', string(sc, instr, 'slow', level, optdesc, tstart, $
+			                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+		endif
+		
+		;Combine slow and fast
+		if mode eq 'srvy' && edi_files ne '' then begin
+			if slow_file ne '' then edi_files = [slow_file, edi_files]
+		endif else begin
+			edi_files = slow_file
+		endelse
+	endif
+
+	;Zero files found
+	if edi_files[0] eq '' then begin
+		code = 101
+		message, 'No EDI files found.'
+	endif
 
 ;-----------------------------------------------------
 ; Process Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -179,20 +229,21 @@ function mms_edi_amb_ql_sdc, fast_file, slow_file, ql_file
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', '| Parent Files                  |'
 	MrPrintF, 'LogText', '---------------------------------'
-	if fmode1 ne '' then MrPrintF, 'LogText', fast_file
-	if fmode2 ne '' then MrPrintF, 'LogText', slow_file
+	MrPrintF, 'LogText', edi_files
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_ql = mms_edi_amb_create(amb_files)
-	if n_elements(edi_ql) eq 0 then return, 100
+	edi_ql = mms_edi_amb_create(edi_files, STATUS=status)
+	if status ne 0 then return, status
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Create the file
-	ql_file = mms_edi_amb_ql_write(temporary(edi_ql), PARENTS=file_basename(amb_files))
+	ql_file = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_ql), $
+	                               DROPBOX = dropbox, $
+	                               PARENTS = file_basename(edi_files))
 	
 	;Write destination to log file
 	MrPrintF, 'LogText', 'File written to: "' + ql_file + '".'
