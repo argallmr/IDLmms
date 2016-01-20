@@ -58,8 +58,8 @@ ROOT=root
 	if count eq 0 then begin
 		zversion = 0
 	endif else begin
-		mms_dissect_filename, filename, VZ=zversion
-		zversion = fix(zversion) + 1
+		mms_dissect_filename, fXYmatch, VZ=zversion
+		zversion = max(fix(zversion)) + 1
 	endelse
 
 	return, zversion

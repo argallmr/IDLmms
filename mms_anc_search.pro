@@ -2,55 +2,47 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;   mms_file_search 
+;   mms_anc_search 
 ;
 ; PURPOSE:
 ;+
-;   Find an MMS data file.
+;   Find the latest version of MMS ancillary data files.
 ;
 ; :Categories:
-;    MMS
+;    MMS, Ancillary
 ;
 ; :Params:
 ;       DIR:            in, required, type=string
 ;                       Directory in which to search.
 ;       SC:             in, required, type=string
-;                       Spacecraft (e.g., 'mms1').
+;                       Spacecraft: 'mms1', 'mms2', 'mms3', 'mms4'.
 ;       INSTR:          in, required, type=string
-;                       Instrument name (e.g., 'dfg')
-;       MODE:           in, required, type=string
-;                       Telemetry mode (e.g. 'fast', 'slow', 'brst')
-;       LEVEL:          in, required, type=string
-;                       Data level (e.g. 'l1a', 'l1b')
+;                       Instrument name (e.g., 'defatt', 'defeph', 'predatt', 'predeph')
 ;       TSTART:         in, required, type=string
-;                       Start time of data. Format is 'YYYYMMDD' for slow, fast, and srvy
-;                           data, and 'YYYYMMDDhhmmss' for burst data.
+;                       Start time of data. Formatted as either 'YYYYMMDD'
+;                           or 'YYYYMMDDhhmmss'
 ;       VERSION:        in, optional, type=string, default='*'
-;                       File version, formatted as 'X.Y.Z', where X, Y, and Z
-;                           are integers. If not provided, all versions of the
-;                           file are returned.
+;                       File version, formatted as 'XX', Where XX is an integer
+;                           of no fewer than 2 digits (e.g. 00, 01). If not provided,
+;                           the most recent version of the files are returned.
 ;
 ; :Keywords:
 ;       COUNT:          out, optional, type=integer
 ;                       Named varaible to receive the number of files found.
-;       OPTDESC:        in, optional, type=string, default=''
-;                       Optional descriptor in file name.
 ;       ROOT:           in, optional, type=boolean | string, default=0
 ;                       Either a scalar boolean or string value. If boolean and set,
 ;                           then `DIR` is treated as the root of an SDC-like directory
 ;                           structure. If a scalar string, then `DIR` is treated
 ;                           normally and ROOT is the root of an SDC-like directory
 ;                           structure. In the latter case, files are searched for in
-;                           both DIR and `ROOT`/[...]/. If `MODE`='hk', then ROOT
-;                           becomes ROOT/HK.
+;                           both DIR and `ROOT`/[...]/.
 ;
 ; :Returns:
 ;       FILES:          File name(s) matching the input conditions. If no files are
 ;                           found, the empty string is returned and `COUNT`=0.
 ;
 ; :See Also:
-;   mms_latest_version.pro
-;   mms_latest_zversion.pro
+;   mms_file_search.pro
 ;   mms_latest_file.pro
 ;
 ; :Author:
@@ -63,18 +55,16 @@
 ;
 ; :History:
 ;    Modification History::
-;       2015/01/13  -   Written by Matthew Argall
+;       2015/01/16  -   Written by Matthew Argall
 ;-
-function mms_file_search, dir, sc, instr, mode, level, tstart, version, $
+function mms_anc_search, dir, sc, instr, tstart, version, $
 COUNT=count, $
-OPTDESC=optdesc, $
 ROOT=root
 	compile_opt idl2
 	on_error, 2
 
 	;Defaults
 	tf_root = keyword_set(root)
-	if n_elements(optdesc) eq 0 then optdesc = ''
 	if n_elements(version) eq 0 then version = '*'
 	
 	data_path = ''
@@ -93,8 +83,17 @@ ROOT=root
 		endelse
 	endif
 
+	;Day before and day after
+	mms_parse_time, tstart, year, month, day, /INTEGER
+	doy  = julday(month, day, year) - julday(1, 1, year) + 1
+
 	;Forge the file name
-	filename = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
+	filename = string(FORMAT='(%"%s_%s_*%04i%03i*.V%s")', $
+	                  strupcase(sc), strupcase(instr), year, doy, version)
+	
+;------------------------------------------------------
+; Search in DIR                                       |
+;------------------------------------------------------
 
 	;Search in DIR
 	;   - TF_ROOT not set:  search only in DIR
@@ -102,15 +101,14 @@ ROOT=root
 	if ~tf_root || dir ne data_path then begin
 		files = file_search(dir, filename, COUNT=count, /FULLY_QUALIFY_PATH, /TEST_REGULAR)
 	endif
-		
-	;Search in ROOT
+	
+;------------------------------------------------------
+; Search in ROOT                                      |
+;------------------------------------------------------
 	if tf_root then begin
 		;Housekeeping files are found in DATA_PATH/HK
-		if mode eq 'hk' then data_path = filepath('', ROOT_DIR=data_path, SUBDIRECTORY='hk')
-		
-		;Create the SDC directory chain
-		data_path = mms_forge_path(data_path, sc, instr, mode, level, tstart, OPTDESC=optdesc)
-		
+		data_path = filepath('', ROOT_DIR=data_path, SUBDIRECTORY=['ancillary', sc, instr])
+
 		;Search for files
 		froot = file_search(data_path, filename, COUNT=croot, /FULLY_QUALIFY_PATH, /TEST_REGULAR)
 
@@ -125,6 +123,37 @@ ROOT=root
 			files = temporary(froot)
 			count = temporary(croot)
 		endif
+	endif
+	
+;------------------------------------------------------
+; Find Latest Version                                 |
+;------------------------------------------------------
+	;Strip the version number from all files
+	if count gt 1 then begin
+		fbase = file_basename(files)
+		fnov = stregex(fbase, '(.*)[0-9][0-9]+$', /SUBEXP, /EXTRACT)
+		fnov = reform(fnov[1,*])
+	
+		;Sort and find unique files
+		isort = sort(fnov)
+		iuniq = uniq(fnov, isort)
+		nuniq = n_elements(iuniq)
+		fout  = strarr(nuniq)
+
+		;Find the latest version of each unique file
+		for i = 0, nuniq-1 do begin
+			;Extract the file version
+			these_files = files[iuniq[i]]
+			v = stregex(these_files, '([0-9][0-9]+)$', /SUBEXP, /EXTRACT)
+			v = fix(reform(v[1,*]))
+		
+			;Find the largest version
+			!Null   = max(v, imax)
+			fout[i] = these_files[imax]
+		endfor
+		
+		files = temporary(fout)
+		count = temporary(nuniq)
 	endif
 
 	;Scalar
