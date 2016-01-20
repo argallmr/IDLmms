@@ -3,34 +3,6 @@
 ; NAME:
 ;    mms_edi_amb_ql_write
 ;
-;*****************************************************************************************
-;   Copyright (c) 2015, Matthew Argall                                                   ;
-;   All rights reserved.                                                                 ;
-;                                                                                        ;
-;   Redistribution and use in source and binary forms, with or without modification,     ;
-;   are permitted provided that the following conditions are met:                        ;
-;                                                                                        ;
-;       * Redistributions of source code must retain the above copyright notice,         ;
-;         this list of conditions and the following disclaimer.                          ;
-;       * Redistributions in binary form must reproduce the above copyright notice,      ;
-;         this list of conditions and the following disclaimer in the documentation      ;
-;         and/or other materials provided with the distribution.                         ;
-;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may be used to endorse or promote products derived from this      ;
-;         software without specific prior written permission.                            ;
-;                                                                                        ;
-;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
-;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
-;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
-;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
-;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
-;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
-;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
-;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
-;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
-;   DAMAGE.                                                                              ;
-;*****************************************************************************************
-;
 ; PURPOSE:
 ;+
 ;   Process EDI ambient mode data to produce a quick-look data product with counts
@@ -40,7 +12,15 @@
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       AMB_DATA:       in, optional, type=struct
+;       SC:             in, required, type=string
+;                       Spacecraft ID: 'mms1', 'mms2', 'mms3', or 'mms4'
+;       MODE:           in, required, type=string
+;                       Data rate mode: 'slow', 'fast', 'srvy', or 'brst'
+;       TSTART:         in, required, type=string
+;                       Start time of the data file to be written, formatted as
+;                           'YYYYMMDDhhmmss' for burst mode files, and 'YYYYMMDD'
+;                           otherwise.
+;       AMB_DATA:       in, required, type=struct
 ;                       EDI ambient data structure with the following fields::
 ;                           TT2000_0    - TT2000 time tags for 0-pitch angle sorted data
 ;                           TT2000_180  - TT2000 time tags for 180-pitch angle sorted data
@@ -56,20 +36,20 @@
 ;                           COUNTS3_180 - Counts3 data sorted by 180-degree pitch mode (brst only)
 ;                           COUNTS4_0   - Counts4 data sorted by 0-degree pitch mode (brst only)
 ;                           COUNTS4_180 - Counts4 data sorted by 180-degree pitch mode (brst only)
-;       META:           in, optional, type=string/struct, default='[pwd]/mms_edi_amb.cdf'
-;                       Either a file name or a structure of metadata. If a filename is
-;                           given that does not conform to the MMS file naming conventions,
-;                           metadata will be generic. If META is a structure, it must have
-;                           the following tags::
-;                               SC         - MMS spacecraft ID
-;                               INSTR      - MMS instrument ID
-;                               MODE       - MMS telemetry mode
-;                               LEVEL      - Data product level
-;                               OPTDESC    - Optional descriptor
-;                               TSTART     - Start time
-;                               DIRECTORY  - Directory in which to save the file
-;                               MODS       - Version history array
-;                               PARENTS    - Names of files used to produce `AMB_DATA`
+;
+; :Keywords:
+;       DROPBOX:        in, optional, type=string, default=pwd
+;                       Directory into which files are saved. It is expected that
+;                           externally to this program, files are moved into their
+;                           final destination in `DATA_PATH`.
+;       DATA_PATH:      in, optional, type=string, default=pwd
+;                       Root of an MMS SDC-like directory structure. This is used
+;                           in conjunction with `DROPBOX` to determine the z-version
+;                           of the output file.
+;       OPTDESC:        in, optional, type=string, default='amb'
+;                       Optional filename descriptor, with parts separated by a hyphen.
+;       PARENTS:        in, optional, type=string/strarr, default=''
+;                       Names of the parent files required to make `AMB_DATA`.
 ;
 ; :Returns:
 ;       AMB_FILE:       Name of the file created.
@@ -85,10 +65,13 @@
 ; :History:
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
+;       2015/01/16  -   Determine the correct output file version more reliably.
+;                           Change inputs to make program more versatile. - MRA
 ;-
 function mms_edi_amb_ql_write, sc, mode, tstart, amb_data, $
 DROPBOX=dropbox, $
 DATA_PATH=data_path, $
+OPTDESC=optdesc, $
 PARENTS=parents
 	compile_opt idl2
 	
@@ -117,16 +100,15 @@ PARENTS=parents
 	;Constants for output file
 	instr   = 'edi'
 	level   = 'ql'
-	optdesc = 'amb'
 
 ;------------------------------------;
 ; Check Inputs                       ;
 ;------------------------------------;
 	
 	;Defaults
-	if n_elements(sc)      eq 0 || sc      eq '' then sc     = 'mms#'
-	if n_elements(mode)    eq 0 || mode    eq '' then mode   = 'mode'
-	if n_elements(outdir)  eq 0 || outdir  eq '' then cd, CURRENT=outdir
+	if n_elements(sc)      eq 0 || sc      eq '' then sc      = 'mms#'
+	if n_elements(mode)    eq 0 || mode    eq '' then mode    = 'mode'
+	if n_elements(optdesc) eq 0                  then optdesc = 'amb'
 	if n_elements(tstart)  eq 0 || tstart  eq '' then begin
 		MrCDF_Epoch_Breakdown, amb_data.tt2000_0[0], yr, mo, day, hr, mn, sec
 		tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec)
@@ -162,7 +144,7 @@ PARENTS=parents
 	MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
 
 ;------------------------------------;
-; Check Data                         ;
+; Check Data & Create File           ;
 ;------------------------------------;
 	;
 	; Check sizes
@@ -221,8 +203,8 @@ PARENTS=parents
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source',             logical_source
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Quick-look EDI Ambient Counts'
 	oamb -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
-	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'SWRI, UNH'
-	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'J. Burch, R. Torbert'
+	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
+	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
 	oamb -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oamb -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. The instrument paper ' + $

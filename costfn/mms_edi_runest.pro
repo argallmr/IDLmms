@@ -160,7 +160,7 @@ VERBOSE  = verbose
 	if n_elements(sfac) eq 0 then begin
 		diff     = rtof - tGyro
 		xclose   = where(abs(diff) lt 3*stddev(diff))
-		sfac     = stddev(diff[xclose]) / mean(edi.tChip[xclose])
+		sfac     = stddev(diff[xclose]) / mean(edi[xclose].tChip)
 		if verbose then MrPrintF, 'logtext', sfac, FORMAT='(%"Auto-determined sfac: %0.4f")'
 	endif else begin
 		if verbose then MrPrintF, 'logtext', sfac, FORMAT='(%"User provided sfac: %0.4f")'

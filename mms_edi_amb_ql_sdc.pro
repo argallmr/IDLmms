@@ -36,25 +36,30 @@
 ;   Process EDI ambient mode data to produce a quick-look data product with counts
 ;   sorted by 0 and 180 degree pitch angle.
 ;
-;   Calling Sequence::
-;       FILES = mms_edi_ql_amb_process()
-;       FILES = mms_edi_ql_amb_process(SC)
-;       FILES = mms_edi_ql_amb_process(SC, MODE)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, '')
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, DATE_END)
-;
 ; :Categories:
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       FAST_FILE:  in, optional, type=string
-;                   A single fast srvy or brst mode EDI ambient file.
-;       SLOW_FILE:  in, optional, type=string
-;                   A single slow srvy mode EDI ambient file. If provided, `FAST_FILE`
-;                       must be a fast srvy file.
-;       QL_FILE:    out, optional, type=string
-;                   Named variable to recieve the name of the generated CDF file.
+;       SC:         in, required, type=string
+;                   Spacecraft ID of the data to be processed. Choices are:
+;                       'mms1', 'mms2', 'mms3', 'mms4'
+;       MODE:       in, required, type=string
+;                   Data rate mode of the data to be processd. Choices are:
+;                       'slow', 'fast', 'srvy', 'brst'
+;       TSTART:     in, required, type=string
+;                   Start time of the file(s) to be processed, formatted as
+;                       'YYYYMMDDhhmmss' for burst mode and 'YYYYMMDD' otherwise.
+;                       TSTART must match the start time in the file names to
+;                       be processed.
+;
+; :Keywords:
+;       DATA_PATH:  in, optional, type=string, default=!mms_init.data_path
+;                   Root of the SDC-like directory structure where data files
+;                       find their final resting place.
+;       DROPBOX:    in, optional, type=string, default=!mms_init.dropbox
+;                   Directory into which data files are initially saved.
+;       LOG_PATH:   in, optional, type=string, default=!mms_init.log_path
+;                   Root directory into which log files are saved.
 ;
 ; :Returns:
 ;       STATUS:     out, required, type=byte
@@ -175,9 +180,8 @@ LOG_PATH=log_path
 	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
 ;-----------------------------------------------------
-; Find FAST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Find FAST/BRST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Find FAST/BRST files
 	if mode eq 'brst' || mode eq 'srvy' || mode eq 'fast' then begin
 		;fast or burst?
 		fmode = mode eq 'brst' ? mode : 'fast'
