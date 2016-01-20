@@ -40,38 +40,38 @@
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       SC:         in, required, type=string
-;                   Spacecraft ID of the data to be processed. Choices are:
-;                       'mms1', 'mms2', 'mms3', 'mms4'
-;       MODE:       in, required, type=string
-;                   Data rate mode of the data to be processd. Choices are:
-;                       'slow', 'fast', 'srvy', 'brst'
-;       TSTART:     in, required, type=string
-;                   Start time of the file(s) to be processed, formatted as
-;                       'YYYYMMDDhhmmss' for burst mode and 'YYYYMMDD' otherwise.
-;                       TSTART must match the start time in the file names to
-;                       be processed.
+;       SC:                 in, required, type=string
+;                           Spacecraft ID of the data to be processed. Choices are:
+;                               'mms1', 'mms2', 'mms3', 'mms4'
+;       MODE:               in, required, type=string
+;                           Data rate mode of the data to be processd. Choices are:
+;                               'slow', 'fast', 'srvy', 'brst'
+;       TSTART:             in, required, type=string
+;                           Start time of the file(s) to be processed, formatted as
+;                               'YYYYMMDDhhmmss' for burst mode and 'YYYYMMDD' otherwise.
+;                               TSTART must match the start time in the file names to
+;                               be processed.
 ;
 ; :Keywords:
-;       DATA_PATH:  in, optional, type=string, default=!mms_init.data_path
-;                   Root of the SDC-like directory structure where data files
-;                       find their final resting place.
-;       DROPBOX:    in, optional, type=string, default=!mms_init.dropbox
-;                   Directory into which data files are initially saved.
-;       LOG_PATH:   in, optional, type=string, default=!mms_init.log_path
-;                   Root directory into which log files are saved.
+;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path
+;                           Root of the SDC-like directory structure where data files
+;                               find their final resting place.
+;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox
+;                           Directory into which data files are initially saved.
+;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
+;                           Root directory into which log files are saved.
 ;
 ; :Returns:
-;       STATUS:     out, required, type=byte
-;                   An error code. Values are:::
-;                       OK      = 0
-;                       Warning = 1-99
-;                       Error   = 100-255
-;                           100      -  Trapped error
-;                           101      -  Bad inputs given
-;                           102      -  No EDI files found
-;                           105      -  Error from mms_edi_amb_create
-;                           110      -  Error from mms_edi_amb_ql_write
+;       STATUS:             out, required, type=byte
+;                           An error code. Values are:::
+;                               OK      = 0
+;                               Warning = 1-99
+;                               Error   = 100-255
+;                                   100      -  Trapped error
+;                                   101      -  Bad inputs given
+;                                   102      -  No EDI files found
+;                                   105      -  Error from mms_edi_amb_create
+;                                   110      -  Error from mms_edi_amb_ql_write
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -89,9 +89,9 @@
 ;                           SC, MODE, TSTART. - MRA
 ;-
 function mms_edi_amb_ql_sdc, sc, mode, tstart, $
-DATA_PATH=data_path, $
-DROPTBOX=dropbox, $
-LOG_PATH=log_path
+DATA_PATH_ROOT=data_path, $
+DROPTBOX_ROOT=dropbox, $
+LOG_PATH_ROOT=log_path
 	compile_opt idl2
 	
 	catch, the_error
@@ -140,11 +140,11 @@ LOG_PATH=log_path
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
-		then message, 'LOG_PATH must exist and be writeable.'
+		then message, 'LOG_PATH_ROOT must exist and be writeable.'
 	if ~file_test(data_path, /DIRECTORY, /READ) $
-		then message, 'DATA_PATH directory must exist and be readable.'
+		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
-		then message, 'DROPBOX directory must exist and be read- and writeable.'
+		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
 
 	;Constants for data to be processed
 	instr   = 'edi'
