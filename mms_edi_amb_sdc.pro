@@ -90,7 +90,7 @@
 ;       2016/01/15  -   Changed in puts from FAST_FILE, SLOW_FILE, QL_FILE to
 ;                           SC, MODE, TSTART. - MRA
 ;-
-function mms_edi_amb_ql_sdc, sc, mode, tstart, $
+function mms_edi_amb_sdc, sc, mode, level, tstart, $
 DATA_PATH_ROOT=data_path, $
 DROPTBOX_ROOT=dropbox, $
 FILE_OUT=file_out, $
@@ -131,11 +131,14 @@ LOG_PATH_ROOT=log_path
 	;Check type
 	if ~isa(sc,     /SCALAR, 'STRING') then message, 'SC must be a scalar string.'
 	if ~isa(mode,   /SCALAR, 'STRING') then message, 'MODE must be a scalar string.'
+	if ~isa(level,  /SCALAR, 'STRING') then message, 'LEVEL must be a scalar string.'
 	if ~isa(tstart, /SCALAR, 'STRING') then message, 'TSTART must be a scalar string.'
 	
 	;Check value
 	if max(sc eq ['mms1', 'mms2', 'mms3', 'mms4']) eq 0 $
 		then message, 'SC must be "mms1", "mms2", "mms3", or "mms4".'
+	if max(level eq ['ql', 'l2']) eq 0 $
+		then message, 'LEVEL must be "ql" or "l2".'
 	if max(mode eq ['brst', 'srvy']) eq 0 $
 		then message, 'MODE must be "srvy" or "brst".'
 	
@@ -154,13 +157,13 @@ LOG_PATH_ROOT=log_path
 
 	;Constants for data to be processed
 	instr   = 'edi'
-	level   = 'l1a'
+	lvl     = 'l1a'
 	optdesc = 'amb'
 	status  = 0
 	
 	;Constants for output
 	outmode    = mode
-	outlevel   = 'ql'
+	outlevel   = level
 	outoptdesc = 'amb'
 
 ;-----------------------------------------------------
@@ -174,7 +177,7 @@ LOG_PATH_ROOT=log_path
 	now = string(FORMAT='(%"%04i%02i%02i_%02i%02i%02i")', year, month, day, hour, minute, second)
 
 	;Build log file
-	fLog = strjoin([sc, instr, mode, level, optdesc, tstart, now], '_') + '.log'
+	fLog = strjoin([sc, instr, outmode, outlevel, outoptdesc, tstart, now], '_') + '.log'
 	
 	;Build log directory
 	;   - Create the directory if it does not exist
@@ -209,12 +212,12 @@ LOG_PATH_ROOT=log_path
 ;-----------------------------------------------------
 	;No "slow" files if we are searching for "brst"
 	if mode eq 'srvy' || mode eq 'slow' then begin
-		slow_file = mms_latest_file(dropbox, sc, instr, 'slow', level, tstart, $
+		slow_file = mms_latest_file(dropbox, sc, instr, 'slow', lvl, tstart, $
 		                            OPTDESC=optdesc, ROOT=data_path)
 		
 		;No SLOW files found
 		if slow_file eq '' then begin
-			MrPrintF, 'LogText', string(sc, instr, 'slow', level, optdesc, tstart, $
+			MrPrintF, 'LogText', string(sc, instr, 'slow', lvl, optdesc, tstart, $
 			                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
 		endif
 		
@@ -245,18 +248,26 @@ LOG_PATH_ROOT=log_path
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_ql = mms_edi_amb_create(edi_files, STATUS=status)
-	if status ne 0 then return, status
+	edi_data = mms_edi_amb_create(edi_files, STATUS=status)
+	if status ne 0 then message, 'Unable to create amb ' + outlevel + ' data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Create the file
-	file_out = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_ql), $
-	                                DROPBOX_ROOT   = dropbox, $
-	                                DATA_PATH_ROOT = data_path, $
-	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = file_basename(edi_files))
+	if outlevel eq 'ql' then begin
+		file_out = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_data), $
+		                                DROPBOX_ROOT   = dropbox, $
+		                                DATA_PATH_ROOT = data_path, $
+		                                OPTDESC        = outoptdesc, $
+		                                PARENTS        = file_basename(edi_files))
+	endif else begin
+		file_out = mms_edi_amb_l2_write(sc, mode, tstart, temporary(edi_data), $
+		                                DROPBOX_ROOT   = dropbox, $
+		                                DATA_PATH_ROOT = data_path, $
+		                                OPTDESC        = outoptdesc, $
+		                                PARENTS        = file_basename(edi_files))
+	endelse
 	if file_out eq '' then message, 'Error writing QL file.'
 
 	;Time elapsed

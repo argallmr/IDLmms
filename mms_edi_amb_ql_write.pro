@@ -12,47 +12,47 @@
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       SC:             in, required, type=string
-;                       Spacecraft ID: 'mms1', 'mms2', 'mms3', or 'mms4'
-;       MODE:           in, required, type=string
-;                       Data rate mode: 'slow', 'fast', 'srvy', or 'brst'
-;       TSTART:         in, required, type=string
-;                       Start time of the data file to be written, formatted as
+;       SC:                 in, required, type=string
+;                           Spacecraft ID: 'mms1', 'mms2', 'mms3', or 'mms4'
+;       MODE:               in, required, type=string
+;                           Data rate mode: 'slow', 'fast', 'srvy', or 'brst'
+;       TSTART:             in, required, type=string
+;                           Start time of the data file to be written, formatted as
 ;                           'YYYYMMDDhhmmss' for burst mode files, and 'YYYYMMDD'
-;                           otherwise.
-;       AMB_DATA:       in, required, type=struct
-;                       EDI ambient data structure with the following fields::
-;                           TT2000_0    - TT2000 time tags for 0-pitch angle sorted data
-;                           TT2000_180  - TT2000 time tags for 180-pitch angle sorted data
-;                           TT2000_TT   - TT2000 time tags for packet-resolution data
-;                           ENERGY_GDU1 - Electron energy for GDU1
-;                           ENERGY_GDU2 - Electron energy for GDU2
-;                           PACK_MODE   - Packing mode
-;                           COUNTS1_0   - Counts1 data sorted by 0-degree pitch mode
-;                           COUNTS1_180 - Counts1 data sorted by 180-degree pitch mode
-;                           COUNTS2_0   - Counts2 data sorted by 0-degree pitch mode (brst only)
-;                           COUNTS2_180 - Counts2 data sorted by 180-degree pitch mode (brst only)
-;                           COUNTS3_0   - Counts3 data sorted by 0-degree pitch mode (brst only)
-;                           COUNTS3_180 - Counts3 data sorted by 180-degree pitch mode (brst only)
-;                           COUNTS4_0   - Counts4 data sorted by 0-degree pitch mode (brst only)
-;                           COUNTS4_180 - Counts4 data sorted by 180-degree pitch mode (brst only)
+;                               otherwise.
+;       AMB_DATA:           in, required, type=struct
+;                           EDI ambient data structure with the following fields::
+;                               TT2000_0    - TT2000 time tags for 0-pitch angle sorted data
+;                               TT2000_180  - TT2000 time tags for 180-pitch angle sorted data
+;                               TT2000_TT   - TT2000 time tags for packet-resolution data
+;                               ENERGY_GDU1 - Electron energy for GDU1
+;                               ENERGY_GDU2 - Electron energy for GDU2
+;                               PACK_MODE   - Packing mode
+;                               COUNTS1_0   - Counts1 data sorted by 0-degree pitch mode
+;                               COUNTS1_180 - Counts1 data sorted by 180-degree pitch mode
+;                               COUNTS2_0   - Counts2 data sorted by 0-degree pitch mode (brst only)
+;                               COUNTS2_180 - Counts2 data sorted by 180-degree pitch mode (brst only)
+;                               COUNTS3_0   - Counts3 data sorted by 0-degree pitch mode (brst only)
+;                               COUNTS3_180 - Counts3 data sorted by 180-degree pitch mode (brst only)
+;                               COUNTS4_0   - Counts4 data sorted by 0-degree pitch mode (brst only)
+;                               COUNTS4_180 - Counts4 data sorted by 180-degree pitch mode (brst only)
 ;
 ; :Keywords:
-;       DROPBOX:        in, optional, type=string, default=pwd
-;                       Directory into which files are saved. It is expected that
-;                           externally to this program, files are moved into their
-;                           final destination in `DATA_PATH`.
-;       DATA_PATH:      in, optional, type=string, default=pwd
-;                       Root of an MMS SDC-like directory structure. This is used
-;                           in conjunction with `DROPBOX` to determine the z-version
-;                           of the output file.
-;       OPTDESC:        in, optional, type=string, default='amb'
-;                       Optional filename descriptor, with parts separated by a hyphen.
-;       PARENTS:        in, optional, type=string/strarr, default=''
-;                       Names of the parent files required to make `AMB_DATA`.
+;       DROPBOX_ROOT:       in, optional, type=string, default=pwd
+;                           Directory into which files are saved. It is expected that
+;                               externally to this program, files are moved into their
+;                               final destination in `DATA_PATH`.
+;       DATA_PATH_ROOT:     in, optional, type=string, default=pwd
+;                           Root of an MMS SDC-like directory structure. This is used
+;                               in conjunction with `DROPBOX` to determine the z-version
+;                               of the output file.
+;       OPTDESC:            in, optional, type=string, default='amb'
+;                           Optional filename descriptor, with parts separated by a hyphen.
+;       PARENTS:            in, optional, type=string/strarr, default=''
+;                           Names of the parent files required to make `AMB_DATA`.
 ;
 ; :Returns:
-;       AMB_FILE:       Name of the file created.
+;       AMB_FILE:           Name of the file created.
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -69,8 +69,8 @@
 ;                           Change inputs to make program more versatile. - MRA
 ;-
 function mms_edi_amb_ql_write, sc, mode, tstart, amb_data, $
-DROPBOX=dropbox, $
-DATA_PATH=data_path, $
+DROPBOX_ROOT=dropbox, $
+DATA_PATH_ROOT=data_path, $
 OPTDESC=optdesc, $
 PARENTS=parents
 	compile_opt idl2
@@ -109,16 +109,19 @@ PARENTS=parents
 	if n_elements(sc)      eq 0 || sc      eq '' then sc      = 'mms#'
 	if n_elements(mode)    eq 0 || mode    eq '' then mode    = 'mode'
 	if n_elements(optdesc) eq 0                  then optdesc = 'amb'
+	if n_elements(parents) eq 0                  then parents = ' '
 	if n_elements(tstart)  eq 0 || tstart  eq '' then begin
 		MrCDF_Epoch_Breakdown, amb_data.tt2000_0[0], yr, mo, day, hr, mn, sec
-		tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec)
+		if mode eq 'brst' || mode eq 'mode' $
+			then tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec) $
+			else tstart = string(FORMAT='(%"%04i%02i%02i")', yr, mo, day)
 	endif
 	
 	;Check if the system variable exists
-	defsysv, '!mms_init', EXISTS=tf_sysv
+	defsysv, '!edi_amb_init', EXISTS=tf_sysv
 	if tf_sysv then begin
-		if n_elements(dropbox)   eq 0 then dropbox   = !mms_init.dropbox
-		if n_elements(data_path) eq 0 then data_path = !mms_init.data_path
+		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox
+		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path
 	endif else begin
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path

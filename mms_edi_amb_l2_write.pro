@@ -1,29 +1,64 @@
+; docformat = 'rst'
 ;
-; Name
-;   mms_edi_l2_q0_write
+; NAME:
+;    mms_edi_amb_ql_write
 ;
-; Purpose
-;   Create a MATLAB save file of inputs needed for Bestarg.
+; PURPOSE:
+;+
+;   Process EDI ambient mode data to produce a level 2 data product with relative
+;   and absolute calibrations.
 ;
-; Calling Sequence
-;   EDI_QL_FILE = mms_edi_ql_efield_write(EDI_QL)
-;     Write EDI quick-look data constained in the structure EDI_QL
-;     and created by mms_edi_create_ql_efield.m to a CDF file named
-;     EDI_QL_FILE.
+; :Categories:
+;    MMS, EDI, L2, Ambient
 ;
-; Parameters
-;   EDI_QL:         in, required, type=string
+; :Params:
+;       SC:                 in, required, type=string
+;                           Spacecraft ID: 'mms1', 'mms2', 'mms3', or 'mms4'
+;       MODE:               in, required, type=string
+;                           Data rate mode: 'slow', 'fast', 'srvy', or 'brst'
+;       TSTART:             in, required, type=string
+;                           Start time of the data file to be written, formatted as
+;                           'YYYYMMDDhhmmss' for burst mode files, and 'YYYYMMDD'
+;                               otherwise.
+;       AMB_DATA:           in, required, type=struct
+;                           EDI ambient data structure with the following fields::
 ;
-; Returns
-;   EDI_QL_FILE     out, required, type=string
+; :Keywords:
+;       DROPBOX_ROOT:       in, optional, type=string, default=pwd
+;                           Directory into which files are saved. It is expected that
+;                               externally to this program, files are moved into their
+;                               final destination in `DATA_PATH`.
+;       DATA_PATH_ROOT:     in, optional, type=string, default=pwd
+;                           Root of an MMS SDC-like directory structure. This is used
+;                               in conjunction with `DROPBOX` to determine the z-version
+;                               of the output file.
+;       OPTDESC:            in, optional, type=string, default='amb'
+;                           Optional filename descriptor, with parts separated by a hyphen.
+;       PARENTS:            in, optional, type=string/strarr, default=''
+;                           Names of the parent files required to make `AMB_DATA`.
 ;
-; MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
-; Required Products None
+; :Returns:
+;       AMB_FILE:           Name of the file created.
 ;
-; History:
-;   2015-09-10      Written by Matthew Argall
+; :Author:
+;    Matthew Argall::
+;        University of New Hampshire
+;        Morse Hall Room 348
+;        8 College Road
+;        Durham, NH 03824
+;        matthew.argall@unh.edu
 ;
-function mms_edi_amb_l2_write, amb_data, meta
+; :History:
+;    Modification History::
+;       2015/10/26  -   Written by Matthew Argall
+;       2015/01/16  -   Determine the correct output file version more reliably.
+;                           Change inputs to make program more versatile. - MRA
+;-
+function mms_edi_amb_l2_write, sc, mode, tstart, amb_data, $
+DROPBOX_ROOT=dropbox, $
+DATA_PATH_ROOT=data_path, $
+OPTDESC=optdesc, $
+PARENTS=parents
 	compile_opt idl2
 	
 	catch, the_error
@@ -36,62 +71,66 @@ function mms_edi_amb_l2_write, amb_data, meta
 	endif
 
 ;------------------------------------;
-; Check Metadata                     ;
+; Version History                    ;
 ;------------------------------------;
-	;Extract metadata from structure
-	if size(meta, /TNAME) eq 'STRUCT' then begin
-		sc        = meta.sc
-		instr     = meta.instr
-		mode      = meta.mode
-		level     = meta.level
-		optdesc   = meta.optdesc
-		tstart    = meta.tstart
-		directory = meta.directory
-		mods      = meta.mods
-		parents   = meta.parents
+	;Mods to data processing
+	mods = [ 'v0.0.0 - Original version.', $
+	         'v0.1.0 - Added PACK_MODE variable.' ]
 	
-		; Describe the modifications to each version
-		version = stregex( mods[-1], '^v([0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT )
-		version = version[1]
+	;Get the version
+	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+	vx      = strtrim(version[1], 2)
+	vy      = strtrim(version[2], 2)
+	vz      = strtrim(version[3], 2)
+	
+	;Constants for output file
+	instr   = 'edi'
+	level   = 'q2'
 
-		; Create the output filename
-		amb_file = mms_construct_filename( sc, instr, mode, level,     $
-		                                   DIRECTORY = meta.directory, $
-		                                   OPTDESC   = optdesc,        $
-		                                   TSTART    = tstart,         $
-		                                   VERSION   = version )
-
-	;Filename Given
-	endif else if size(meta, /TNAME) eq 'STRING' then begin
-		amb_file = meta
+;------------------------------------;
+; Check Inputs                       ;
+;------------------------------------;
 	
-		;Try to dissect the file name
-		mms_dissect_filename, amb_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level, $
-		                                TSTART=tstart, OPTDESC=optdesc, VERSION=version, $
-		                                DIRECTORY=directory
-	
-		;Could not dissect
-		if sc eq '' then MrPrintF, 'LogErr', 'Filename does not meet MMS standards: "' + meta + '".'
-	
-	;Create file name
-	endif else begin
-		sc = ''
-		cd, CURRENT=directory
-		amb_file = filepath('mms_edi_amb.cdf', ROOT_DIR=directory)
-		MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
-	endelse
-	
-	;Create fake metadata
-	if sc eq '' then begin
-		sc      = 'mms#'
-		instr   = 'edi'
-		mode    = 'mode'
-		level   = 'level'
-		optdesc = 'amb'
-		tstart  = 'YYYYMMDD'
-		version = 'X.Y.Z'
-		parents = ' '
+	;Defaults
+	if n_elements(sc)      eq 0 || sc      eq '' then sc      = 'mms#'
+	if n_elements(mode)    eq 0 || mode    eq '' then mode    = 'mode'
+	if n_elements(optdesc) eq 0                  then optdesc = 'amb'
+	if n_elements(parents) eq 0                  then parents = ' '
+	if n_elements(tstart)  eq 0 || tstart  eq '' then begin
+		MrCDF_Epoch_Breakdown, amb_data.tt2000_0[0], yr, mo, day, hr, mn, sec
+		if mode eq 'brst' || mode eq 'mode' $
+			then tstart = string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mn, sec) $
+			else tstart = string(FORMAT='(%"%04i%02i%02i")', yr, mo, day)
 	endif
+	
+	;Check if the system variable exists
+	defsysv, '!edi_amb_init', EXISTS=tf_sysv
+	if tf_sysv then begin
+		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox
+		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path
+	endif else begin
+		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
+		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
+	endelse
+
+;------------------------------------;
+; Create Output File Name            ;
+;------------------------------------;
+	;Output file
+	version = vx + '.' + vy + '.' + vz
+	amb_file = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
+	
+	;Find the latest z-version
+	;   - Look in both DROPBOX and DATA_PATH
+	vz = mms_latest_zversion(dropbox, amb_file, ROOT=data_path)
+	
+	;Reform the file name
+	version = vx + '.' + vy + '.' + string(vz, FORMAT='(i0)')
+	amb_file = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
+	amb_file = filepath(amb_file, ROOT_DIR=dropbox)
+
+	;Notify where file is located
+	MrPrintF, 'LogText', 'Creating EDI AMB file at "' + amb_file + '".'
 
 ;------------------------------------;
 ; Check Data                         ;
@@ -152,8 +191,8 @@ function mms_edi_amb_l2_write, amb_data, meta
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source',             logical_source
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Quick-look EDI Ambient Counts'
 	oamb -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
-	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'SWRI, UNH'
-	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'J. Burch, R. Torbert'
+	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
+	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
 	oamb -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oamb -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. Instrument papers ' + $

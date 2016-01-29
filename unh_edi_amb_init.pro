@@ -36,7 +36,7 @@
 ;   Set parameters required for data processing.
 ;
 ;   Creates a system variable
-;       !MMS_INIT:          A configuration structure with the following tags::
+;       !UNH_AMB_INIT:      A configuration structure with the following tags::
 ;                               DROPBOX    -  Location to which newly processed data is
 ;                                             initially saved.
 ;                               DATA_PATH  -  Location to which DROPBOX data is moved
@@ -65,25 +65,26 @@
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
 ;       2015/11/19  -   Changed to procedure. Created system variable. - MRA
+;       2016/01/27  -   Renamed from unh_edi_init to unh_edi_amb_init. - MRA
 ;-
-pro mms_unh_init, $
+pro unh_edi_amb_init, $
 RESET=reset
 	compile_opt idl2
 	on_error, 2
 	
 	;Default locations
-	mms_init = { dropbox:   '/nfs/edi/temp', $
-	             data_path: '/nfs', $
-	             log_path:  '/nfs/edi/logs', $
-	             status:    0B $
-	           }
+	edi_amb_init = { dropbox:   '/nfs/edi/temp', $
+	                 data_path: '/nfs', $
+	                 log_path:  '/nfs/edi/logs', $
+	                 status:    0B $
+	               }
 	
 	;Create or reset the system variable
-	defsysv, '!mms_init', EXISTS=exists
+	defsysv, '!edi_amb_init', EXISTS=exists
 	if ~exists then begin
-		defsysv, '!mms_init', mms_init
+		defsysv, '!edi_amb_init', edi_amb_init
 	endif else if keyword_set(reset) then begin
-		!mms_init = mms_init
+		!edi_amb_init = edi_amb_init
 	endif
 
 ;-----------------------------------------------------
@@ -92,11 +93,11 @@ RESET=reset
 	
 	;Check environment variables
 	dropbox_root = getenv('DROPBOX_ROOT')
-	if dropbox_root ne '' then !mms_init.dropbox = dropbox_root
+	if dropbox_root ne '' then !edi_amb_init.dropbox = dropbox_root
 	
 	data_path = getenv('DATA_PATH_ROOT')
-	if data_path ne '' then !mms_init.data_path = data_path
+	if data_path ne '' then !edi_amb_init.data_path = data_path
 	
 	log_path = getenv('LOG_PATH_ROOT')
-	if log_path ne '' then !mms_init.log_path = log_path
+	if log_path ne '' then !edi_amb_init.log_path = log_path
 end

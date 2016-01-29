@@ -57,6 +57,70 @@
 ;   Sort burst data by pad into 0 and 180 degree counts.
 ;
 ; :Params:
+;       FILE_GDU1:  in, required, type=string
+;                   Name of the IDL save file containing calibration data for GDU1.
+;       FILE_GDU2:  in, required, type=string
+;                   Name of the IDL save file containing calibration data for GDU1.
+;
+; :Returns:
+;      EDI_OUT:     A structure with the following tags::
+;                       TT2000_0    - Time tags for 0 degree pitch angle counts
+;                       TT2000_180  - Time tags for 180 degree pitch angle counts
+;                       PA0         - Center pitch angle of each annode with PA 0
+;                       PA0_LO      - Lower pitch angle of each annode with PA 0
+;                       PA0_HI      - Upper pitch angle of each annode with PA 0
+;                       PA180       - Center pitch angle of each annode with PA 180
+;                       PA180_L0    - Lower pitch angle of each annode with PA 180
+;                       PA180_HI    - Upper pitch angle of each annode with PA 180
+;                       GDU_0       - Flag to sort PA 0 counts by GDU.
+;                       GDU_180     - Flag to sort PA 180 counts by GDU.
+;-
+pro edi_amb_calibrate, edi, file_gdu1, file_gdu2
+	compile_opt idl2
+	on_error, 2
+
+	;Files
+	file_gdu1 = '/home/argall/amb-cals/mms3_edi_brst_l1a_amb_20150723194544_v0.6.1_GDU1_correction_factors.sav'
+	file_gdu2 = '/home/argall/amb-cals/mms3_edi_brst_l1a_amb_20150723194544_v0.6.1_GDU2_correction_factors.sav'
+	
+;	file_gdu1 = '/home/argall/amb-cals/mms3_edi_brst_l1a_amb_20150506_v0.6.0_GDU1_correction_factors.sav'
+;	file_gdu2 = '/home/argall/amb-cals/mms3_edi_brst_l1a_amb_20150506_v0.6.0_GDU2_correction_factors.sav'
+
+	;Restore the files:
+	;   - GDU1_CORRECTION_FACTORS  129x32 float
+	;   - GDU2_CORRECTION_FACTORS  129x32 float
+	restore, file_gdu1
+	restore, file_gdu2
+
+	;Grid spacing
+	dphi   = 360.0 /  32.0
+	dtheta = 360.0 / 512.0
+
+	;Expand the angles
+	iphi = value_locate(edi.epoch_angle, edi.epoch_gdu1)
+
+
+
+stop
+
+
+
+
+
+
+
+
+
+
+
+end
+
+
+
+;+
+;   Sort burst data by pad into 0 and 180 degree counts.
+;
+; :Params:
 ;       EDI:        in, required, type=struct
 ;                   A structure of EDI L1A data with the following tags:
 ;                       EPOCH_GDU1  - TT2000 epoch times for GDU1
@@ -894,13 +958,13 @@ function edi_amb_brst_0_180, edi
 
 	;Interpolate pitch
 	;   - v0.6.0 and earlier
-	if n_elements(edi.epoch_angle) ne n_elements(edi.epoch_gdu1) then begin
+	if n_elements(edi.pitch_gdu1) ne n_elements(edi.counts1_gdu1) then begin
 		;Print a warning
 		MrPrintF, 'LogText', '---------------------------------------------------------------'
-		MrPrintF, 'LogWarn', 'EPOCH_ANGLE and EPOCH_GDU1 do not have same number of elements.'
-		MrPrintF, 'LogWarn', n_elements(edi.epoch_angle), FORMAT='(%"   EPOCH_ANGLE:  %i")'
-		MrPrintF, 'LogWarn', n_elements(edi.epoch_gdu1),  FORMAT='(%"   EPOCH_GDU1:   %i")'
-		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
+		MrPrintF, 'LogWarn', 'PITCH_GDU1 and COUNTS1_GDU1 do not have same number of elements.'
+		MrPrintF, 'LogWarn', n_elements(edi.pitch_gdu1),   FORMAT='(%"   PITCH_GDU1:    %i")'
+		MrPrintF, 'LogWarn', n_elements(edi.counts1_gdu1), FORMAT='(%"   COUNTS1_GDU1:  %i")'
+		MrPrintF, 'LogWarn', '   ---> Expanding PITCH_GDU1.'
 		MrPrintF, 'LogText', '---------------------------------------------------------------'
 		MrPrintF, 'LogText', ''
 		
@@ -909,8 +973,8 @@ function edi_amb_brst_0_180, edi
 		pitch_gdu1 = edi.pitch_gdu1[iangle]
 		pitch_gdu2 = edi.pitch_gdu2[iangle]
 	endif else begin
-		pitch_gdu1 = edi.pitch_gdu1[iangle]
-		pitch_gdu2 = edi.pitch_gdu2[iangle]
+		pitch_gdu1 = edi.pitch_gdu1
+		pitch_gdu2 = edi.pitch_gdu2
 	endelse
 
 ;-----------------------------------------------------
@@ -1745,10 +1809,18 @@ STATUS=status
 	;   - Will check sc, instr, mode, level, optdesc
 	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend)
 
-	;Sort by 0 and 180 pitch angles
+;-----------------------------------------------------
+; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	edi_amb_calibrate, edi
+
+;-----------------------------------------------------
+; Sort by 0 and 180 Pitch Angle \\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 	if tf_brst $
 		then counts_0_180 = edi_amb_brst_0_180(edi) $
 		else counts_0_180 = edi_amb_srvy_0_180(edi)
+
 
 ;-----------------------------------------------------
 ; Pitch Angles (L2) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

@@ -92,7 +92,8 @@
 ;       2015/11/24  -   Renamed from mms_edi_read_l1a_amb to mms_edi_amb_l1a_read. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
-QUALITY=quality
+QUALITY=quality, $
+EXPAND_ANGLES=expand_angles
 	compile_opt idl2
 	
 	catch, the_error
@@ -103,6 +104,9 @@ QUALITY=quality
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
+	
+	tf_expand_angles = keyword_set(expand_angles)
+	if n_elements(quality) eq 0 then quality = [0, 1, 2, 3]
 	
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -232,6 +236,40 @@ QUALITY=quality
 	energy_gdu2 = (energy_gdu1 eq 1) * 250US + $
 	              (energy_gdu1 eq 2) * 500US + $
 	              (energy_gdu1 eq 3) * 1000US
+
+;-----------------------------------------------------
+; Expand Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; Expand the EPOCH_ANGLE values to match the resolution of EPOCH_GDU[12]
+	;
+	
+	nangle = n_elements(epoch_angle)
+	nepoch = n_elements(epoch_gdu1)
+	if tf_expand_angles && nangle ne nepoch then begin
+		;Print a warning
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogWarn', 'EPOCH_ANGLE and EPOCH_GDU1 do not have same number of elements.'
+		MrPrintF, 'LogWarn', n_elements(epoch_angle), FORMAT='(%"   EPOCH_ANGLE:  %i")'
+		MrPrintF, 'LogWarn', n_elements(epoch_gdu1),  FORMAT='(%"   EPOCH_GDU1:   %i")'
+		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
+		MrPrintF, 'LogText', '---------------------------------------------------------------'
+		MrPrintF, 'LogText', ''
+		
+		;How many points are we extrapolating
+		iextrap = where(epoch_gdu2 lt epoch_angle[0], nextrap)
+		if nextrap gt 0 $
+			then MrPrintF, 'LogWarn', nextrap, FORMAT='(%"%i counts before first epoch_angle time.")'
+		
+		;Locate each EPOCH_GDU1 within EPOCH_ANGLE
+		iloc = value_locate(epoch_angle, epoch_gdu1) > 0
+	
+		;Expand the angle arrays
+		epoch_angle = epoch_gdu1
+		pitch_gdu1  = pitch_gdu1[iloc]
+		pitch_gdu2  = pitch_gdu2[iloc]
+	endif
+
 
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
