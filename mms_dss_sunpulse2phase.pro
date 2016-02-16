@@ -98,6 +98,7 @@
 ;        2014-07-22  -   Last adaptation by Ken Brommund
 ;        2014-05-01  -   Documentation, clearer gap handling, repurpose inputs/outputs. - MRA
 ;        2014-11-26  -   Possible to redirect messages to log file. - MRA
+;        2016-02-11  -   Fixed error handling data gaps. - MRA
 ;-
 function mms_dss_sunpulse2phase, hk, epoch, $
 FLAG=flag, $
@@ -221,7 +222,7 @@ SUNPULSE=sunpulse
 
 	;Warn about large gaps
 	if nGaps gt 0 then begin
-		MrPrintF, 'LogWarn', nGaps, double(T_median) * 1d-9 * nMinGap, nMinGap
+		MrPrintF, 'LogWarn', nGaps, double(T_median) * 1d-9 * nMinGap, nMinGap, $
 		          FORMAT='(%"%i gaps > %0.2f seconds (%i spins) in sunpulse data.")'
 	endif
 
@@ -349,6 +350,7 @@ SUNPULSE=sunpulse
 		
 		;Period just prior to a large data gap
 		;   - Use the DSS period, if it is valid
+		;   - Otherwise, use time elapsed between sunpulse detections.
 		;   - Cannot determine the period before the data begins
 		if valid_period[idx] then begin
 			T1 = period[idx]
@@ -367,7 +369,7 @@ SUNPULSE=sunpulse
 		;   - Make sure the next valid point is not also the beginning
 		;     of another data gap. This would occur if there is a
 		;     single point stranded between two gaps.
-		if idx + 1 eq iGaps[1,i] then begin
+		if idx + 1 eq iGaps[i,1] then begin
 			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
 			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
 			          FORMAT='(%"Cannot determine period after gap at %s")'
@@ -388,7 +390,7 @@ SUNPULSE=sunpulse
 			
 			; Do they differ by more than half a spin?
 			if abs(nSpin1 - nSpin2) ge 0.5 then begin
-				ttemp = MrCDF_Epoch_Encode( pulse[idx] )
+				ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
 				MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
 				          FORMAT='(%"Spin rates that bound gap at %s differ by >= 0.5 spins.")'
 				dPulse_flag[idx] = 3
@@ -401,7 +403,7 @@ SUNPULSE=sunpulse
 			dPulse_flag[idx] = 4
 			
 			;Warn
-			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
+			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
 			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
 			          FORMAT='(%"Using period before gap at %s.")'
 			
@@ -411,7 +413,7 @@ SUNPULSE=sunpulse
 			dPulse_flag[idx] = 4
 			
 			;Warn
-			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
+			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
 			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20), $
 			          FORMAT='(%"Using period at following gap at %s.")'
 		
@@ -421,7 +423,7 @@ SUNPULSE=sunpulse
 			dPulse_flag[idx] = 5
 			
 			;Warn
-			ttemp = MrCDF_Epoch_Encode( pulse[idx] )
+			ttemp = MrCDF_Epoch_Encode(sunpulse[idx])
 			MrPrintF, 'LogWarn', strmid(ttemp, 0, 20)
 			          FORMAT='(%"Using average period before and after gap %s")'
 		endelse
