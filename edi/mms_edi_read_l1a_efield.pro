@@ -234,6 +234,44 @@ STRUCTARR=structarr
 		cdf_close, cdfIDs[i]
 		cdfIDs[i] = 0L
 	endfor
+;-----------------------------------------------------
+; Expand Brst Variables \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; We want all of the data on a per-beam basis, so expand
+	; all variables with time tag EPOCH_TIMETAG up to
+	; EPOCH_GD[12/21].
+	;
+	; This is already done in the srvy files
+	; It is done in brst files v0.1.0 or higher.
+	;
+	if n_elements(e_gd12) ne n_elements(epoch_gd12) then begin
+		;Indicate we are inflating
+		MrPrintF, 'LogText', 'Expanding energy to a per-beam.'
+		
+		;Extrapolate?
+		dt    = fix(median(epoch_timetag[1:*] - epoch_timetag), TYPE=14)
+		void  = where(epoch_gd12 lt epoch_timetag[0] or $
+		              epoch_gd12 gt epoch_timetag[-1]+dt, nextrap_gd12)
+		void  = where(epoch_gd21 lt epoch_timetag[0] or $
+		              epoch_gd21 gt epoch_timetag[-1]+dt, nextrap_gd21)
+		void = !Null
+		
+		;Issue warning
+		if nextrap_gd12 gt 0 then $
+			MrPrintF, 'LogWarn', nextrap, FORMAT='(%"Extrapolating %n points when inflating E-field GD12 data.")'
+		if nextrap_gd21 gt 0 then $
+			MrPrintF, 'LogWarn', nextrap, FORMAT='(%"Extrapolating %n points when inflating E-field GD21 data.")'
+		
+		;Locate count times within epoch timetag
+		it_gd12 = value_locate(epoch_timetag, epoch_gd12) > 0
+		it_gd21 = value_locate(epoch_timetag, epoch_gd21) > 0
+		
+		;Inflate variables
+		e_gd12 = e_gd12[temporary(it_gd12)]
+		e_gd21 = e_gd21[temporary(it_gd21)]
+	endif
+
 
 ;-----------------------------------------------------
 ; Filter by Quality? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

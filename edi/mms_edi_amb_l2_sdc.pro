@@ -1,15 +1,15 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_amb_ql_sdc
+;    mms_edi_amb_l2_sdc
 ;
 ; PURPOSE:
 ;+
-;   Process EDI ambient mode data to produce a quick-look data product with counts
-;   sorted by 0 and 180 degree pitch angle.
+;   Process EDI ambient mode data to produce a level 2 data product with counts
+;   sorted according to their pitch angle.
 ;
 ; :Categories:
-;    MMS, EDI, QL, Ambient
+;    MMS, EDI, L2, Ambient
 ;
 ; :Params:
 ;       SC:                 in, required, type=string
@@ -27,23 +27,13 @@
 ; :Keywords:
 ;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path
 ;                           Root of the SDC-like directory structure where data files
-;                               find their final resting place. If not present, the
-;                               default is taken from the DATA_PATH_ROOT environment
-;                               variable.
+;                               find their final resting place.
 ;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox
-;                           Directory into which data files are initially saved. If
-;                               not present, the default is taken from the DROPBOX_ROOT
-;                               environment variable.
+;                           Directory into which data files are initially saved.
 ;       FILE_OUT:           out, optional, type=string
 ;                           Named variable to receive the name of the output file.
 ;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
-;                           Root directory into which log files are saved. If not
-;                               present, the default is taken from the LOG_PATH_ROOT
-;                               environment variable.
-;       PACMO:              in, optional, type=integer, default=1
-;                           Packing mode. Options are:
-;                               1 - Magnetic field is focused between pads 2 & 3
-;                               2 - Magnetic field is focused on pad 1
+;                           Root directory into which log files are saved.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -67,19 +57,13 @@
 ;
 ; :History:
 ;    Modification History::
-;       2015/11/20  -   Written by Matthew Argall
-;       2015/11/24  -   Errors return error code 100 (error) instead of 1 (warning) - MRA
-;       2016/01/15  -   Changed in puts from FAST_FILE, SLOW_FILE, QL_FILE to
-;                           SC, MODE, TSTART. - MRA
-;       2016/02/02  -   Added the PACMO keyword. - MRA
-;       2016/02/09  -   Find calibration file. - MRA
+;       2016/01/29  -   Written by Matthew Argall
 ;-
-function mms_edi_amb_ql_sdc, sc, mode, tstart, $
+function mms_edi_amb_l2_sdc, sc, mode, tstart, $
 DATA_PATH_ROOT=data_path, $
 DROPTBOX_ROOT=dropbox, $
 FILE_OUT=file_out, $
-LOG_PATH_ROOT=log_path, $
-PACMO=pacmo
+LOG_PATH_ROOT=log_path
 	compile_opt idl2
 	
 	;Error handler
@@ -127,7 +111,6 @@ PACMO=pacmo
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	if n_elements(pacmo)     eq 0 then pacmo     = 1
 	if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path_root
 	if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox_root
 	if n_elements(log_path)  eq 0 then log_path  = !edi_amb_init.log_path_root
@@ -143,17 +126,13 @@ PACMO=pacmo
 	;Constants for data to be processed
 	instr   = 'edi'
 	level   = 'l1a'
-	case pacmo of
-		1: optdesc = 'amb'
-		2: optdesc = 'amb-pm2'
-		else: message, 'Unknown value for PACMO (' + strtrim(pacmo, 2) + ').'
-	endcase
+	optdesc = 'amb'
 	status  = 0
 	
 	;Constants for output
 	outmode    = mode
-	outlevel   = 'ql'
-	outoptdesc = optdesc
+	outlevel   = 'l2'
+	outoptdesc = 'amb'
 
 ;-----------------------------------------------------
 ; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -225,9 +204,29 @@ PACMO=pacmo
 	endif
 	
 ;-----------------------------------------------------
-; Find CAL File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Find CAL Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	cal_file = mms_edi_amb_cal_find(sc, tstart, CAL_PATH_ROOT=cal_path)
+	;FGM survey data works for FAST and SLOW
+	cal_file = mms_edi_amb_cal_find(sc, tstart)
+	
+	;No SLOW files found
+	if cal_file eq '' then begin
+		MrPrintF, 'LogText', string(sc, instr, 'cal', 'l2', optdesc, tstart, $
+		                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+	endif
+	
+;-----------------------------------------------------
+; Find FGM Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;FGM survey data works for FAST and SLOW
+	fgm_mode = mode eq 'brst' ? mode : 'srvy'
+	fgm_file = mms_latest_file(dropbox, sc, 'dfg', fgm_mode, 'l2pre', tstart, ROOT=data_path)
+	
+	;No SLOW files found
+	if fgm_file eq '' then begin
+		MrPrintF, 'LogText', string(sc, 'dfg', fgm_mode, 'l2pre', optdesc, tstart, $
+		                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+	endif
 
 ;-----------------------------------------------------
 ; Process Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -238,26 +237,24 @@ PACMO=pacmo
 	MrPrintF, 'LogText', '| Parent Files                  |'
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', edi_files
+	MrPrintF, 'LogText', cal_file
+	if fgm_file ne '' then MrPrintF, 'LogText', fgm_file
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
-	if status ne 0 then return, status
+	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, FGM_FILEs=fgm_file, STATUS=status)
+	if status ne 0 then message, 'Error created L2 data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if cal_file eq '' $
-		then parents = file_basename(edi_files) $
-		else parents = file_basename([edi_files, cal_file])
-
 	;Create the file
-	file_out = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_ql), $
+	file_out = mms_edi_amb_l2_write(sc, mode, tstart, temporary(edi_data), $
 	                                DROPBOX_ROOT   = dropbox, $
 	                                DATA_PATH_ROOT = data_path, $
 	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = parents)
+	                                PARENTS        = file_basename(edi_files))
 	if file_out eq '' then message, 'Error writing QL file.'
 
 	;Time elapsed

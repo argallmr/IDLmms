@@ -74,8 +74,7 @@ PARENTS=parents
 ; Version History                    ;
 ;------------------------------------;
 	;Mods to data processing
-	mods = [ 'v0.0.0 - Original version.', $
-	         'v0.1.0 - Added PACK_MODE variable.' ]
+	mods = [ 'v0.0.0 - Original version.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -106,8 +105,8 @@ PARENTS=parents
 	;Check if the system variable exists
 	defsysv, '!edi_amb_init', EXISTS=tf_sysv
 	if tf_sysv then begin
-		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox
-		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path
+		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox_root
+		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path_root
 	endif else begin
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
@@ -145,15 +144,15 @@ PARENTS=parents
 	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
 	if ~isa(amb_data.gdu_180,      'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
-	if ~isa(amb_data.counts1_0,    'UINT')   then message, 'amb_data.counts1_0 must be UINT.'
-	if ~isa(amb_data.counts1_180,  'UINT')   then message, 'amb_data.counts1_180 must be UINT.'
+	if ~isa(amb_data.counts1_0,    'FLOAT')  then message, 'amb_data.counts1_0 must be UINT.'
+	if ~isa(amb_data.counts1_180,  'FLOAT')  then message, 'amb_data.counts1_180 must be UINT.'
 	if mode eq 'brst' then begin
-		if ~isa(amb_data.counts2_0,    'UINT')   then message, 'amb_data.counts2_0 must be UINT.'
-		if ~isa(amb_data.counts3_0,    'UINT')   then message, 'amb_data.counts3_0 must be UINT.'
-		if ~isa(amb_data.counts4_0,    'UINT')   then message, 'amb_data.counts4_0 must be UINT.'
-		if ~isa(amb_data.counts2_180,  'UINT')   then message, 'amb_data.counts2_180 must be UINT.'
-		if ~isa(amb_data.counts3_180,  'UINT')   then message, 'amb_data.counts3_180 must be UINT.'
-		if ~isa(amb_data.counts4_180,  'UINT')   then message, 'amb_data.counts4_180 must be UINT.'
+		if ~isa(amb_data.counts2_0,    'FLOAT') then message, 'amb_data.counts2_0 must be UINT.'
+		if ~isa(amb_data.counts3_0,    'FLOAT') then message, 'amb_data.counts3_0 must be UINT.'
+		if ~isa(amb_data.counts4_0,    'FLOAT') then message, 'amb_data.counts4_0 must be UINT.'
+		if ~isa(amb_data.counts2_180,  'FLOAT') then message, 'amb_data.counts2_180 must be UINT.'
+		if ~isa(amb_data.counts3_180,  'FLOAT') then message, 'amb_data.counts3_180 must be UINT.'
+		if ~isa(amb_data.counts4_180,  'FLOAT') then message, 'amb_data.counts4_180 must be UINT.'
 	endif
 
 	;Open the CDF file

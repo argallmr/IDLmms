@@ -3,34 +3,6 @@
 ; NAME:
 ;       mms_edi_amb_l1a_read
 ;
-;*****************************************************************************************
-;   Copyright (c) 2015, University of New Hampshire                                      ;
-;   All rights reserved.                                                                 ;
-;                                                                                        ;
-;   Redistribution and use in source and binary forms, with or without modification,     ;
-;   are permitted provided that the following conditions are met:                        ;
-;                                                                                        ;
-;       * Redistributions of source code must retain the above copyright notice,         ;
-;         this list of conditions and the following disclaimer.                          ;
-;       * Redistributions in binary form must reproduce the above copyright notice,      ;
-;         this list of conditions and the following disclaimer in the documentation      ;
-;         and/or other materials provided with the distribution.                         ;
-;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may  be used to endorse or promote products derived from this     ;
-;         software without specific prior written permission.                            ;
-;                                                                                        ;
-;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
-;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
-;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
-;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
-;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
-;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
-;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
-;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
-;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
-;   DAMAGE.                                                                              ;
-;*****************************************************************************************
-;
 ; PURPOSE:
 ;+
 ;   Read EDI level 1A ambient mode data.
@@ -43,8 +15,6 @@
 ;                       Name of the EDI e-field mode file or files to be read.
 ;
 ; :Keywords:
-;       DIRECTORY:      in, optional, type=string, default=pwd
-;                       Directory in which to find EDI data.
 ;       QUALITY:        in, optional, type=integer/intarr, default=pwd
 ;                       Quality of EDI beams to return. Can be a scalar or vector with
 ;                           values [0, 1, 2, 3].
@@ -90,6 +60,7 @@
 ;       2015/06/01  -   Written by Matthew Argall
 ;       2015/10/15  -   Read burst data. - MRA
 ;       2015/11/24  -   Renamed from mms_edi_read_l1a_amb to mms_edi_amb_l1a_read. - MRA
+;       2016/02/01  -   Accommodate packing mode = 2 files. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
 QUALITY=quality, $
@@ -126,11 +97,11 @@ EXPAND_ANGLES=expand_angles
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
 	if max(sc[0] eq ['mms1', 'mms2', 'mms3', 'mms4']) eq 0 then message, 'Invalid spacecraft identifier: "' + sc[0] + '".'
-	if min(sc      eq sc[0])   eq 0 then message, 'All files must be from the same spacecraft.'
-	if min(instr   eq 'edi')   eq 0 then message, 'Only EDI files are allowed.'
-	if min(level   eq 'l1a')   eq 0 then message, 'Only L1A files are allowed.'
-	if min(optdesc eq 'amb')   eq 0 then message, 'Only EDI ambient-mode files are allowed.'
-	if min(mode    eq mode[0]) eq 0 then begin
+	if min(sc      eq sc[0])      eq 0 then message, 'All files must be from the same spacecraft.'
+	if min(instr   eq 'edi')      eq 0 then message, 'Only EDI files are allowed.'
+	if min(level   eq 'l1a')      eq 0 then message, 'Only L1A files are allowed.'
+	if min(optdesc eq optdesc[0]) eq 0 then message, 'All files must have the same optional descriptor.'
+	if min(mode    eq mode[0])    eq 0 then begin
 		if total((mode eq 'fast') + (mode eq 'slow')) ne n_elements(mode) $
 			then message, 'All files must have the same telemetry mode.' $
 			else tf_sort = 1
@@ -144,30 +115,45 @@ EXPAND_ANGLES=expand_angles
 		level   = level[0]
 		optdesc = optdesc[0]
 	end
+	
+	;The optional descriptor contains the packing mode for the file
+	;   - 'amb'    = ambient mode, packing mode 1
+	;   - 'amb-pm2 = ambient mode, packing mode 2
+	suffix   = ''
+	optparts = strsplit(optdesc, '-', /EXTRACT, COUNT=nparts)
+	if nparts gt 1 then begin
+		optdesc = optparts[0]
+		case optparts[1] of
+			'pm2': suffix = '_pm2'
+			else: message, 'Unknown optional descriptor: "' + optdesc + '".'
+		endcase
+	endif else begin
+		suffix = ''
+	endelse
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Variable names for GDU1
-	counts1_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1')
-	counts2_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2')
-	counts3_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts3')
-	counts4_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts4')
+	counts1_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1') + suffix
+	counts2_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2') + suffix
+	counts3_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts3') + suffix
+	counts4_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts4') + suffix
 	energy_gdu1_name  = mms_construct_varname(sc, instr, optdesc, 'energy1')
 	
 	;Variable names for GDU2
-	counts1_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1')
-	counts2_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2')
-	counts3_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts3')
-	counts4_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts4')
+	counts1_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1') + suffix
+	counts2_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2') + suffix
+	counts3_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts3') + suffix
+	counts4_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts4') + suffix
 	energy_gdu2_name  = mms_construct_varname(sc, instr, optdesc, 'energy2')
 	
 	;Other variable names
-	phi_name        = mms_construct_varname(sc, instr, optdesc, 'phi')
-	theta_name      = mms_construct_varname(sc, instr, optdesc, 'theta')
-	pitch_gdu1_name = mms_construct_varname(sc, instr, 'pitch_gdu1')
-	pitch_gdu2_name = mms_construct_varname(sc, instr, 'pitch_gdu2')
+	phi_name        = mms_construct_varname(sc, instr, optdesc, 'phi')     + suffix
+	theta_name      = mms_construct_varname(sc, instr, optdesc, 'theta')   + suffix
+	pitch_gdu1_name = mms_construct_varname(sc, instr, 'pitch_gdu1')       + suffix
+	pitch_gdu2_name = mms_construct_varname(sc, instr, 'pitch_gdu2')       + suffix
 	dwell_name      = mms_construct_varname(sc, instr, optdesc, 'dwell')
 	pitch_name      = mms_construct_varname(sc, instr, optdesc, 'pitchmode')
 	pacmo_name      = mms_construct_varname(sc, instr, optdesc, 'pacmo')
@@ -230,12 +216,25 @@ EXPAND_ANGLES=expand_angles
 ;-----------------------------------------------------
 ; Convert Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	energy_gdu1 = (energy_gdu1 eq 1) * 250US + $
-	              (energy_gdu1 eq 2) * 500US + $
-	              (energy_gdu1 eq 3) * 1000US
-	energy_gdu2 = (energy_gdu1 eq 1) * 250US + $
-	              (energy_gdu1 eq 2) * 500US + $
-	              (energy_gdu1 eq 3) * 1000US
+	;Convert to unsigned shorts
+	energy_gdu1 = fix(energy_gdu1, TYPE=12)
+	energy_gdu2 = fix(energy_gdu2, TYPE=12)
+
+	;GDU1
+	i250 = where(energy_gdu1 eq 1, n250)
+	i500 = where(energy_gdu1 eq 2, n500)
+	i1k  = where(energy_gdu1 eq 3, n1k)
+	if n250 gt 0 then energy_gdu1[i250] = 250US
+	if n500 gt 0 then energy_gdu1[i500] = 500US
+	if n1k  gt 0 then energy_gdu1[i1k]  = 1000US
+	
+	;GDU2
+	i250 = where(energy_gdu2 eq 1, n250)
+	i500 = where(energy_gdu2 eq 2, n500)
+	i1k  = where(energy_gdu2 eq 3, n1k)
+	if n250 gt 0 then energy_gdu2[i250] = 250US
+	if n500 gt 0 then energy_gdu2[i500] = 500US
+	if n1k  gt 0 then energy_gdu2[i1k]  = 1000US
 
 ;-----------------------------------------------------
 ; Expand Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -266,6 +265,8 @@ EXPAND_ANGLES=expand_angles
 	
 		;Expand the angle arrays
 		epoch_angle = epoch_gdu1
+		theta       = theta[iloc]
+		phi         = phi[iloc]
 		pitch_gdu1  = pitch_gdu1[iloc]
 		pitch_gdu2  = pitch_gdu2[iloc]
 	endif

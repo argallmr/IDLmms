@@ -37,16 +37,18 @@
 ;
 ;   Creates a system variable
 ;       !UNH_AMB_INIT:      A configuration structure with the following tags::
-;                               DROPBOX    -  Location to which newly processed data is
-;                                             initially saved.
-;                               DATA_PATH  -  Location to which DROPBOX data is moved
-;                                             after being processed. It is the root of
-;                                             the SDC directory structure.
-;                               LOG_PATH   -  Location to which log files are saved.
-;                               STATUS     -  Status flag::
-;                                                 0        - Everything OK
-;                                                 1-99     - Warning
-;                                                 100-255  - Error
+;                               DROPBOX_ROOT    -  Location to which newly processed data is
+;                                                  initially saved.
+;                               DATA_PATH_ROOT  -  Location to which DROPBOX data is moved
+;                                                  after being processed. It is the root of
+;                                                  the SDC directory structure.
+;                               LOG_PATH_ROOT   -  Location to which log files are saved.
+;                               CAL_PATH_ROOT   -  Location to which calibration files are saved.
+;                               UNH_PATH_ROOT   -  Location to which locally processed files are saved.
+;                               STATUS          -  Status flag::
+;                                                      0        - Everything OK
+;                                                      1-99     - Warning
+;                                                      100-255  - Error
 ;
 ; :Categories:
 ;    MMS
@@ -66,6 +68,8 @@
 ;       2015/10/26  -   Written by Matthew Argall
 ;       2015/11/19  -   Changed to procedure. Created system variable. - MRA
 ;       2016/01/27  -   Renamed from unh_edi_init to unh_edi_amb_init. - MRA
+;       2016/01/29  -   Check CAL_PATH_ROOT for calibration files. - MRA
+;       2016/02/08  -   Check UNH_DATA_ROOT for locally produced data files. - MRA
 ;-
 pro unh_edi_amb_init, $
 RESET=reset
@@ -73,9 +77,11 @@ RESET=reset
 	on_error, 2
 	
 	;Default locations
-	edi_amb_init = { dropbox:   '/nfs/edi/temp', $
-	                 data_path: '/nfs', $
-	                 log_path:  '/nfs/edi/logs', $
+	edi_amb_init = { dropbox_root:   '/nfs/edi/temp', $
+	                 data_path_root: '/nfs', $
+	                 log_path_root:  '/nfs/edi/logs', $
+	                 cal_path_root:  '/nfs/edi/cals', $
+	                 unh_data_root:  '/nfs/edi', $
 	                 status:    0B $
 	               }
 	
@@ -93,11 +99,17 @@ RESET=reset
 	
 	;Check environment variables
 	dropbox_root = getenv('DROPBOX_ROOT')
-	if dropbox_root ne '' then !edi_amb_init.dropbox = dropbox_root
+	if dropbox_root ne '' then !edi_amb_init.dropbox_root = dropbox_root
 	
 	data_path = getenv('DATA_PATH_ROOT')
-	if data_path ne '' then !edi_amb_init.data_path = data_path
+	if data_path ne '' then !edi_amb_init.data_path_root = data_path
 	
 	log_path = getenv('LOG_PATH_ROOT')
-	if log_path ne '' then !edi_amb_init.log_path = log_path
+	if log_path ne '' then !edi_amb_init.log_path_root = log_path
+	
+	cal_path = getenv('CAL_PATH_ROOT')
+	if cal_path ne '' then !edi_amb_init.cal_path_root = cal_path
+	
+	unh_path = getenv('UNH_DATA_ROOT')
+	if unh_path ne '' then !edi_amb_init.unh_data_root = unh_path
 end

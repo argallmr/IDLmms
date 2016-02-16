@@ -20,43 +20,47 @@
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       SC:         in, optional, type=string/strarr, default=['mms1', 'mms2', 'mms3', 'mms4']
-;                   Spacecraft identifiers for the data to process. Options are::
-;                       'mms1', 'mms2', 'mms3', and/or 'mms4'
-;       MODE:       in, required, type=string/strarr, default=['srvy', 'brst']
-;                   Data rate mode of the files to be processed. Choices are:
-;                       'slow', 'fast', 'srvy', 'brst'. The 'srvy' option combines
-;                       'slow' and 'fast' into a single 'srvy' file.
-;       TSTART:     in, optional, type=string, default=current date
-;                   First date of data to be processed. Formatted as 'YYYYMMDD' or
-;                       'YYYYMMDDhhmmss'. The empty string is equivalent to choosing
-;                       the default value.
-;       TEND:       in, optional, type=string, default=`TSTART`
-;                   Last date of data to be processed. Formatted as 'YYYYMMDD' or
-;                       'YYYYMMDDhhmmss'. All files between `TSTART` and TEND
-;                       are processed. If TEND is not defined, the value of `TSTART`
-;                       is used and the file for which the start date is closest to
-;                       TSTART without going over will be processed. If TEND
-;                       is the empty string, then the current date is used.
+;       SC:                 in, optional, type=string/strarr, default=['mms1', 'mms2', 'mms3', 'mms4']
+;                           Spacecraft identifiers for the data to process. Options are::
+;                               'mms1', 'mms2', 'mms3', and/or 'mms4'
+;       MODE:               in, required, type=string/strarr, default=['srvy', 'brst']
+;                           Data rate mode of the files to be processed. Choices are:
+;                               'slow', 'fast', 'srvy', 'brst'. The 'srvy' option combines
+;                               'slow' and 'fast' into a single 'srvy' file.
+;       TSTART:             in, optional, type=string, default=current date
+;                           First date of data to be processed. Formatted as 'YYYYMMDD' or
+;                               'YYYYMMDDhhmmss'. The empty string is equivalent to choosing
+;                               the default value.
+;       TEND:               in, optional, type=string, default=`TSTART`
+;                           Last date of data to be processed. Formatted as 'YYYYMMDD' or
+;                               'YYYYMMDDhhmmss'. All files between `TSTART` and TEND
+;                               are processed. If TEND is not defined, the value of `TSTART`
+;                               is used and the file for which the start date is closest to
+;                               TSTART without going over will be processed. If TEND
+;                               is the empty string, then the current date is used.
 ;
 ; :Keywords:
-;       NO_LOG:     in, optional, type=boolean, default=0
-;                   If set, no log file will be created and messages will be
-;                       directed to the current error logging file (defaults to the
-;                       console window -- see MrStdLog.pro)
-;       DATA_PATH:  in, optional, type=string, default=!mms_unh_init.data_dir
-;                   Root directory of the SDC directory structure where files are
-;                       stored. The structure looks like
-;                       DATA_DIR/sc/instr/mode/level[/optdesc]/year/month[/day],
-;                       where "/day" is used only for brst data.
-;       DROPBOX:    in, optional, type=string, default=!mms_unh_init.dropbox
-;                   Directory in which to save data. Externally, files are moved from
-;                       DROPBOX into `DATA_DIR`.
-;       LOG_PATH:   in, optional, type=string, default='/nfs/edi'
-;                   Root directory in which to save log files. Files are actually saved to
-;                       LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
-;                       MMS SDC data directory structure. "/day" is included only if
-;                       burst files are being processed.
+;       NO_LOG:             in, optional, type=boolean, default=0
+;                           If set, no log file will be created and messages will be
+;                               directed to the current error logging file (defaults to the
+;                               console window -- see MrStdLog.pro)
+;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_unh_init.data_dir
+;                           Root directory of the SDC directory structure where files are
+;                               stored. The structure looks like
+;                               DATA_DIR/sc/instr/mode/level[/optdesc]/year/month[/day],
+;                               where "/day" is used only for brst data.
+;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_unh_init.dropbox
+;                           Directory in which to save data. Externally, files are moved from
+;                               DROPBOX into `DATA_DIR`.
+;       LOG_PATH_ROOT:      in, optional, type=string, default='/nfs/edi'
+;                           Root directory in which to save log files. Files are actually saved to
+;                               LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
+;                               MMS SDC data directory structure. "/day" is included only if
+;                               burst files are being processed.
+;       PACMO:                      in, optional, type=integer, default=1
+;                                   Packing mode. Options are:
+;                                       1 - Magnetic field is focused between pads 2 & 3
+;                                       2 - Magnetic field is focused on pad 1
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -69,19 +73,21 @@
 ; :History:
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
+;       2016/02/02  -   Added the PACMO keyword. - MRA
 ;-
 pro mms_edi_amb_ql_process, sc, mode, tstart, tend, $
 NO_LOG=no_log, $
 DATA_PATH_ROOT=data_path_in, $
 DROPBOX_ROOT=dropbox_in, $
-LOG_PATH_ROOT=log_path_in
+LOG_PATH_ROOT=log_path_in, $
+PACMO=pacmo
 	compile_opt idl2
 	
 	;Error handling
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		void = cgErrorMSG(/QUIET);oLog -> AddError
+		oLog -> AddError
 		obj_destroy, oLog
 		return
 	endif
@@ -100,7 +106,7 @@ LOG_PATH_ROOT=log_path_in
 	;Error destination: Console or file?
 	tf_log = ~keyword_set(no_log)
 	if tf_log then begin
-		logDir = filepath('', ROOT_DIR=!edi_amb_init.log_path, SUBDIRECTORY='batch_logs')
+		logDir = filepath('', ROOT_DIR=!edi_amb_init.log_path_root, SUBDIRECTORY='batch_logs')
 		if ~file_test(logDir, /DIRECTORY) then file_mkdir, logDir
 		fLog   = filepath('mms_edi_amb_unh_' + date + '_' + time + '.log', ROOT_DIR=logDir)
 	endif else begin
@@ -123,9 +129,10 @@ LOG_PATH_ROOT=log_path_in
 		else if tend eq '' then tend = date
 
 	;Keywords
-	if n_elements(data_path_in) eq 0 then data_path = !edi_amb_init.data_path else data_path = data_path_in
-	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_amb_init.dropbox   else dropbox   = dropbox_in
-	if n_elements(log_path_in)  eq 0 then log_path  = !edi_amb_init.log_path  else log_path  = log_path_in
+	if n_elements(pacmo)        eq 0 then pacmo     = 1
+	if n_elements(data_path_in) eq 0 then data_path = !edi_amb_init.data_path_root else data_path = data_path_in
+	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_amb_init.dropbox_root   else dropbox   = dropbox_in
+	if n_elements(log_path_in)  eq 0 then log_path  = !edi_amb_init.log_path_root  else log_path  = log_path_in
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -135,18 +142,22 @@ LOG_PATH_ROOT=log_path_in
 	nMode  = n_elements(mode)
 	nStart = n_elements(tstart)
 	nEnd   = n_elements(tend)
+	nPacmo = n_elements(pacmo)
 	
 	;Unique values
-	if n_elements(uniq(sc,   sort(sc)))   ne nSC   then message, 'SC must contain only unique values.'
-	if n_elements(uniq(mode, sort(mode))) ne nMode then message, 'MODE must contain only unique values.'
+	if n_elements(uniq(sc,    sort(sc)))    ne nSC    then message, 'SC must contain only unique values.'
+	if n_elements(uniq(mode,  sort(mode)))  ne nMode  then message, 'MODE must contain only unique values.'
+	if n_elements(uniq(pacmo, sort(pacmo))) ne nPacmo then message, 'PACMO must contain only unique values.'
 	if nStart ne 1 then message, 'TSTART must be a scalar string.'
 	if nEnd   ne 1 then message, 'TEND must be a scalar string.'
 	
-	;Valid SC and MODE
+	;Valid SC, MODE, and PACMO
 	if min(MrIsMember(['mms1', 'mms2', 'mms3', 'mms4'], sc)) eq 0 $
 		then message, 'Invalid spacecraft ID given.'
 	if min(MrIsMember(['slow', 'fast', 'srvy', 'brst'], mode)) eq 0 $
 		then message, 'MODE mode be "slow", "fast", "srvy", and/or "brst"'
+	if min(MrIsMember([1, 2], pacmo)) eq 0 $
+		then message, 'PACMO must be 1 and/or 2.'
 	
 	;Directories must be writable
 	if tf_log && ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -172,7 +183,6 @@ LOG_PATH_ROOT=log_path_in
 	;Constants
 	instr   = 'edi'
 	level   = 'l1a'
-	optdesc = 'amb'
 
 ;-----------------------------------------------------
 ; Loop Over Date & Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -191,8 +201,12 @@ LOG_PATH_ROOT=log_path_in
 	t_begin = systime(1)
 
 	;Loop
-	for j = 0, n_elements(mode) - 1 do begin
-	for k = 0, n_elements(sc)   - 1 do begin
+	for p = 0, n_elements(pacmo) - 1 do begin
+	for j = 0, n_elements(mode)  - 1 do begin
+	for k = 0, n_elements(sc)    - 1 do begin
+		;Optional descriptor
+		optdesc = pacmo[p] eq 1 ? 'amb' : 'amb-pm' + string(pacmo[p], FORMAT='(i0)')
+	
 		;Starting a new sc/mode
 		oLog -> AddText, '------------------------------------------------'
 		oLog -> AddText, '################################################'
@@ -297,7 +311,9 @@ LOG_PATH_ROOT=log_path_in
 			f_begin = systime(1)
 			
 			;Process data
-			status_out = mms_edi_amb_ql_sdc(sc[k], mode[j], fstart, FILE_OUT=file_out)
+			status_out = mms_edi_amb_ql_sdc(sc[k], mode[j], fstart, $
+			                                FILE_OUT = file_out, $
+			                                PACMO    = pacmo[p])
 
 			;End of processing time
 			f_end = systime(1)
@@ -308,7 +324,9 @@ LOG_PATH_ROOT=log_path_in
 		;-----------------------------------------------------
 			
 			;Save results
-			files[count]    = file_out
+			if status_out eq 0 $
+				then files[count] = file_out $
+				else files[count] = strjoin([sc[k], 'edi', mode[j], 'ql', optdesc, fstart], '_')
 			status[count]   = status_out
 			telapsed[count] = f_end - f_begin
 			count++
@@ -334,6 +352,7 @@ LOG_PATH_ROOT=log_path_in
 		endfor ;date
 	endfor ;sc
 	endfor ;mode
+	endfor ;pacmo
 	
 	;Finish processing
 	t_end = systime(1)

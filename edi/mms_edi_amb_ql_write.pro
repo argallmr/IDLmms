@@ -89,7 +89,8 @@ PARENTS=parents
 ;------------------------------------;
 	;Mods to data processing
 	mods = [ 'v0.0.0 - Original version.', $
-	         'v0.1.0 - Added PACK_MODE variable.' ]
+	         'v0.1.0 - Added PACK_MODE variable.', $
+	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -120,11 +121,24 @@ PARENTS=parents
 	;Check if the system variable exists
 	defsysv, '!edi_amb_init', EXISTS=tf_sysv
 	if tf_sysv then begin
-		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox
-		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path
+		if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox_root
+		if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path_root
 	endif else begin
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
+	endelse
+
+;------------------------------------;
+; Get Y-Version From Cal File        ;
+;------------------------------------;
+	ical = where(strpos(parents, '_cal_') ne -1, ncal)
+	if ncal gt 0 then begin
+		cal_file = parents[ical[0]]
+
+		;Get the Y-version number
+		mms_dissect_filename, cal_file, VY=vy
+	endif else begin
+		MrPrintF, 'LogWarn', 'No cal file in PARENTS. Using MODS.'
 	endelse
 
 ;------------------------------------;
@@ -159,7 +173,6 @@ PARENTS=parents
 	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
 	if ~isa(amb_data.gdu_180,      'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
-	if ~isa(amb_data.pack_mode,    'BYTE')   then message, 'amb_data.pack_mode must be BYTE.'
 	if ~isa(amb_data.counts1_0,    'UINT')   then message, 'amb_data.counts1_0 must be UINT.'
 	if ~isa(amb_data.counts1_180,  'UINT')   then message, 'amb_data.counts1_180 must be UINT.'
 	if mode eq 'brst' then begin
@@ -195,7 +208,7 @@ PARENTS=parents
 	;           Particles (space)
 	;           Plasma and Solar Wind
 	;           Spacecraft Potential Control
-	oamb -> WriteGlobalAttr, /CREATE, 'Data_Type',                  data_type
+	oamb -> WriteGlobalAttr, /CREATE, 'Data_type',                  data_type
 	oamb -> WriteGlobalAttr, /CREATE, 'Data_version',               version
 	oamb -> WriteGlobalAttr, /CREATE, 'Descriptor',                 'EDI'
 	oamb -> WriteGlobalAttr, /CREATE, 'Discipline',                 'Space Physics>Magnetospheric Science'
@@ -231,6 +244,7 @@ PARENTS=parents
 	; Variable naming convention
 	;   scId_instrumentId_paramName_optionalDescriptor
 	
+	epoch_vname           = 'Epoch'
 	t_0_vname             = 'epoch_0'
 	t_180_vname           = 'epoch_180'
 	t_tt_vname            = 'epoch_timetag'
@@ -238,7 +252,6 @@ PARENTS=parents
 	e_gdu2_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu2')
 	gdu_0_vname           = mms_construct_varname(sc, instr, 'gdu',     '0')
 	gdu_180_vname         = mms_construct_varname(sc, instr, 'gdu',     '180')
-	pack_mode_vname       = mms_construct_varname(sc, instr, 'pack',    'mode')
 	counts1_0_vname       = mms_construct_varname(sc, instr, 'counts1', '0')
 	counts2_0_vname       = mms_construct_varname(sc, instr, 'counts2', '0')
 	counts3_0_vname       = mms_construct_varname(sc, instr, 'counts3', '0')
@@ -249,28 +262,28 @@ PARENTS=parents
 	counts4_180_vname     = mms_construct_varname(sc, instr, 'counts4', '180')
 
 	;Write variable data to file
-	oamb -> WriteVar, /CREATE, t_0_vname,          transpose(amb_data.tt2000_0),    CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, t_180_vname,        transpose(amb_data.tt2000_180),  CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, t_tt_vname,         transpose(amb_data.tt2000_tt),   CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, e_gdu1_vname,       transpose(amb_data.energy_gdu1), COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, e_gdu2_vname,       transpose(amb_data.energy_gdu2), COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, gdu_0_vname,        transpose(amb_data.gdu_0),       COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, gdu_180_vname,      transpose(amb_data.gdu_180),     COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, pack_mode_vname,    transpose(amb_data.pack_mode),   COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, epoch_vname, 'CDF_TIME_TT2000', /ZVARIABLE
+	oamb -> WriteVar, /CREATE, t_0_vname,       amb_data.tt2000_0,    CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, t_180_vname,     amb_data.tt2000_180,  CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, t_tt_vname,      amb_data.tt2000_tt,   CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, e_gdu1_vname,    amb_data.energy_gdu1, COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, e_gdu2_vname,    amb_data.energy_gdu2, COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, gdu_0_vname,     amb_data.gdu_0,       COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, gdu_180_vname,   amb_data.gdu_180,     COMPRESSION='GZIP', GZIP_LEVEL=6
 
 	;Put group variables by pitch angle.
 	if mode eq 'brst' then begin
-		oamb -> WriteVar, /CREATE, counts1_0_vname,   transpose(amb_data.counts1_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts2_0_vname,   transpose(amb_data.counts2_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts3_0_vname,   transpose(amb_data.counts3_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts4_0_vname,   transpose(amb_data.counts4_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts1_180_vname, transpose(amb_data.counts1_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts2_180_vname, transpose(amb_data.counts2_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts3_180_vname, transpose(amb_data.counts3_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts4_180_vname, transpose(amb_data.counts4_180), COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts1_0_vname,   amb_data.counts1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts2_0_vname,   amb_data.counts2_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts3_0_vname,   amb_data.counts3_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts4_0_vname,   amb_data.counts4_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts1_180_vname, amb_data.counts1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts2_180_vname, amb_data.counts2_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts3_180_vname, amb_data.counts3_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts4_180_vname, amb_data.counts4_180, COMPRESSION='GZIP', GZIP_LEVEL=6
 	endif else begin
-		oamb -> WriteVar, /CREATE, counts1_0_vname,    transpose(amb_data.counts1_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts1_180_vname,  transpose(amb_data.counts1_180), COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts1_0_vname,    amb_data.counts1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, counts1_180_vname,  amb_data.counts1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
 	
 ;------------------------------------------------------
@@ -294,6 +307,19 @@ PARENTS=parents
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMAX'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
 	
+	;Epoch
+	oamb -> WriteVarAttr, epoch_vname, 'CATDESC',       'A place holder.'
+	oamb -> WriteVarAttr, epoch_vname, 'FIELDNAM',      'Time'
+	oamb -> WriteVarAttr, epoch_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
+	oamb -> WriteVarAttr, epoch_vname, 'FORMAT',        'I16'
+	oamb -> WriteVarAttr, epoch_vname, 'LABLAXIS',      'UT'
+	oamb -> WriteVarAttr, epoch_vname, 'SI_CONVERSION', '1e-9>s'
+	oamb -> WriteVarAttr, epoch_vname, 'TIME_BASE',     'J2000'
+	oamb -> WriteVarAttr, epoch_vname, 'UNITS',         'UT'
+	oamb -> WriteVarAttr, epoch_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, epoch_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
+	oamb -> WriteVarAttr, epoch_vname, 'VAR_TYPE',      'support_data'
+	
 	;TT2000_PA0
 	oamb -> WriteVarAttr, t_0_vname, 'CATDESC',       'TT2000 time tags for field-aligned angle electron counts. ' + $
 	                                                  'Field-aligned means the reference anode is set to detect 0-degree ' + $
@@ -305,8 +331,8 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_0_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_0_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_0_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_0_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_0_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_0_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_0_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_0_vname, 'VAR_TYPE',      'support_data'
 	
 	;TT2000_PA180
@@ -320,8 +346,8 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_180_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_180_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_180_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_180_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_180_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_180_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_180_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_180_vname, 'VAR_TYPE',      'support_data'
 
 	;EPOCH_TIMETAG
@@ -333,8 +359,8 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_tt_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_tt_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
@@ -367,33 +393,21 @@ PARENTS=parents
 	oamb -> WriteVarAttr, gdu_0_vname, 'CATDESC',       'Sorts 0 degree counts by GDU'
 	oamb -> WriteVarAttr, gdu_0_vname, 'DEPEND_0',       t_0_vname
 	oamb -> WriteVarAttr, gdu_0_vname, 'FIELDNAM',      'GDU Identifier'
-	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255
+	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_0_vname, 'FORMAT',        'I1'
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMAX',      2B
-	oamb -> WriteVarAttr, gdu_0_vname, 'VAR_TYPE',      'meta_data'
+	oamb -> WriteVarAttr, gdu_0_vname, 'VAR_TYPE',      'support_data'
 
 	;GDU_180
 	oamb -> WriteVarAttr, gdu_180_vname, 'CATDESC',       'Sorts 180 degree counts by GDU'
 	oamb -> WriteVarAttr, gdu_180_vname, 'DEPEND_0',       t_180_vname
 	oamb -> WriteVarAttr, gdu_180_vname, 'FIELDNAM',      'GDU Identifier'
-	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',        255
+	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_180_vname, 'FORMAT',        'I1'
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMAX',      2B
-	oamb -> WriteVarAttr, gdu_180_vname, 'VAR_TYPE',      'meta_data'
-
-	;PACK_MODE
-	oamb -> WriteVarAttr, pack_mode_vname, 'CATDESC',       'Flag indicating how GDU anodes relate ' + $
-	                                                        'to magnetic field direction. See the data ' + $
-	                                                        'product guide for more information.'
-	oamb -> WriteVarAttr, pack_mode_vname, 'DEPEND_0',       t_tt_vname
-	oamb -> WriteVarAttr, pack_mode_vname, 'FIELDNAM',      'Packing Mode Flag'
-	oamb -> WriteVarAttr, pack_mode_vname, 'FILLVAL',        255
-	oamb -> WriteVarAttr, pack_mode_vname, 'FORMAT',        'I1'
-	oamb -> WriteVarAttr, pack_mode_vname, 'VALIDMIN',      0B
-	oamb -> WriteVarAttr, pack_mode_vname, 'VALIDMAX',      3B
-	oamb -> WriteVarAttr, pack_mode_vname, 'VAR_TYPE',      'meta_data'
+	oamb -> WriteVarAttr, gdu_180_vname, 'VAR_TYPE',      'support_data'
 
 	;COUNTS1_0
 	oamb -> WriteVarAttr, counts1_0_vname, 'CATDESC',      'Field-aligned electrons from the counts1 anode. Actual ' + $
