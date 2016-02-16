@@ -508,8 +508,9 @@ function mms_cdf_edp_variables, sc, instr, mode, level, optdesc
 ;-------------------------------------------------------
 	endif else if level eq 'ql' then begin
 		;BRST & FAST & SLOW only
-		if mode ne 'brst' && mode ne 'slow' && mode eq 'fast' $
+		if mode ne 'brst' && mode ne 'slow' && mode ne 'fast' $
 			then message, 'No files for "' + strjoin([sc, instr, mode, level, optdesc], '_') + '".'
+		
 		;DCE & DCE2D only
 		if optdesc ne 'dce' && optdesc ne 'dce2d' $
 			then message, 'No files for "' + strjoin([sc, instr, mode, level, optdesc], '_') + '".'
@@ -548,6 +549,332 @@ function mms_cdf_edp_variables, sc, instr, mode, level, optdesc
 ;-------------------------------------------------------
 	endif else begin
 		message, 'No files for "' + strjoin([sc, instr, mode, level, optdesc], '_') + '".'
+	endelse
+
+	return, vars
+end
+
+
+;+
+;   Array of EDP variable names
+;
+; :Params:
+;       SC:             in, required, type=string
+;                       Spacecraft identifier. Options are: "mms1", "mms2", "mms3", "mms4"
+;       INSTR:          in, required, type=string
+;                       Instrument identifier. Options are: "afg", "dfg"
+;       MODE:           in, required, type=string
+;                       Data rate mode. Options are: "slow", "fast", "srvy", "brst", "f128"
+;       LEVEL:          in, required, type=string
+;                       Data level. Options are: "l1a", "l1b", "l2pre"
+;       OPTDESC:        in, required, type=string
+;                       Optional variable name descriptor.
+;
+; :Returns:
+;       VARS:           String array of variable names.
+;-
+function mms_cdf_fpi_variables, sc, instr, mode, level, optdesc
+	compile_opt idl2
+	on_error, 2
+
+	msg = strjoin([sc, instr, mode, level, optdesc], '_')
+
+	optparts = strsplit(optdesc, '-', /EXTRACT)
+	species  = optparts[0]
+	units    = optparts[1]
+
+;-------------------------------------------------------
+; D*S-DIST /////////////////////////////////////////////
+;-------------------------------------------------------
+	if units eq 'dist' then begin
+	;-------------------------------------------------------
+	; L1B //////////////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'l1b' then begin
+		;-------------------------------------------------------
+		; FAST //////////////////////////////////////////////////
+		;-------------------------------------------------------
+			if mode eq 'fast' then begin
+				;dis-dist, des-dist
+				vars = [ 'Epoch', $
+				         strjoin([sc, species, 'dataQuality'],                        '_'), $
+				         strjoin([sc, species, 'startDelphi',         'count'],       '_'), $
+				         strjoin([sc, species, 'startDelPhi',         'angle'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMapSkyMap', units],         '_'), $
+				         strjoin([sc, species, mode + 'SkyMapSkyMap', units + 'Err'], '_'), $
+				         strjoin([sc, species, 'sector',              'index'],       '_'), $
+				         strjoin([sc, species, 'sector',              'label'],       '_'), $
+				         strjoin([sc, species, 'pixel',               'index'],       '_'), $
+				         strjoin([sc, species, 'pixel',               'label'],       '_'), $
+				         strjoin([sc, species, 'energy',              'index'],       '_'), $
+				         strjoin([sc, species, 'energy',              'label'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'theta'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'energy'],      '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'phi'],         '_') $
+				       ]
+		;-------------------------------------------------------
+		; BRST //////////////////////////////////////////////////
+		;-------------------------------------------------------
+			endif else if mode eq 'brst' then begin
+				;dis-dist, des-dist
+				vars = [ 'Epoch', $
+				         strjoin([sc, species, 'dataQuality'],                        '_'), $
+				         strjoin([sc, species, 'stepTable',           'parity'],      '_'), $
+				         strjoin([sc, species, 'startDelphi',         'count'],       '_'), $
+				         strjoin([sc, species, 'startDelPhi',         'angle'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMapSkyMap', 'phi'],         '_'), $
+				         strjoin([sc, species, mode + 'SkyMapSkyMap', units],         '_'), $
+				         strjoin([sc, species, mode + 'SkyMapSkyMap', units + 'Err'], '_'), $
+				         strjoin([sc, species, 'sector',              'index'],       '_'), $
+				         strjoin([sc, species, 'sector',              'label'],       '_'), $
+				         strjoin([sc, species, 'pixel',               'index'],       '_'), $
+				         strjoin([sc, species, 'pixel',               'label'],       '_'), $
+				         strjoin([sc, species, 'energy',              'index'],       '_'), $
+				         strjoin([sc, species, 'energy',              'label'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'theta'],       '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'energy'],      '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',       'phi'],         '_') $
+				       ]
+			endif else begin
+				message, 'No files or variables for ' + msg
+			endelse
+
+;-------------------------------------------------------
+; D*S-MOMS /////////////////////////////////////////////
+;-------------------------------------------------------
+	if units eq 'dist' then begin
+	;-------------------------------------------------------
+	; L1B //////////////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'l1b' then begin
+		;-------------------------------------------------------
+		; FAST & BRST //////////////////////////////////////////
+		;-------------------------------------------------------
+			if mode eq 'fast' || mode eq 'fast' then begin
+				vars = [ 'Epoch', $
+				         strjoin([sc, species, 'dataQuality'],              '_'), $
+				         strjoin([sc, species, 'stepTable',     'parity'],  '_'), $
+				         strjoin([sc, species, 'startDelPhi',   'count'],   '_'), $
+				         strjoin([sc, species, 'startDelPhi',   'angle'],   '_'), $
+				         strjoin([sc, species, 'sector',        'deSpinP'], '_'), $
+				         strjoin([sc, species, 'numberDensity'],            '_'), $
+				         strjoin([sc, species, 'numberDensity', 'err'],     '_'), $
+				         strjoin([sc, species, 'bulkSpeed'],                '_'), $
+				         strjoin([sc, species, 'bulkSpeed',     'err'],     '_'), $
+				         strjoin([sc, species, 'bulkAzimuth'],              '_'), $
+				         strjoin([sc, species, 'bulkAzimuth',   'err'],     '_'), $
+				         strjoin([sc, species, 'bulkZenith'],               '_'), $
+				         strjoin([sc, species, 'bulkZenith',    'err'],     '_'), $
+				         strjoin([sc, species, 'bulkX'],                    '_'), $
+				         strjoin([sc, species, 'bulkX',         'err'],     '_'), $
+				         strjoin([sc, species, 'bulkY'],                    '_'), $
+				         strjoin([sc, species, 'bulkY',         'err'],     '_'), $
+				         strjoin([sc, species, 'bulkZ'],                    '_'), $
+				         strjoin([sc, species, 'bulkZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresXX'],                   '_'), $
+				         strjoin([sc, species, 'PresXX',        'err'],     '_'), $
+				         strjoin([sc, species, 'PresXY'],                   '_'), $
+				         strjoin([sc, species, 'PresXY',        'err'],     '_'), $
+				         strjoin([sc, species, 'PresXZ'],                   '_'), $
+				         strjoin([sc, species, 'PresXZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'PresYY'],                   '_'), $
+				         strjoin([sc, species, 'PresYY',        'err'],     '_'), $
+				         strjoin([sc, species, 'PresYZ'],                   '_'), $
+				         strjoin([sc, species, 'PresYZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'PresZZ'],                   '_'), $
+				         strjoin([sc, species, 'PresZZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempXX'],                   '_'), $
+				         strjoin([sc, species, 'TempXX',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempXY'],                   '_'), $
+				         strjoin([sc, species, 'TempXY',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempXZ'],                   '_'), $
+				         strjoin([sc, species, 'TempXZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempYY'],                   '_'), $
+				         strjoin([sc, species, 'TempYY',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempYZ'],                   '_'), $
+				         strjoin([sc, species, 'TempYZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'TempZZ'],                   '_'), $
+				         strjoin([sc, species, 'TempZZ',        'err'],     '_'), $
+				         strjoin([sc, species, 'heatFlux'],                 '_'), $
+				         strjoin([sc, species, 'heatFlux',      'err'],     '_'), $
+				         strjoin([sc, species, 'heatAzimuth'],              '_'), $
+				         strjoin([sc, species, 'heatAzimuth',   'err'],     '_'), $
+				         strjoin([sc, species, 'heatZenith'],               '_'), $
+				         strjoin([sc, species, 'heatZenith',    'err'],     '_'), $
+				         strjoin([sc, species, 'heatX'],                    '_'), $
+				         strjoin([sc, species, 'heatX',         'err'],     '_'), $
+				         strjoin([sc, species, 'heatY'],                    '_'), $
+				         strjoin([sc, species, 'heatY',         'err'],     '_'), $
+				         strjoin([sc, species, 'heatZ'],                    '_'), $
+				         strjoin([sc, species, 'heatZ',         'err'],     '_') $
+				       ]
+			endif else begin
+				message, 'No files or variables for ' + msg
+			endelse
+		endif else begin
+			message, 'No files or variables for ' + msg
+		endelse
+
+;-------------------------------------------------------
+; DES //////////////////////////////////////////////////
+;-------------------------------------------------------
+	endif else if species eq 'des' then begin
+	;-------------------------------------------------------
+	; QL //////////////////////////////////////////////////
+	;-------------------------------------------------------
+		if level eq 'ql' then begin
+		;-------------------------------------------------------
+		; FAST //////////////////////////////////////////////////
+		;-------------------------------------------------------
+			if mode eq 'fast' then begin
+				vars = [ 'Epoch', $
+				         strjoin([sc, species, 'dataQuality'],               '_'), $
+				         strjoin([sc, species, 'stepTable',      'parity'],  '_'), $
+				         strjoin([sc, species, 'startDelPhi',    'count'],   '_'), $
+				         strjoin([sc, species, 'startDelPhi',    'angle'],   '_'), $
+				         strjoin([sc, species, 'sector',         'deSpinP'], '_'), $
+				         strjoin([sc, species, 'PitchAngleDist', 'lowEn'],   '_'), $
+				         strjoin([sc, species, 'PitchAngleDist', 'midEn'],   '_'), $
+				         strjoin([sc, species, 'PitchAngleDist', 'highEn'],  '_'), $
+				         strjoin([sc, species, 'energySpectr',   'pX'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'mX'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'pY'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'mY'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'pZ'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'mZ'],      '_'), $
+				         strjoin([sc, species, 'energySpectr',   'par'],     '_'), $
+				         strjoin([sc, species, 'energySpectr',   'anti'],    '_'), $
+				         strjoin([sc, species, 'energySpectr',   'perp'],    '_'), $
+				         strjoin([sc, species, 'pitch',          'index'],   '_'), $
+				         strjoin([sc, species, 'energy',         'index'],   '_'), $
+				         strjoin([sc, species, 'numberDensity'],             '_'), $
+				         strjoin([sc, species, 'numberDensity',  'err'],     '_'), $
+				         strjoin([sc, species, 'bulkSpeed'],                 '_'), $
+				         strjoin([sc, species, 'bulkSpeed',      'err'],     '_'), $
+				         strjoin([sc, species, 'bulkAzimuth'],               '_'), $
+				         strjoin([sc, species, 'bulkAzimuth',    'err'],     '_'), $
+				         strjoin([sc, species, 'bulkZenith'],                '_'), $
+				         strjoin([sc, species, 'bulkZenith',     'err'],     '_'), $
+				         strjoin([sc, species, 'bulkX'],                     '_'), $
+				         strjoin([sc, species, 'bulkX',          'err'],     '_'), $
+				         strjoin([sc, species, 'bulkY'],                     '_'), $
+				         strjoin([sc, species, 'bulkY',          'err'],     '_'), $
+				         strjoin([sc, species, 'bulkZ'],                     '_'), $
+				         strjoin([sc, species, 'bulkZ',          'err'],     '_'), $
+				         strjoin([sc, species, 'PresXX'],                    '_'), $
+				         strjoin([sc, species, 'PresXX',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresXY'],                    '_'), $
+				         strjoin([sc, species, 'PresXY',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresXZ'],                    '_'), $
+				         strjoin([sc, species, 'PresXZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresYY'],                    '_'), $
+				         strjoin([sc, species, 'PresYY',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresYZ'],                    '_'), $
+				         strjoin([sc, species, 'PresYZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'PresZZ'],                    '_'), $
+				         strjoin([sc, species, 'PresZZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempXX'],                    '_'), $
+				         strjoin([sc, species, 'TempXX',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempXY'],                    '_'), $
+				         strjoin([sc, species, 'TempXY',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempXZ'],                    '_'), $
+				         strjoin([sc, species, 'TempXZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempYY'],                    '_'), $
+				         strjoin([sc, species, 'TempYY',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempYZ'],                    '_'), $
+				         strjoin([sc, species, 'TempYZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'TempZZ'],                    '_'), $
+				         strjoin([sc, species, 'TempZZ',         'err'],     '_'), $
+				         strjoin([sc, species, 'heatFlux'],                  '_'), $
+				         strjoin([sc, species, 'heatFlux',       'err'],     '_'), $
+				         strjoin([sc, species, 'heatAzimuth'],               '_'), $
+				         strjoin([sc, species, 'heatAzimuth',    'err'],     '_'), $
+				         strjoin([sc, species, 'heatZenith'],                '_'), $
+				         strjoin([sc, species, 'heatZenith',     'err'],     '_'), $
+				         strjoin([sc, species, 'heatX'],                     '_'), $
+				         strjoin([sc, species, 'heatX',          'err'],     '_'), $
+				         strjoin([sc, species, 'heatY'],                     '_'), $
+				         strjoin([sc, species, 'heatY',          'err'],     '_'), $
+				         strjoin([sc, species, 'heatZ'],                     '_'), $
+				         strjoin([sc, species, 'heatZ',          'err'],     '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',  'alpha'],   '_'), $
+				         strjoin([sc, species, mode + 'SkyMap',  'energy'],  '_') $
+				       ]
+Epoch
+mms1_des_dataQuality
+mms1_des_stepTable_parity
+mms1_des_startDelPhi_count
+mms1_des_startDelPhi_angle
+mms1_des_sector_deSpinP
+mms1_des_pitchAngDist_lowEn
+mms1_des_pitchAngDist_midEn
+mms1_des_pitchAngDist_highEn
+mms1_des_energySpectr_pX
+mms1_des_energySpectr_mX
+mms1_des_energySpectr_pY
+mms1_des_energySpectr_mY
+mms1_des_energySpectr_pZ
+mms1_des_energySpectr_mZ
+mms1_des_energySpectr_par
+mms1_des_energySpectr_anti
+mms1_des_energySpectr_perp
+mms1_des_pitch_index
+mms1_des_energy_index
+mms1_des_numberDensity
+mms1_des_numberDensity_err
+mms1_des_bulkSpeed
+mms1_des_bulkSpeed_err
+mms1_des_bulkAzimuth
+mms1_des_bulkAzimuth_err
+mms1_des_bulkZenith
+mms1_des_bulkZenith_err
+mms1_des_bulkX
+mms1_des_bulkX_err
+mms1_des_bulkY
+mms1_des_bulkY_err
+mms1_des_bulkZ
+mms1_des_bulkZ_err
+mms1_des_PresXX
+mms1_des_PresXX_err
+mms1_des_PresXY
+mms1_des_PresXY_err
+mms1_des_PresXZ
+mms1_des_PresXZ_err
+mms1_des_PresYY
+mms1_des_PresYY_err
+mms1_des_PresYZ
+mms1_des_PresYZ_err
+mms1_des_PresZZ
+mms1_des_PresZZ_err
+mms1_des_TempXX
+mms1_des_TempXX_err
+mms1_des_TempXY
+mms1_des_TempXY_err
+mms1_des_TempXZ
+mms1_des_TempXZ_err
+mms1_des_TempYY
+mms1_des_TempYY_err
+mms1_des_TempYZ
+mms1_des_TempYZ_err
+mms1_des_TempZZ
+mms1_des_TempZZ_err
+mms1_des_heatFlux
+mms1_des_heatFlux_err
+mms1_des_heatAzimuth
+mms1_des_heatAzimuth_err
+mms1_des_heatZenith
+mms1_des_heatZenith_err
+mms1_des_heatX
+mms1_des_heatX_err
+mms1_des_heatY
+mms1_des_heatY_err
+mms1_des_heatZ
+mms1_des_heatZ_err
+mms1_des_fastSkyMap_alpha
+mms1_des_fastSkyMap_energy
+			endif
+	endif else begin
+		message, 'No files or variables for ' + msg
 	endelse
 
 	return, vars
@@ -832,6 +1159,7 @@ SUFFIX=tf_suffix
 	case instr of
 		'afg': vars = mms_cdf_fgm_variables(sc, instr, mode, level)
 		'dfg': vars = mms_cdf_fgm_variables(sc, instr, mode, level)
+		'edi': vars = mms_cdf_edi_variables(sc, instr, mode, level, optdesc)
 		'edp': vars = mms_cdf_edp_variables(sc, instr, mode, level, optdesc)
 		'scm': vars = mms_cdf_scm_variables(sc, instr, mode, level, optdesc)
 		else: message, 'Instrument not recognized: "' + instr + '".'
@@ -846,7 +1174,7 @@ SUFFIX=tf_suffix
 	;Find the suffixes
 	;   - The suffix is anything not containing the generic input information
 	;   - If no suffix is found, select the entire variable
-	prefix = strjoin([sc, instr, mode, level], '|')
+	prefix = strjoin([sc, instr, mode, level, optdesc], '|')
 	parts  = stregex(vars, '^((' + prefix + ')_)+(.*)$', /SUBEXP, /EXTRACT)
 	suffix = reform(parts[3,*])
 	

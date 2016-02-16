@@ -66,12 +66,19 @@ EIGVECS=eigvecs
 	if mode ne 'srvy' && mode ne 'brst' then message, 'MODE must be "srvy" or "brst".'
 
 ;-----------------------------------------------------
-; Get Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Curlometer \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Magnetic field data
 	mms_fgm_ql_read, 'mms1', 'dfg', mode, 'l2pre', tstart, tend, B_GSE=b_fgm, TIME=t_fgm
 	b_fgm = b_fgm[0:2,*]
+	
+	;Compute the curlometer
+	Jrecip = mms_fgm_curldiv(tstart, tend, DIVB=divB, TIME=t_curl)
+
+;-----------------------------------------------------
+; Moments \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 	
 	;Get current density from FPI
 	fpi_mode = mode eq 'srvy' ? 'fast' : mode
@@ -107,8 +114,12 @@ EIGVECS=eigvecs
 		mms_fpi_sitl_read, 'mms4', fpi_mode, tstart, tend, J_TOTAL=j4_total, TIME=t4_fpi
 	endelse
 	
-	;Compute the curlometer
-	Jrecip = mms_fgm_curldiv(tstart, tend, DIVB=divB, TIME=t_curl)
+	;Rotate FPI currents to GSE
+	j1_total = mms_rot_gei2gse(t1_fpi, j1_total)
+	j2_total = mms_rot_gei2gse(t2_fpi, j2_total)
+	j3_total = mms_rot_gei2gse(t3_fpi, j3_total)
+	j4_total = mms_rot_gei2gse(t4_fpi, j4_total)
+	
 
 ;-----------------------------------------------------
 ; Plot Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -120,8 +131,6 @@ EIGVECS=eigvecs
 	t2_fpi_ssm = MrCDF_epoch2ssm(temporary(t2_fpi), t0)
 	t3_fpi_ssm = MrCDF_epoch2ssm(temporary(t3_fpi), t0)
 	t4_fpi_ssm = MrCDF_epoch2ssm(temporary(t4_fpi), t0)
-
-stop
 
 	yrange = [min(j1_total, MAX=ymax), ymax]
 	yrange += abs(yrange) * [-0.1, 0.1]

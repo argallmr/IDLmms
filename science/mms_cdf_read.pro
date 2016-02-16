@@ -10,6 +10,9 @@
 ; :Categories:
 ;    MMS, Utility
 ;
+; :See Also:
+;   mms_cdf_variables.pro
+;
 ; :Author:
 ;    Matthew Argall::
 ;    University of New Hampshire

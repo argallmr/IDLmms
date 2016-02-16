@@ -74,6 +74,7 @@
 ;-
 function mms_fgm_curldiv, tstart, tend, instr, mode, level, $
 JCURL=Jcurl, $
+FDOA=fdoa, $
 DIVB=divB, $
 TIME=time
 	compile_opt strictarr
@@ -86,6 +87,7 @@ TIME=time
 		return, !Null
 	endif
 	
+	tf_fdoa = keyword_set(fdoa)
 	if n_elements(instr) eq 0 || instr eq '' then instr = 'dfg'
 	if n_elements(mode)  eq 0 || mode  eq '' then mode  = 'srvy'
 	if n_elements(level) eq 0 || level eq '' then level = 'l2pre'
@@ -130,16 +132,26 @@ TIME=time
 	;
 	
 	;FDOA Spacecraft Position
-;	r1 = mms_fdoa_scpos('mms1', tstart, tend, t1)
-;	r2 = mms_fdoa_scpos('mms2', tstart, tend, t1)
-;	r3 = mms_fdoa_scpos('mms3', tstart, tend, t1)
-;	r4 = mms_fdoa_scpos('mms4', tstart, tend, t1)
-	
+	if tf_fdoa then begin
+		;Positions are in GEI
+		r1 = mms_fdoa_scpos('mms1', tstart, tend, t1_mec)
+		r2 = mms_fdoa_scpos('mms2', tstart, tend, t2_mec)
+		r3 = mms_fdoa_scpos('mms3', tstart, tend, t3_mec)
+		r4 = mms_fdoa_scpos('mms4', tstart, tend, t4_mec)
+		
+		;Rotate to GSE
+		r1 = mms_rot_gei2gse(t1_mec, r1)
+		r2 = mms_rot_gei2gse(t2_mec, r2)
+		r3 = mms_rot_gei2gse(t3_mec, r3)
+		r4 = mms_rot_gei2gse(t4_mec, r4)
+		
 	;MEC Spacecraft Position
-	mms_mec_read, 'mms1', 'epht89d', tstart, tend, R_GSE=r1, TIME=t1_mec
-	mms_mec_read, 'mms2', 'epht89d', tstart, tend, R_GSE=r2, TIME=t2_mec
-	mms_mec_read, 'mms3', 'epht89d', tstart, tend, R_GSE=r3, TIME=t3_mec
-	mms_mec_read, 'mms4', 'epht89d', tstart, tend, R_GSE=r4, TIME=t4_mec
+	endif else begin
+		mms_mec_read, 'mms1', 'epht89d', tstart, tend, R_GSE=r1, TIME=t1_mec
+		mms_mec_read, 'mms2', 'epht89d', tstart, tend, R_GSE=r2, TIME=t2_mec
+		mms_mec_read, 'mms3', 'epht89d', tstart, tend, R_GSE=r3, TIME=t3_mec
+		mms_mec_read, 'mms4', 'epht89d', tstart, tend, R_GSE=r4, TIME=t4_mec
+	endelse
 	
 	;Convert to seconds
 	t1_mec = MrCDF_epoch2ssm(temporary(t1_mec), t0)
