@@ -147,12 +147,9 @@ DROPTBOX_ROOT=dropbox
 	;Loop over each file
 	for i = 0, n_elements(files) - 1 do begin
 		;Form the output path
-		xfr_path = filepath('', ROOT_DIR=data_path_root, SUBDIRECTORY=[foptdesc[i], fmode[i]])
-		if fmode[i] eq 'brst' then xfr_path = filepath('', ROOT_DIR=xfr_path, SUBDIRECTORY=[year[i] + month[i] + day[i]])
-	
-		;Create the output directory if it does not exist
-		if ~file_test(xfr_path, /DIRECTORY) then file_mkdir, xfr_path
-		
+		xfr_path = mms_forge_path(data_path_root, fsc[i], finstr[i], fmode[i], flevel[i], fstart[i], $
+		                          OPTDESC=foptdesc[i], /MKDIR)
+
 		;Notify of transfer
 		xfr_file = filepath(file_basename(files[i]), ROOT_DIR=xfr_path)
 		if tf_verbose then MrPrintF, 'LogText', files[i], xfr_path, FORMAT='(%"Transferring file: %s --> %s")'
