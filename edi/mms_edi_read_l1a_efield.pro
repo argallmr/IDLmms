@@ -114,6 +114,9 @@
 ;                           parameters, not keywords. - MRA
 ;       2015/10/18  -   Added the STRUCTARR keyword. - MRA
 ;       2015/10/22  -   If slow and fast mode files are given, combine into srvy product. - MRA
+;       2016/02/17  -   Renamed CODE_LENGTH and CHIP_WIDTH to TCODE and TCHIP, respectively.
+;                           Return TCHIP and TCODE in micro-seconds. Read word14 and word15. - MRA
+;       2016/02/18  -   Return optics state. - MRA
 ;-
 function mms_edi_read_l1a_efield, files, tstart, tend, $
 QUALITY=quality, $
@@ -128,7 +131,7 @@ STRUCTARR=structarr
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
-	
+
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -169,6 +172,8 @@ STRUCTARR=structarr
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;General variable names
+	optics_name = mms_construct_varname(sc, instr, 'optics')
 	
 	;Variable names for GD12
 	;   - TOF is a detector quantity, the rest are gun quantities
@@ -181,6 +186,8 @@ STRUCTARR=structarr
 	m_gd12_name         = mms_construct_varname(sc, instr, 'm_gd12')
 	n_gd12_name         = mms_construct_varname(sc, instr, 'n_gd12')
 	max_addr_gd12_name  = mms_construct_varname(sc, instr, 'max_addr_gd12')
+	word14_gd12_name    = mms_construct_varname(sc, instr, 'word14_gd12')
+	word15_gd12_name    = mms_construct_varname(sc, instr, 'word15_gd12')
 	
 	;Variable names for GD21
 	phi_gd21_name       = mms_construct_varname(sc, instr, 'phi_gd21')
@@ -192,6 +199,8 @@ STRUCTARR=structarr
 	m_gd21_name         = mms_construct_varname(sc, instr, 'm_gd21')
 	n_gd21_name         = mms_construct_varname(sc, instr, 'n_gd21')
 	max_addr_gd21_name  = mms_construct_varname(sc, instr, 'max_addr_gd21')
+	word14_gd21_name    = mms_construct_varname(sc, instr, 'word14_gd21')
+	word15_gd21_name    = mms_construct_varname(sc, instr, 'word15_gd21')
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -200,6 +209,10 @@ STRUCTARR=structarr
 	;Open the files
 	cdfIDs = lonarr(nFiles)
 	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
+	
+	;Optics
+	;   - OPTICS is not returned when /STRUCTARR is set -- it would have to be inflated.
+	optics = MrCDF_nRead(cdfIDs, optics_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
 
 	;Read the data for GD12
 	phi_gd12 = MrCDF_nRead(cdfIDs, phi_gd12_name, $
@@ -209,11 +222,13 @@ STRUCTARR=structarr
 	theta_gd12     = MrCDF_nRead(cdfIDs, theta_gd12_name,     TSTART=tstart, TEND=tend)
 	tof_gd12       = MrCDF_nRead(cdfIDs, tof_gd12_name,       TSTART=tstart, TEND=tend)
 	q_gd12         = MrCDF_nRead(cdfIDs, q_gd12_name,         TSTART=tstart, TEND=tend)
-	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
+	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend, DEPEND_0=epoch_energy)
 	num_chips_gd12 = MrCDF_nRead(cdfIDs, num_chips_gd12_name, TSTART=tstart, TEND=tend)
 	m_gd12         = MrCDF_nRead(cdfIDs, m_gd12_name,         TSTART=tstart, TEND=tend)
 	n_gd12         = MrCDF_nRead(cdfIDs, n_gd12_name,         TSTART=tstart, TEND=tend)
 	max_addr_gd12  = MrCDF_nRead(cdfIDs, max_addr_gd12_name,  TSTART=tstart, TEND=tend)
+	word14_gd12    = MrCDF_nRead(cdfIDs, word14_gd12_name,    TSTART=tstart, TEND=tend)
+	word15_gd12    = MrCDF_nRead(cdfIDs, word15_gd12_name,    TSTART=tstart, TEND=tend)
 
 	;Read the data for GD21
 	phi_gd21 = MrCDF_nRead(cdfIDs, phi_gd21_name, $
@@ -228,14 +243,17 @@ STRUCTARR=structarr
 	m_gd21         = MrCDF_nRead(cdfIDs, m_gd21_name,         TSTART=tstart, TEND=tend)
 	n_gd21         = MrCDF_nRead(cdfIDs, n_gd21_name,         TSTART=tstart, TEND=tend)
 	max_addr_gd21  = MrCDF_nRead(cdfIDs, max_addr_gd21_name,  TSTART=tstart, TEND=tend)
+	word14_gd21    = MrCDF_nRead(cdfIDs, word14_gd21_name,    TSTART=tstart, TEND=tend)
+	word15_gd21    = MrCDF_nRead(cdfIDs, word15_gd21_name,    TSTART=tstart, TEND=tend)
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
 		cdf_close, cdfIDs[i]
 		cdfIDs[i] = 0L
 	endfor
+
 ;-----------------------------------------------------
-; Expand Brst Variables \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Inflate Brst Variables \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;
 	; We want all of the data on a per-beam basis, so expand
@@ -250,11 +268,11 @@ STRUCTARR=structarr
 		MrPrintF, 'LogText', 'Expanding energy to a per-beam.'
 		
 		;Extrapolate?
-		dt    = fix(median(epoch_timetag[1:*] - epoch_timetag), TYPE=14)
-		void  = where(epoch_gd12 lt epoch_timetag[0] or $
-		              epoch_gd12 gt epoch_timetag[-1]+dt, nextrap_gd12)
-		void  = where(epoch_gd21 lt epoch_timetag[0] or $
-		              epoch_gd21 gt epoch_timetag[-1]+dt, nextrap_gd21)
+		dt    = fix(median(epoch_energy[1:*] - epoch_energy), TYPE=14)
+		void  = where(epoch_gd12 lt epoch_energy[0] or $
+		              epoch_gd12 gt epoch_energy[-1]+dt, nextrap_gd12)
+		void  = where(epoch_gd21 lt epoch_energy[0] or $
+		              epoch_gd21 gt epoch_energy[-1]+dt, nextrap_gd21)
 		void = !Null
 		
 		;Issue warning
@@ -264,14 +282,13 @@ STRUCTARR=structarr
 			MrPrintF, 'LogWarn', nextrap, FORMAT='(%"Extrapolating %n points when inflating E-field GD21 data.")'
 		
 		;Locate count times within epoch timetag
-		it_gd12 = value_locate(epoch_timetag, epoch_gd12) > 0
-		it_gd21 = value_locate(epoch_timetag, epoch_gd21) > 0
+		it_gd12 = value_locate(epoch_energy, epoch_gd12) > 0
+		it_gd21 = value_locate(epoch_energy, epoch_gd21) > 0
 		
 		;Inflate variables
 		e_gd12 = e_gd12[temporary(it_gd12)]
 		e_gd21 = e_gd21[temporary(it_gd21)]
 	endif
-
 
 ;-----------------------------------------------------
 ; Filter by Quality? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -292,6 +309,8 @@ STRUCTARR=structarr
 			m_gd12         = m_gd12[it_gd12]
 			n_gd12         = n_gd12[it_gd12]
 			max_addr_gd12  = max_addr_gd12[it_gd12]
+			word14_gd12    = word14_gd12[it_gd12]
+			word15_gd12    = word15_gd12[it_gd12]
 		endif else begin
 			message, 'No beams of desired quality for GD12.', /INFORMATIONAL
 		endelse
@@ -308,6 +327,8 @@ STRUCTARR=structarr
 			m_gd21         = m_gd21[iq_gd21]
 			n_gd21         = n_gd21[iq_gd21]
 			max_addr_gd21  = max_addr_gd21[iq_gd21]
+			word14_gd21    = word14_gd21[it_gd21]
+			word15_gd21    = word15_gd21[it_gd21]
 		endif else begin
 			message, 'No beams of desired quality for GD21.', /INFORMATIONAL
 		endelse
@@ -340,6 +361,8 @@ STRUCTARR=structarr
 			m_gd12         = m_gd12[it_gd12]
 			n_gd12         = n_gd12[it_gd12]
 			max_addr_gd12  = max_addr_gd12[it_gd12]
+			word14_gd12    = word14_gd12[it_gd12]
+			word15_gd12    = word15_gd12[it_gd12]
 		endif
 		
 		if count_gd21 gt 0 then begin
@@ -354,6 +377,8 @@ STRUCTARR=structarr
 			m_gd21         = m_gd21[it_gd21]
 			n_gd21         = n_gd21[it_gd21]
 			max_addr_gd21  = max_addr_gd21[it_gd21]
+			word14_gd21    = word14_gd21[it_gd21]
+			word15_gd21    = word15_gd21[it_gd21]
 		endif
 	endif
 
@@ -394,8 +419,8 @@ STRUCTARR=structarr
 	;
 	; From Hans Vaith concerning raw data:
 	;
-	;    chip_width = n * m * 2^(-23) seconds
-	;    code_length = chip_width * number_of_chips
+	;    tchip = 1e6 * n * m * 2^(-23) micro-seconds
+	;    tcode = tchip * number_of_chips
 	;
 	;    n = 1,2,4,8  (the corresponding raw values are 0,1,2,3)
 	;    m = 2,4,8,16 (the corresponding raw values are 3,2,1,0)
@@ -403,20 +428,18 @@ STRUCTARR=structarr
 	;
 	; L1A file
 	;    n and m are already converted from raw values
-	;    code_length is calculated
-	;    chip_width must be calculated
 	;
 	; Terminology
-	;    chip_width is also referred to as the chip period
-	;    code_length is also referred to as the code period
+	;    tchip is also referred to as the chip period or chip width
+	;    tcode is also referred to as the code period or code length
 	;
 	if count_gd12 gt 0 then begin
-		chip_width_gd12  = n_gd12 * m_gd12 * 2D^(-23)
-		code_length_gd12 = chip_width_gd12 * num_chips_gd12
+		tchip_gd12 = n_gd12 * m_gd12 * (1e6 * 2D^(-23))
+		tcode_gd12 = tchip_gd12 * num_chips_gd12
 	endif
 	if count_gd21 gt 0 then begin
-		chip_width_gd21  = n_gd21 * m_gd21 * 2D^(-23)
-		code_length_gd21 = chip_width_gd21 * num_chips_gd21
+		tchip_gd21 = n_gd21 * m_gd21 * (1e6 * 2D^(-23))
+		tcode_gd21 = tchip_gd21 * num_chips_gd21
 	endif
 
 ;-----------------------------------------------------
@@ -424,22 +447,6 @@ STRUCTARR=structarr
 ;-----------------------------------------------------
 	tof_ovrflw_gd12 = tof_gd12 eq -1e31
 	tof_ovrflw_gd21 = tof_gd21 eq -1e31
-
-;-----------------------------------------------------
-; Expand Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;
-	; Expand energy to have the same time tags as EPOCH_GD12
-	;
-	if n_elements(epoch_timetag) ne n_elements(epoch_gd12) then begin
-		;Issue warning -- time stamps do not always agree
-		MrPrintF, 'LogWarn', 'Expanding EDI L1A energy array.'
-	
-		;Expand
-		ienergy = value_locate(epoch_timetag, epoch_gd12)
-		e_gd12  = e_gd12[ienergy]
-		e_gd21  = e_gd21[ienergy]
-	endif
 
 ;-----------------------------------------------------
 ; Array of Structures \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -460,7 +467,9 @@ STRUCTARR=structarr
 		                numchips:  0US, $
 		                m:         0B, $
 		                n:         0B, $
-		                max_addr:  0B $
+		                max_addr:  0B, $
+		                word14:    0S, $
+		                word15:    0US $
 		              }
 		
 		;Create an array of beam structures
@@ -475,14 +484,16 @@ STRUCTARR=structarr
 			edi_l1a[0:count_gd12-1].fv_123    = temporary(fv_gd12)
 			edi_l1a[0:count_gd12-1].quality   = reform(temporary(q_gd12))
 			edi_l1a[0:count_gd12-1].energy    = reform(temporary(e_gd12))
-			edi_l1a[0:count_gd12-1].tChip     = reform(temporary(chip_width_gd12))
-			edi_l1a[0:count_gd12-1].tCode     = reform(temporary(code_length_gd12))
+			edi_l1a[0:count_gd12-1].tChip     = reform(temporary(tchip_gd12))
+			edi_l1a[0:count_gd12-1].tCode     = reform(temporary(tcode_gd12))
 			edi_l1a[0:count_gd12-1].numchips  = reform(temporary(num_chips_gd12))
 			edi_l1a[0:count_gd12-1].m         = reform(temporary(m_gd12))
 			edi_l1a[0:count_gd12-1].n         = reform(temporary(n_gd12))
 			edi_l1a[0:count_gd12-1].max_addr  = reform(temporary(max_addr_gd12))
 			edi_l1a[0:count_gd12-1].tof       = reform(temporary(tof_gd12))
 			edi_l1a[0:count_gd12-1].tof_ovfl  = reform(temporary(tof_ovrflw_gd12))
+			edi_l1a[0:count_gd12-1].word14    = reform(temporary(word14_gd12))
+			edi_l1a[0:count_gd12-1].word15    = reform(temporary(word15_gd12))
 		endif
 		
 		;GD21
@@ -494,67 +505,71 @@ STRUCTARR=structarr
 			edi_l1a[count_gd12:*].fv_123    = temporary(fv_gd21)
 			edi_l1a[count_gd12:*].quality   = reform(temporary(q_gd21))
 			edi_l1a[count_gd12:*].energy    = reform(temporary(e_gd21))
-			edi_l1a[count_gd12:*].tChip     = reform(temporary(chip_width_gd21))
-			edi_l1a[count_gd12:*].tCode     = reform(temporary(code_length_gd21))
+			edi_l1a[count_gd12:*].tChip     = reform(temporary(tchip_gd21))
+			edi_l1a[count_gd12:*].tCode     = reform(temporary(tcode_gd21))
 			edi_l1a[count_gd12:*].numchips  = reform(temporary(num_chips_gd21))
 			edi_l1a[count_gd12:*].m         = reform(temporary(m_gd21))
 			edi_l1a[count_gd12:*].n         = reform(temporary(n_gd21))
 			edi_l1a[count_gd12:*].max_addr  = reform(temporary(max_addr_gd21))
 			edi_l1a[count_gd12:*].tof       = reform(temporary(tof_gd21))
 			edi_l1a[count_gd12:*].tof_ovfl  = reform(temporary(tof_ovrflw_gd21))
+			edi_l1a[count_gd12:*].word14    = reform(temporary(word14_gd21))
+			edi_l1a[count_gd12:*].word15    = reform(temporary(word15_gd21))
 		endif
-		
-		;Sort the results
-;		if count_gd12 gt 0 && count_gd21 gt 0 then begin
-;			isort = sort(edi_l1a.tt2000)
-;			edi_l1a = edi_l1a[isort]
-;		endif
 
 ;-----------------------------------------------------
 ; Structure of Arrays \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	endif else begin
+		edi = { epoch_timetag: temporary(epoch_timetag), $
+		        optics:        temporary(optics) $
+		      }
+
 		if count_gd12 gt 0 then begin
-			edi_gd12 = { count_gd12:       count_gd12, $
-			             tt2000_gd12:      epoch_gd12, $
-			             azimuth_gd12:     phi_gd12, $
-			             polar_gd12:       theta_gd12, $
-			             fv_gd12_123:      fv_gd12, $
-			             tof_gd12:         tof_gd12, $
-			             quality_gd12:     q_gd12, $
-			             energy_gd12:      e_gd12, $
-			             chip_width_gd12:  chip_width_gd12, $
-			             code_length_gd12: code_length_gd12, $
-			             num_chips_gd12:   num_chips_gd12, $
-			             m_gd12:           m_gd12, $
-			             n_gd12:           n_gd12, $
-			             max_addr_gd12:    max_addr_gd12 $
+			edi_gd12 = { count_gd12:       temporary(count_gd12), $
+			             tt2000_gd12:      temporary(epoch_gd12), $
+			             azimuth_gd12:     temporary(phi_gd12), $
+			             polar_gd12:       temporary(theta_gd12), $
+			             fv_gd12_123:      temporary(fv_gd12), $
+			             tof_gd12:         temporary(tof_gd12), $
+			             quality_gd12:     temporary(q_gd12), $
+			             energy_gd12:      temporary(e_gd12), $
+			             tchip_gd12:       temporary(tchip_gd12), $
+			             tcode_gd12:       temporary(tcode_gd12), $
+			             num_chips_gd12:   temporary(num_chips_gd12), $
+			             m_gd12:           temporary(m_gd12), $
+			             n_gd12:           temporary(n_gd12), $
+			             max_addr_gd12:    temporary(max_addr_gd12), $
+			             word14_gd12:      temporary(word14_gd12), $
+			             word15_gd12:      temporary(word15_gd12) $
 			           }
 		;Number of points found
 		endif else edi_gd12 = {count_gd21: count_gd21}
 		
 		;All data
 		if count_gd21 gt 0 then begin
-			edi_gd21 = { count_gd21:       count_gd21, $
-			             tt2000_gd21:      epoch_gd21, $
-			             azimuth_gd21:     phi_gd21, $
-			             polar_gd21:       theta_gd21, $
-			             fv_gd21_123:      fv_gd21, $
-			             tof_gd21:         tof_gd21, $
-			             quality_gd21:     q_gd21, $
-			             energy_gd21:      e_gd21, $
-			             chip_width_gd21:  chip_width_gd21, $
-			             code_length_gd21: code_length_gd21, $
-			             num_chips_gd21:   num_chips_gd21, $
-			             m_gd21:           m_gd21, $
-			             n_gd21:           n_gd21, $
-			             max_addr_gd21:    max_addr_gd21 $
+			edi_gd21 = { count_gd21:       temporary(count_gd21), $
+			             tt2000_gd21:      temporary(epoch_gd21), $
+			             azimuth_gd21:     temporary(phi_gd21), $
+			             polar_gd21:       temporary(theta_gd21), $
+			             fv_gd21_123:      temporary(fv_gd21), $
+			             tof_gd21:         temporary(tof_gd21), $
+			             quality_gd21:     temporary(q_gd21), $
+			             energy_gd21:      temporary(e_gd21), $
+			             tchip_gd21:       temporary(tchip_gd21), $
+			             tcode_gd21:       temporary(tcode_gd21), $
+			             num_chips_gd21:   temporary(num_chips_gd21), $
+			             m_gd21:           temporary(m_gd21), $
+			             n_gd21:           temporary(n_gd21), $
+			             max_addr_gd21:    temporary(max_addr_gd21), $
+			             word14_gd21:      temporary(word14_gd21), $
+			             word15_gd21:      temporary(word15_gd21) $
 			           }
 		;Number of points found
 		endif else edi_gd12 = {count_gd21: count_gd21}
 		
 		;Combine structures
-		edi_l1a = create_struct(temporary(edi_gd12), temporary(edi_gd21))
+		edi_l1a = create_struct(temporary(edi), temporary(edi_gd12), temporary(edi_gd21))
 	endelse
 	
 	;Return the data
