@@ -40,6 +40,8 @@
 ; :History:
 ;    Modification History::
 ;       2016/01/28  -   Written by Matthew Argall
+;       2016/02/19  -   Filter was weeding out files, but not updating filter
+;                           conditions. Fixed. - MRA
 ;-
 pro mms_file_xfer, $
 SC=sc, $
@@ -76,55 +78,65 @@ DROPTBOX_ROOT=dropbox
 	files = file_search(dropbox_root, 'mms*.cdf', /FULLY_QUALIFY_PATH, COUNT=count)
 	if count eq 0 then return
 
-	;Dissect file names
-	mms_dissect_filename, files, SC=fsc, INSTR=finstr, MODE=fmode, LEVEL=flevel, $
-	                             OPTDESC=foptdesc, TSTART=fstart, VERSION=fversion
-
 ;-----------------------------------------------------
 ; Filter Results \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;SC
 	if count gt 0 && sc ne '' then begin
+		;Extract the spacecraft
+		mms_dissect_filename, files, SC=fsc
+		
+		;Filter the files
 		ifilter = where(fsc eq sc, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
+	;
+	;Repeat
+	;
+	
 	;INSTR
 	if count gt 0 && instr ne '' then begin
+		mms_dissect_filename, files, INSTR=finstr
 		ifilter = where(finstr eq instr, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
 	;MODE
 	if count gt 0 && mode ne '' then begin
+		mms_dissect_filename, files, MODE=fmode
 		ifilter = where(fmode eq mode, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
 	;LEVEL
 	if count gt 0 && level ne '' then begin
+		mms_dissect_filename, files, LEVEL=flevel
 		ifilter = where(flevel eq level, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
 	;OPTDESC
 	if count gt 0 && optdesc ne '' then begin
+		mms_dissect_filename, files, OPTDESC=foptdesc
 		ifilter = where(foptdesc eq optdesc, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
 	;TSTART
 	if count gt 0 && tstart ne '' then begin
+		mms_dissect_filename, files, TSTART=fstart
 		ifilter = where(fstart eq tstart, count)
 		if count gt 0 then files = files[ifilter]
 	endif
 	
 	;VERSION
 	if count gt 0 && version ne '' then begin
+		mms_dissect_filename, files, VERSION=version
 		ifilter = where(fversion eq version, count)
 		if count gt 0 then files = files[ifilter]
 	endif
-	
+
 	;No files to transfer
 	if count eq 0 then return
 
@@ -165,8 +177,15 @@ DROPTBOX_ROOT=dropbox
 				if tf_verbose then MrPrintF, 'LogText', '    Deleting Files: "' + ftemp + '".'
 				file_delete, ftemp
 			endif
-		endif
-	
+		
+		;Skip transfer if file exists
+		endif else begin
+			if file_test(xfr_file, /REGULAR) then begin
+				if tf_verbose then MrPrintF, 'LogWarn', 'File already exists. Skipping. "' + xfr_file + '".'
+				continue
+			endif
+		endelse
+
 		;Transfer the file
 		file_move, files[i], xfr_file
 	endfor

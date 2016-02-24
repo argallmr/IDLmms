@@ -6,7 +6,7 @@
 ;
 ; PURPOSE:
 ;+
-;   Find an MMS data file.
+;   Search for MMS data files.
 ;
 ; :Categories:
 ;    MMS

@@ -33,18 +33,24 @@
 ;
 ; PURPOSE:
 ;+
-;   Transform vectors from GSE coordinates to GSM coordinates via a coordinate system
-;   transformation.
+;   Transform a vector in despun spacecraft coordinates to GSE.
 ;
 ; :Params:
+;       DEFATT:             in, required, type=struct
+;                           Structure of attitude data returned by mms_fdoa_read_defatt.pro.
 ;       TIME:               in, required, type=long64arr (cdf_time_tt2000)
 ;                           CDF TT2000 epoch time of each vector.
-;       V_GSE:              in, required, type=3xN fltarr
-;                           Set of 3-vectors in GSE coordinates to undergo the
+;       V:                  in, required, type=3xN fltarr
+;                           Set of 3-vectors in despun coordinates to undergo the
 ;                               transformation to GSM coordinates.
 ;
+; :Keywords:
+;       TYPE:               in, optional, type=string, default='P'
+;                           The despun coordinate system in which `V` resides. Options
+;                               are: 'P', 'L', 'W', 'Z'
+;
 ; :Returns:
-;       V_GSM:              `V_GSE` transformed to GSM coordinates.
+;       V_GSE:              `V` transformed to GSE coordinates.
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -58,22 +64,46 @@
 ;   Modification History::
 ;       2015-11-27  -   Written by Matthew Argall
 ;-
-function mms_rot_gse2gsm, time, v_gse
+function mms_rot_despun2gsm, defatt, t, v, $
+TYPE=type
 	compile_opt idl2
 	on_error, 2
 
 	;Load the CoTrans library
 	cotrans_lib
 
+;-----------------------------------------------------
+; Despun --> GEI \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;Get transformation to GEI
+	despun2gei = mms_fdoa_xgei2despun(defatt, t, TYPE=type)
+	
+	;Rotate vector to GEI
+	v_gei = MrVector_Rotate(despun2gei, v)
+
+;-----------------------------------------------------
+; GEI --> GSE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
 	;Breakdown time
-	MrCDF_Epoch_Breakdown, reform(time), yr, mo, day, hr, mnt, sec, milli, micro, nano
+	MrCDF_Epoch_Breakdown, reform(t), yr, mo, day, hr, mnt, sec, milli, micro, nano
 	doy = MrDate2DOY(mo, day, year)
 	sec = sec + milli*1d-3 + micro*1d-6 + nano*1d-9
+		
+	;GEI -->  GSE
+	tgeigse_vect, yr, doy, hr, mnt, sec, $
+	              reform(v_gei[0,*]), reform(v_gei[1,*]), reform(v_gei[2,*]), $
+	              xgse, ygse, zgse
+
+;-----------------------------------------------------
+; GSE --> GSM \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 	
 	;Rotate to GSE
 	cotrans_lib
 	tgsegsm_vect, yr, doy, hr, mnt, sec, $
-	              reform(v_gse[0,*]), reform(v_gse[1,*]), reform(v_gse[2,*]), $
+	              xgse, ygse, zgse, $
 	              xgsm, ygsm, zgsm
 
 	;Combine GSE components

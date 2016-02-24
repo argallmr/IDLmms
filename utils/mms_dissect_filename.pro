@@ -152,13 +152,13 @@ TT2000=tt2000
 	
 	;Dissect the start time
 	if arg_present(tt2000) then begin
-		fstart = reform(tstart, 1, nPass)
-		year   = fix(strmid(fstart,  0, 4))
-		month  = fix(strmid(fstart,  4, 2))
-		day    = fix(strmid(fstart,  6, 2))
-		hour   = fix(strmid(fstart,  8, 2))
-		minute = fix(strmid(fstart, 10, 2))
-		second = fix(strmid(fstart, 12, 2))
+		;Reform
+		year   = fix(strmid(tstart,  0, 4))
+		month  = fix(strmid(tstart,  4, 2))
+		day    = fix(strmid(tstart,  6, 2))
+		hour   = fix(strmid(tstart,  8, 2))
+		minute = fix(strmid(tstart, 10, 2))
+		second = fix(strmid(tstart, 12, 2))
 		tt2000 = MrCDF_Epoch_Compute(year, month, day, hour, minute, second, 0, 0, 0)
 	endif
 	

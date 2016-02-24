@@ -71,6 +71,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/01/14  -   Written by Matthew Argall
+;       2015/02/23  -   Written by Matthew Argall
 ;-
 function mms_latest_file, dir, sc, instr, mode, level, tstart, version, $
 OPTDESC=optdesc, $
