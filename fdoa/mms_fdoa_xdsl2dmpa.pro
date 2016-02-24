@@ -61,8 +61,8 @@ function mms_fdoa_xdsl2dmpa, defatt, time
 	on_error, 2
 
 	;Rotations from GSE to DSL and DMPA
-	gei2dsl  = mms_foda_xgei2despun(defatt, time, TYPE='L')
-	gei2dmpa = mms_foda_xgei2despun(defatt, time, TYPE='P')
+	gei2dsl  = mms_fdoa_xgei2despun(defatt, time, TYPE='L')
+	gei2dmpa = mms_fdoa_xgei2despun(defatt, time, TYPE='P')
 	
 	;DSL --> GEI
 	dsl2gei = transpose(temporary(gei2dsl), [1,0,2])
