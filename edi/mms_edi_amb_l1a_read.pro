@@ -276,20 +276,20 @@ EXPAND_ANGLES=expand_angles
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
-	edi_amb = { epoch_gdu1:       epoch_gdu1, $
-	            epoch_gdu2:       epoch_gdu2, $
-	            epoch_angle:      epoch_angle, $
-	            epoch_timetag:    epoch_timetag, $
-	            counts1_gdu1:     counts_gdu1, $
-	            pitch_gdu1:       pitch_gdu1, $
-	            energy_gdu1:      energy_gdu1, $
-	            counts1_gdu2:     counts_gdu2, $
-	            pitch_gdu2:       pitch_gdu2, $
-	            energy_gdu2:      energy_gdu2, $
-	            azimuth:          phi, $
-	            polar:            theta, $
-	            pitch_mode:       pitch_mode, $
-	            pack_mode:        pack_mode $
+	edi_amb = { epoch_gdu1:       temporary(epoch_gdu1), $
+	            epoch_gdu2:       temporary(epoch_gdu2), $
+	            epoch_angle:      temporary(epoch_angle), $
+	            epoch_timetag:    temporary(epoch_timetag), $
+	            counts1_gdu1:     temporary(counts_gdu1), $
+	            pitch_gdu1:       temporary(pitch_gdu1), $
+	            energy_gdu1:      temporary(energy_gdu1), $
+	            counts1_gdu2:     temporary(counts_gdu2), $
+	            pitch_gdu2:       temporary(pitch_gdu2), $
+	            energy_gdu2:      temporary(energy_gdu2), $
+	            azimuth:          temporary(phi), $
+	            polar:            temporary(theta), $
+	            pitch_mode:       temporary(pitch_mode), $
+	            pack_mode:        temporary(pack_mode) $
 	          }
 	
 	;If fast and slow survey files were given, we need to sort in time.
