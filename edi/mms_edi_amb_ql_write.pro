@@ -90,7 +90,8 @@ PARENTS=parents
 	;Mods to data processing
 	mods = [ 'v0.0.0 - Original version.', $
 	         'v0.1.0 - Added PACK_MODE variable.', $
-	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.' ]
+	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.', $
+	         'v2.0.0 - Added optics state.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -169,6 +170,7 @@ PARENTS=parents
 	if ~isa(amb_data.tt2000_0,     'LONG64') then message, 'amb_data.tt2000_0 must be LONG64.'
 	if ~isa(amb_data.tt2000_180,   'LONG64') then message, 'amb_data.tt2000_180 must be LONG64.'
 	if ~isa(amb_data.tt2000_tt,    'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
+	if ~isa(amb_data.optics,       'UINT')   then message, 'amb_data.optics must be UINT.'
 	if ~isa(amb_data.energy_gdu1,  'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
@@ -248,6 +250,7 @@ PARENTS=parents
 	t_0_vname             = 'epoch_0'
 	t_180_vname           = 'epoch_180'
 	t_tt_vname            = 'epoch_timetag'
+	optics_vname          = mms_construct_varname(sc, instr, 'optics',  'state')
 	e_gdu1_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu1')
 	e_gdu2_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu2')
 	gdu_0_vname           = mms_construct_varname(sc, instr, 'gdu',     '0')
@@ -266,6 +269,7 @@ PARENTS=parents
 	oamb -> WriteVar, /CREATE, t_0_vname,       amb_data.tt2000_0,    CDF_TYPE='CDF_TIME_TT2000'
 	oamb -> WriteVar, /CREATE, t_180_vname,     amb_data.tt2000_180,  CDF_TYPE='CDF_TIME_TT2000'
 	oamb -> WriteVar, /CREATE, t_tt_vname,      amb_data.tt2000_tt,   CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, optics_vname,    amb_data.optics,      COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, e_gdu1_vname,    amb_data.energy_gdu1, COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, e_gdu2_vname,    amb_data.energy_gdu2, COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, gdu_0_vname,     amb_data.gdu_0,       COMPRESSION='GZIP', GZIP_LEVEL=6
@@ -362,6 +366,17 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
+
+	;OPTICS
+	oamb -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
+	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',       t_tt_vname
+	oamb -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
+	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        65535US
+	oamb -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
+	oamb -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0US
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      1000US
+	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
 	oamb -> WriteVarAttr, e_gdu1_vname, 'CATDESC',       'GDU1 energy'

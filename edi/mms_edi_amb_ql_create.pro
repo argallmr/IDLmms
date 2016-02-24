@@ -158,7 +158,7 @@ STATUS=status
 	if tf_cal then begin
 		;Calibrate data
 		cals     = mms_edi_amb_cal_read(cal_file)
-		cal_data = mms_edi_amb_cal_apply(edi, cals, BRST=tf_brst)
+		cal_data = mms_edi_amb_calibrate(edi, cals, BRST=tf_brst)
 		
 		;Replace values in EDI structure
 		edi = MrStruct_ReplaceValue(edi, temporary(cal_data))
@@ -170,7 +170,7 @@ STATUS=status
 	if tf_brst $
 		then counts_0_180 = mms_edi_amb_brst_sort_cnts(edi) $
 		else counts_0_180 = mms_edi_amb_srvy_sort_cnts(edi)
-	
+
 ;-----------------------------------------------------
 ; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------

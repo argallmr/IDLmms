@@ -75,10 +75,11 @@
 ;       2016/02/09  -   Find calibration file. - MRA
 ;-
 function mms_edi_amb_ql_sdc, sc, mode, tstart, $
-DATA_PATH_ROOT=data_path, $
-DROPTBOX_ROOT=dropbox, $
+DATA_PATH_ROOT=data_path_root, $
+DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
-LOG_PATH_ROOT=log_path, $
+LOG_PATH_ROOT=log_path_root, $
+UNH_PATH_ROOT=unh_path_root, $
 PACMO=pacmo
 	compile_opt idl2
 	
@@ -127,10 +128,11 @@ PACMO=pacmo
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	if n_elements(pacmo)     eq 0 then pacmo     = 1
-	if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path_root
-	if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox_root
-	if n_elements(log_path)  eq 0 then log_path  = !edi_amb_init.log_path_root
+	if n_elements(pacmo)          eq 0 then pacmo     = 1
+	data_path = n_elements(data_path_root) eq 0 ? !edi_amb_init.data_path_root : data_path_root
+	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_amb_init.dropbox_root   : dropbox_root
+	log_path  = n_elements(log_path_root)  eq 0 ? !edi_amb_init.log_path_root  : log_path_root
+	unh_path  = n_elements(unh_path_root)  eq 0 ? !edi_amb_init.unh_data_root  : unh_data_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -139,6 +141,8 @@ PACMO=pacmo
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
+	if mode eq 'brst' && ~file_test(dropbox, /DIRECTORY, /READ) $
+		then message, 'DROPBOX_ROOT directory must exist and be readable.'
 
 	;Constants for data to be processed
 	instr   = 'edi'
@@ -251,11 +255,15 @@ PACMO=pacmo
 	if cal_file eq '' $
 		then parents = file_basename(edi_files) $
 		else parents = file_basename([edi_files, cal_file])
+	
+	;We are processing burst mode locally
+	;   - Look in UNH_PATH for latest z-version
+	out_path = mode eq 'brst' ? unh_path : data_path
 
 	;Create the file
 	file_out = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_ql), $
 	                                DROPBOX_ROOT   = dropbox, $
-	                                DATA_PATH_ROOT = data_path, $
+	                                DATA_PATH_ROOT = out_path, $
 	                                OPTDESC        = outoptdesc, $
 	                                PARENTS        = parents)
 	if file_out eq '' then message, 'Error writing QL file.'
@@ -269,6 +277,9 @@ PACMO=pacmo
 	;Write destination to log file
 	MrPrintF, 'LogText', file_out, FORMAT='(%"File written to:    \"%s\".")'
 	MrPrintF, 'LogText', dt_hr, dt_min, dt_sec, FORMAT='(%"Total process time: %ihr %imin %0.3fs")'
+	
+	;Close the log file by returning output to stderr
+	!Null = MrStdLog('stderr')
 	
 	;Return STATUS: 0 => everything OK
 	return, status
