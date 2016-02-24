@@ -16,12 +16,14 @@
 ;                           Spacecraft ID: 'mms1', 'mms2', 'mms3', or 'mms4'
 ;       CAL_DATA:           in, optional, type=struct
 ;                           EDI ambient data structure with the fields below. The
-;                             3 relative and/or 3 absolute calibration fields must be
+;                             4 relative and/or 4 absolute calibration fields must be
 ;                             present. If not provided, empty variables are written::
 ;                               TT2000_REL   -  TT2000 time stamps for relative calibration data
 ;                               TT2000_ABS   -  TT2000 time stamps for absolute calibration data
+;                               REL_OPTICS   -  Optics state at the time relative calibrations were performed
 ;                               RELCAL_GDU1  -  Relative calibration factors for GDU1
 ;                               RELCAL_GDU2  -  Relative calibration factors for GDU2
+;                               ABS_OPTICS   -  Optics state at the time absolute calibrations were performed
 ;                               ABSCAL_GDU1  -  Absolute calibration factors for GDU1
 ;                               ABSCAL_GDU2  -  Absolute calibration factors for GDU2
 ;                                
@@ -43,6 +45,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
+;       2015/02/23  -   Added optics state for absolute and relative calibrations. - MRA
 ;-
 function mms_edi_amb_cal_write, sc, cal_data, $
 CAL_PATH_ROOT=cal_path, $
@@ -195,15 +198,17 @@ PARENTS=parents
 	suffix  = '_' + strjoin([mode, level], '_')
 	
 	;Variable names
-	t_vname        = 'Epoch'
-	trel_vname     = 'epoch_rel'
-	tabs_vname     = 'epoch_abs'
-	phi_vname      = prefix + 'phi'
-	theta_vname    = prefix + 'theta'
-	rel_gdu1_vname = prefix + 'relcal_gdu1' + suffix
-	rel_gdu2_vname = prefix + 'relcal_gdu2' + suffix
-	abs_gdu1_vname = prefix + 'abscal_gdu1' + suffix
-	abs_gdu2_vname = prefix + 'abscal_gdu2' + suffix
+	t_vname            = 'Epoch'
+	trel_vname         = 'epoch_rel'
+	tabs_vname         = 'epoch_abs'
+	phi_vname          = prefix + 'phi'
+	theta_vname        = prefix + 'theta'
+	rel_opt_vname      = prefix + 'optics_rel'  + suffix
+	rel_gdu1_vname     = prefix + 'relcal_gdu1' + suffix
+	rel_gdu2_vname     = prefix + 'relcal_gdu2' + suffix
+	abs_opt_vname      = prefix + 'optics_abs'  + suffix
+	abs_gdu1_vname     = prefix + 'abscal_gdu1' + suffix
+	abs_gdu2_vname     = prefix + 'abscal_gdu2' + suffix
 	phi_labels_vname   = prefix + 'phi_labels'
 	theta_labels_vname = prefix + 'theta_labels'
 
@@ -230,13 +235,15 @@ PARENTS=parents
 		nrecs = n_elements(tt2000_rel)
 	
 		;Write
-		ocal -> WriteVar, trel_vname, cal_data.tt2000_rel, /CREATE, CDF_TYPE='CDF_TIME_TT2000'
-		ocal -> WriteVar, rel_gdu1_vname, cal_data.relcal_gdu1, /CREATE, ALLOCATERECS=nrecs, COMPRESSION='GZIP', GZIP_LEVEL=6
-		ocal -> WriteVar, rel_gdu2_vname, cal_data.relcal_gdu2, /CREATE, ALLOCATERECS=nrecs, COMPRESSION='GZIP', GZIP_LEVEL=6
+		ocal -> WriteVar, trel_vname,     cal_data.tt2000_rel,  /CREATE, CDF_TYPE='CDF_TIME_TT2000'
+		ocal -> WriteVar, rel_opt_vname,  cal_data.rel_optics,  /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
+		ocal -> WriteVar, rel_gdu1_vname, cal_data.relcal_gdu1, /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
+		ocal -> WriteVar, rel_gdu2_vname, cal_data.relcal_gdu2, /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
 	
 	;Create Variables
 	endif else begin
 		ocal -> CreateVar, trel_vname,     'CDF_TIME_TT2000'
+		ocal -> CreateVar, rel_opt_vname,  'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> CreateVar, rel_gdu1_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> CreateVar, rel_gdu2_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
@@ -248,12 +255,14 @@ PARENTS=parents
 	;Write data
 	if ncal gt 0 && MrStruct_HasTag(cal_data, 'tt2000_abs') then begin 
 		ocal -> WriteVar, tabs_vname, cal_data.tt2000_abs, /CREATE, CDF_TYPE='CDF_TIME_TT2000'
+		ocal -> WriteVar, abs_opt_vname,  cal_data.abs_optics,  /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> WriteVar, abs_gdu1_vname, cal_data.abscal_gdu1, /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> WriteVar, abs_gdu2_vname, cal_data.abscal_gdu2, /CREATE, COMPRESSION='GZIP', GZIP_LEVEL=6
 	
 	;Create Variables
 	endif else begin
 		ocal -> CreateVar, tabs_vname,     'CDF_TIME_TT2000'
+		ocal -> CreateVar, abs_opt_vname,  'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> CreateVar, abs_gdu1_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> CreateVar, abs_gdu2_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
@@ -352,6 +361,16 @@ PARENTS=parents
 	ocal -> WriteVarAttr, theta_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, theta_vname, 'VALIDMAX',      90.0
 	ocal -> WriteVarAttr, theta_vname, 'VAR_TYPE',      'support_data'
+	
+	;OPTICS_REL
+	ocal -> WriteVarAttr, rel_opt_vname, 'CATDESC',       'Optics state during relative calibrations'
+	ocal -> WriteVarAttr, rel_opt_vname, 'FIELDNAM',      'Optics state'
+	ocal -> WriteVarAttr, rel_opt_vname, 'FILLVAL',       65535US
+	ocal -> WriteVarAttr, rel_opt_vname, 'FORMAT',        'I4'
+	ocal -> WriteVarAttr, rel_opt_vname, 'LABLAXIS',      'Optics state'
+	ocal -> WriteVarAttr, rel_opt_vname, 'VALIDMIN',      0US
+	ocal -> WriteVarAttr, rel_opt_vname, 'VALIDMAX',      1000US
+	ocal -> WriteVarAttr, rel_opt_vname, 'VAR_TYPE',      'support_data'
 
 	;REL_CAL_GDU1
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'CATDESC',       'EDI relative calibration factor as a function of polar and azimuthal look angle for GDU1. ' + $
@@ -390,6 +409,16 @@ PARENTS=parents
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VALIDMAX',      100.0
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VAR_TYPE',      'data'
+	
+	;OPTICS_ABS
+	ocal -> WriteVarAttr, abs_opt_vname, 'CATDESC',       'Optics state during absolute calibrations'
+	ocal -> WriteVarAttr, abs_opt_vname, 'FIELDNAM',      'Optics state'
+	ocal -> WriteVarAttr, abs_opt_vname, 'FILLVAL',       65535US
+	ocal -> WriteVarAttr, abs_opt_vname, 'FORMAT',        'I4'
+	ocal -> WriteVarAttr, abs_opt_vname, 'LABLAXIS',      'Optics state'
+	ocal -> WriteVarAttr, abs_opt_vname, 'VALIDMIN',      0US
+	ocal -> WriteVarAttr, abs_opt_vname, 'VALIDMAX',      1000US
+	ocal -> WriteVarAttr, abs_opt_vname, 'VAR_TYPE',      'support_data'
 
 	;ABS_CAL_GDU1
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'CATDESC',       'EDI absolute calibration factor for GDU1. ' + $
