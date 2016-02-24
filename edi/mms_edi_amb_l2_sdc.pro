@@ -267,6 +267,9 @@ LOG_PATH_ROOT=log_path
 	MrPrintF, 'LogText', file_out, FORMAT='(%"File written to:    \"%s\".")'
 	MrPrintF, 'LogText', dt_hr, dt_min, dt_sec, FORMAT='(%"Total process time: %ihr %imin %0.3fs")'
 	
+	;Close the log file by returning  output to stderr
+	!Null = MrStdLog('stderr')
+	
 	;Return STATUS: 0 => everything OK
 	return, status
 end

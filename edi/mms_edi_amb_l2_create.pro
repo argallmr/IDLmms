@@ -242,6 +242,7 @@ STATUS=status
 	edi_out = { tt2000_tt:   reform(edi.epoch_timetag), $
 	            energy_gdu1: reform(edi.energy_gdu1), $
 	            energy_gdu2: reform(edi.energy_gdu2), $
+	            optics:      reform(edi.optics), $
 	            pack_mode:   reform(edi.pack_mode) $
 	          }
 	edi = !Null

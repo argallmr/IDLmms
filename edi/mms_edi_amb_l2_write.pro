@@ -140,6 +140,7 @@ PARENTS=parents
 	if ~isa(amb_data.tt2000_0,     'LONG64') then message, 'amb_data.tt2000_0 must be LONG64.'
 	if ~isa(amb_data.tt2000_180,   'LONG64') then message, 'amb_data.tt2000_180 must be LONG64.'
 	if ~isa(amb_data.tt2000_tt,    'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
+	if ~isa(amb_data.optics,       'UINT')   then message, 'amb_data.optics must be UINT.'
 	if ~isa(amb_data.energy_gdu1,  'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
@@ -213,52 +214,56 @@ PARENTS=parents
 ; Variables                                           |
 ;------------------------------------------------------
 	; Variable naming convention
-	;   scId_instrumentId_paramName_optionalDescriptor
+	;   scId_instrumentId_paramName[_coordSys][_paramQualifier][_subModeLevel][_mode][_level]
+	prefix  = strjoin([sc, instr], '_') + '_'
+	suffix  = '_' + strjoin([mode, level], '_')
 	
-	t_0_vname             = 'epoch_pa0'
-	t_180_vname           = 'epoch_pa180'
-	t_tt_vname            = 'epoch_timetag'
-	e_gdu1_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu1')
-	e_gdu2_vname          = mms_construct_varname(sc, instr, 'energy',  'gdu2')
-	gdu_0_vname           = mms_construct_varname(sc, instr, 'gdu',     '0')
-	gdu_180_vname         = mms_construct_varname(sc, instr, 'gdu',     '180')
-	counts1_0_vname       = mms_construct_varname(sc, instr, 'counts1', '0')
-	counts2_0_vname       = mms_construct_varname(sc, instr, 'counts2', '0')
-	counts3_0_vname       = mms_construct_varname(sc, instr, 'counts3', '0')
-	counts4_0_vname       = mms_construct_varname(sc, instr, 'counts4', '0')
-	counts1_180_vname     = mms_construct_varname(sc, instr, 'counts1', '180')
-	counts2_180_vname     = mms_construct_varname(sc, instr, 'counts2', '180')
-	counts3_180_vname     = mms_construct_varname(sc, instr, 'counts3', '180')
-	counts4_180_vname     = mms_construct_varname(sc, instr, 'counts4', '180')
-	pa1_0_vname           = mms_construct_varname(sc, instr, 'pa1',     '0')
-	pa2_0_vname           = mms_construct_varname(sc, instr, 'pa2',     '0')
-	pa3_0_vname           = mms_construct_varname(sc, instr, 'pa3',     '0')
-	pa4_0_vname           = mms_construct_varname(sc, instr, 'pa4',     '0')
-	pa1_180_vname         = mms_construct_varname(sc, instr, 'pa1',     '180')
-	pa2_180_vname         = mms_construct_varname(sc, instr, 'pa2',     '180')
-	pa3_180_vname         = mms_construct_varname(sc, instr, 'pa3',     '180')
-	pa4_180_vname         = mms_construct_varname(sc, instr, 'pa4',     '180')
-	pa1_0_delta_minus   = 'pa1_0_delta_minus'
-	pa1_0_delta_plus    = 'pa1_0_delta_plus'
-	pa2_0_delta_minus   = 'pa2_0_delta_minus'
-	pa2_0_delta_plus    = 'pa2_0_delta_plus'
-	pa3_0_delta_minus   = 'pa3_0_delta_minus'
-	pa3_0_delta_plus    = 'pa3_0_delta_plus'
-	pa4_0_delta_minus   = 'pa4_0_delta_minus'
-	pa4_0_delta_plus    = 'pa4_0_delta_plus'
-	pa1_180_delta_minus = 'pa1_180_delta_minus'
-	pa1_180_delta_plus  = 'pa1_180_delta_plus'
-	pa2_180_delta_minus = 'pa2_180_delta_minus'
-	pa2_180_delta_plus  = 'pa2_180_delta_plus'
-	pa3_180_delta_minus = 'pa3_180_delta_minus'
-	pa3_180_delta_plus  = 'pa3_180_delta_plus'
-	pa4_180_delta_minus = 'pa4_180_delta_minus'
-	pa4_180_delta_plus  = 'pa4_180_delta_plus'
+	t_0_vname           = 'epoch_pa0'
+	t_180_vname         = 'epoch_pa180'
+	t_tt_vname          = 'epoch_timetag'
+	optics_vname        = prefix + 'optics_state' + suffix
+	e_gdu1_vname        = prefix + 'energy_gdu1'  + suffix
+	e_gdu2_vname        = prefix + 'energy_gdu2'  + suffix
+	gdu_0_vname         = prefix + 'gdu_0'        + suffix
+	gdu_180_vname       = prefix + 'gdu_180'      + suffix
+	counts1_0_vname     = prefix + 'counts1_0'    + suffix
+	counts2_0_vname     = prefix + 'counts2_0'    + suffix
+	counts3_0_vname     = prefix + 'counts3_0'    + suffix
+	counts4_0_vname     = prefix + 'counts4_0'    + suffix
+	counts1_180_vname   = prefix + 'counts1_180'  + suffix
+	counts2_180_vname   = prefix + 'counts2_180'  + suffix
+	counts3_180_vname   = prefix + 'counts3_180'  + suffix
+	counts4_180_vname   = prefix + 'counts4_180'  + suffix
+	pa1_0_vname         = prefix + 'pa1_0'        + suffix
+	pa2_0_vname         = prefix + 'pa2_0'        + suffix
+	pa3_0_vname         = prefix + 'pa3_0'        + suffix
+	pa4_0_vname         = prefix + 'pa4_0'        + suffix
+	pa1_180_vname       = prefix + 'pa1_180'      + suffix
+	pa2_180_vname       = prefix + 'pa2_180'      + suffix
+	pa3_180_vname       = prefix + 'pa3_180'      + suffix
+	pa4_180_vname       = prefix + 'pa4_180'      + suffix
+	pa1_0_delta_minus   = prefix + 'pa1_0_delta_minus'   + suffix
+	pa1_0_delta_plus    = prefix + 'pa1_0_delta_plus'    + suffix
+	pa2_0_delta_minus   = prefix + 'pa2_0_delta_minus'   + suffix
+	pa2_0_delta_plus    = prefix + 'pa2_0_delta_plus'    + suffix
+	pa3_0_delta_minus   = prefix + 'pa3_0_delta_minus'   + suffix
+	pa3_0_delta_plus    = prefix + 'pa3_0_delta_plus'    + suffix
+	pa4_0_delta_minus   = prefix + 'pa4_0_delta_minus'   + suffix
+	pa4_0_delta_plus    = prefix + 'pa4_0_delta_plus'    + suffix
+	pa1_180_delta_minus = prefix + 'pa1_180_delta_minus' + suffix
+	pa1_180_delta_plus  = prefix + 'pa1_180_delta_plus'  + suffix
+	pa2_180_delta_minus = prefix + 'pa2_180_delta_minus' + suffix
+	pa2_180_delta_plus  = prefix + 'pa2_180_delta_plus'  + suffix
+	pa3_180_delta_minus = prefix + 'pa3_180_delta_minus' + suffix
+	pa3_180_delta_plus  = prefix + 'pa3_180_delta_plus'  + suffix
+	pa4_180_delta_minus = prefix + 'pa4_180_delta_minus' + suffix
+	pa4_180_delta_plus  = prefix + 'pa4_180_delta_plus'  + suffix
 
 	;Write variable data to file
 	oamb -> WriteVar, /CREATE, t_0_vname,          transpose(amb_data.tt2000_0),    CDF_TYPE='CDF_TIME_TT2000'
 	oamb -> WriteVar, /CREATE, t_180_vname,        transpose(amb_data.tt2000_180),  CDF_TYPE='CDF_TIME_TT2000'
 	oamb -> WriteVar, /CREATE, t_tt_vname,         transpose(amb_data.tt2000_tt),   CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, optics_vname,       transpose(amb_data.optics),      COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, e_gdu1_vname,       transpose(amb_data.energy_gdu1), COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, e_gdu2_vname,       transpose(amb_data.energy_gdu2), COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> WriteVar, /CREATE, gdu_0_vname,        transpose(amb_data.gdu_0),       COMPRESSION='GZIP', GZIP_LEVEL=6
@@ -426,6 +431,17 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
+
+	;OPTICS
+	oamb -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
+	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',       t_tt_vname
+	oamb -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
+	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        65535US
+	oamb -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
+	oamb -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0US
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      1000US
+	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
 	oamb -> WriteVarAttr, e_gdu1_vname, 'CATDESC',       'GDU1 energy'
