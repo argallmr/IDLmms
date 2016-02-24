@@ -92,7 +92,10 @@ EXPAND_ANGLES=expand_angles
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc
+	                      SC      = sc, $
+	                      VX      = vx, $
+	                      VY      = vy, $
+	                      VZ      = vz
 
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
@@ -130,6 +133,27 @@ EXPAND_ANGLES=expand_angles
 	endif else begin
 		suffix = ''
 	endelse
+
+;-----------------------------------------------------
+; Version Control \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;v0.6.z survey files had incorrect DEPEND_0 for pitch_gdu[1,2]
+	if mode eq 'fast' or mode eq 'slow' then begin
+		ibad = where( (vx eq 0) and (vy le 6), nbad )
+		if nbad gt 0 then message, 'PICH_GDU[1,2] have bad time tags.'
+	endif
+	
+	;v0.7.z brst files have energy bit values
+	tf_energy_units = 0B
+	if mode eq 'brst' then begin
+		;Convert energy units?
+		ibad = where( (vx eq 0) and (vy le 7), nbad )
+		if nbad gt 0 then tf_energy_units = 1B
+		
+		;All files must follow the same conventions
+		if nbad ne 0 && nbad ne nFiles $
+			then message, 'Incompatible file versions.'
+	endif
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -188,10 +212,11 @@ EXPAND_ANGLES=expand_angles
 		pitch_gdu2   = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
 		
 		;Read other data
-		phi        = MrCDF_nRead(cdfIDs, phi_name,   TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
-		theta      = MrCDF_nRead(cdfIDs, theta_name, TSTART=tstart, TEND=tend)
-		pitch_mode = MrCDF_nRead(cdfIDs, pitch_name, TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
-		pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name, TSTART=tstart, TEND=tend)
+		optics     = MrCDF_nRead(cdfIDs, optics_name, TSTART=tstart, TEND=tend)
+		phi        = MrCDF_nRead(cdfIDs, phi_name,    TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
+		theta      = MrCDF_nRead(cdfIDs, theta_name,  TSTART=tstart, TEND=tend)
+		pitch_mode = MrCDF_nRead(cdfIDs, pitch_name,  TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
+		pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name,  TSTART=tstart, TEND=tend)
 		
 		;Burst data?
 		if mode eq 'brst' then begin
@@ -217,24 +242,26 @@ EXPAND_ANGLES=expand_angles
 ; Convert Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Convert to unsigned shorts
-	energy_gdu1 = fix(energy_gdu1, TYPE=12)
-	energy_gdu2 = fix(energy_gdu2, TYPE=12)
+	if tf_energy_units then begin
+		energy_gdu1 = fix(energy_gdu1, TYPE=12)
+		energy_gdu2 = fix(energy_gdu2, TYPE=12)
 
-	;GDU1
-	i250 = where(energy_gdu1 eq 1, n250)
-	i500 = where(energy_gdu1 eq 2, n500)
-	i1k  = where(energy_gdu1 eq 3, n1k)
-	if n250 gt 0 then energy_gdu1[i250] = 250US
-	if n500 gt 0 then energy_gdu1[i500] = 500US
-	if n1k  gt 0 then energy_gdu1[i1k]  = 1000US
+		;GDU1
+		i250 = where(energy_gdu1 eq 1, n250)
+		i500 = where(energy_gdu1 eq 2, n500)
+		i1k  = where(energy_gdu1 eq 3, n1k)
+		if n250 gt 0 then energy_gdu1[i250] = 250US
+		if n500 gt 0 then energy_gdu1[i500] = 500US
+		if n1k  gt 0 then energy_gdu1[i1k]  = 1000US
 	
-	;GDU2
-	i250 = where(energy_gdu2 eq 1, n250)
-	i500 = where(energy_gdu2 eq 2, n500)
-	i1k  = where(energy_gdu2 eq 3, n1k)
-	if n250 gt 0 then energy_gdu2[i250] = 250US
-	if n500 gt 0 then energy_gdu2[i500] = 500US
-	if n1k  gt 0 then energy_gdu2[i1k]  = 1000US
+		;GDU2
+		i250 = where(energy_gdu2 eq 1, n250)
+		i500 = where(energy_gdu2 eq 2, n500)
+		i1k  = where(energy_gdu2 eq 3, n1k)
+		if n250 gt 0 then energy_gdu2[i250] = 250US
+		if n500 gt 0 then energy_gdu2[i500] = 500US
+		if n1k  gt 0 then energy_gdu2[i1k]  = 1000US
+	endif
 
 ;-----------------------------------------------------
 ; Expand Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -280,6 +307,7 @@ EXPAND_ANGLES=expand_angles
 	            epoch_gdu2:       temporary(epoch_gdu2), $
 	            epoch_angle:      temporary(epoch_angle), $
 	            epoch_timetag:    temporary(epoch_timetag), $
+	            optics:           temporary(optics), $
 	            counts1_gdu1:     temporary(counts_gdu1), $
 	            pitch_gdu1:       temporary(pitch_gdu1), $
 	            energy_gdu1:      temporary(energy_gdu1), $
@@ -303,6 +331,7 @@ EXPAND_ANGLES=expand_angles
 		edi_amb.epoch_gdu2    = edi_amb.epoch_gdu2[igdu2]
 		edi_amb.epoch_angle   = edi_amb.epoch_angle[iangle]
 		edi_amb.epoch_timetag = edi_amb.epoch_timetag[itt]
+		edi_amb.optics        = edi_amb.optics[itt]
 		edi_amb.counts1_gdu1  = edi_amb.counts1_gdu1[igdu1]
 		edi_amb.pitch_gdu1    = edi_amb.pitch_gdu1[iangle]
 		edi_amb.energy_gdu1   = edi_amb.energy_gdu1[itt]

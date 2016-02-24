@@ -87,7 +87,7 @@ PACMO=pacmo
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		
+
 		;Write error
 		MrPrintF, 'LogErr'
 		
@@ -247,7 +247,7 @@ PACMO=pacmo
 
 	;Process data
 	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
-	if status ne 0 then return, status
+	if status ne 0 then message, 'Error creating AMB QL data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

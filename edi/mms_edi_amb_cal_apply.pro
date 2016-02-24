@@ -24,7 +24,7 @@
 ; :Returns:
 ;       CNTS:       Corrected, calibrated counts.
 ;-
-function mms_edi_amb_cal_apply, counts, relcal, abscal
+function mms_edi_amb_cal_apply, counts, relcal, abscal, $
 BRST=brst, $
 DELTA=delta
 	compile_opt idl2
@@ -88,8 +88,8 @@ DELTA=delta
 	if n_elements(abscal) gt 0 then begin
 		cnts *= abscal
 	endif else begin
-		cnts  = fix(round(cnts),        TYPE=12)
-		delta = fix(round(delta1_gdu1), TYPE=12)
+		cnts  = fix(round(cnts),  TYPE=12)
+		delta = fix(round(delta), TYPE=12)
 	endelse
 	
 	return, cnts

@@ -170,7 +170,7 @@ PARENTS=parents
 	if ~isa(amb_data.tt2000_0,     'LONG64') then message, 'amb_data.tt2000_0 must be LONG64.'
 	if ~isa(amb_data.tt2000_180,   'LONG64') then message, 'amb_data.tt2000_180 must be LONG64.'
 	if ~isa(amb_data.tt2000_tt,    'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
-	if ~isa(amb_data.optics,       'UINT')   then message, 'amb_data.optics must be UINT.'
+	if ~isa(amb_data.optics,       'BYTE')   then message, 'amb_data.optics must be BYTE.'
 	if ~isa(amb_data.energy_gdu1,  'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
@@ -371,11 +371,11 @@ PARENTS=parents
 	oamb -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
 	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',       t_tt_vname
 	oamb -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
-	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        65535US
+	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
 	oamb -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
-	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0US
-	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      1000US
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0B
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      253B
 	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
