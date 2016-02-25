@@ -137,23 +137,25 @@ EXPAND_ANGLES=expand_angles
 ;-----------------------------------------------------
 ; Version Control \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;v0.6.z survey files had incorrect DEPEND_0 for pitch_gdu[1,2]
-	if mode eq 'fast' or mode eq 'slow' then begin
+	;v0.6.z brst files had incorrect DEPEND_0 for pitch_gdu[1,2]
+	if mode eq 'brst' then begin
 		ibad = where( (vx eq 0) and (vy le 6), nbad )
 		if nbad gt 0 then message, 'PICH_GDU[1,2] have bad time tags.'
 	endif
 	
-	;v0.7.z brst files have energy bit values
-	tf_energy_units = 0B
-	if mode eq 'brst' then begin
-		;Convert energy units?
-		ibad = where( (vx eq 0) and (vy le 7), nbad )
-		if nbad gt 0 then tf_energy_units = 1B
-		
-		;All files must follow the same conventions
-		if nbad ne 0 && nbad ne nFiles $
-			then message, 'Incompatible file versions.'
-	endif
+	;Convert from energy bit to energy
+	tf_energy_units = 1B
+	;vX.Y.Z and earlier brst files have energy bit values
+;	tf_energy_units = 0B
+;	if mode eq 'brst' then begin
+;		;Convert energy units?
+;		ibad = where( (vx eq 0) and (vy le 7), nbad )
+;		if nbad gt 0 then tf_energy_units = 1B
+;		
+;		;All files must follow the same conventions
+;		if nbad ne 0 && nbad ne nFiles $
+;			then message, 'Incompatible file versions.'
+;	endif
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -269,7 +271,7 @@ EXPAND_ANGLES=expand_angles
 	;
 	; Expand the EPOCH_ANGLE values to match the resolution of EPOCH_GDU[12]
 	;
-	
+
 	nangle = n_elements(epoch_angle)
 	nepoch = n_elements(epoch_gdu1)
 	if tf_expand_angles && nangle ne nepoch then begin
@@ -281,7 +283,7 @@ EXPAND_ANGLES=expand_angles
 		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
 		MrPrintF, 'LogText', '---------------------------------------------------------------'
 		MrPrintF, 'LogText', ''
-		
+
 		;How many points are we extrapolating
 		iextrap = where(epoch_gdu2 lt epoch_angle[0], nextrap)
 		if nextrap gt 0 $
@@ -289,15 +291,12 @@ EXPAND_ANGLES=expand_angles
 		
 		;Locate each EPOCH_GDU1 within EPOCH_ANGLE
 		iloc = value_locate(epoch_angle, epoch_gdu1) > 0
-	
+
 		;Expand the angle arrays
 		epoch_angle = epoch_gdu1
 		theta       = theta[iloc]
 		phi         = phi[iloc]
-		pitch_gdu1  = pitch_gdu1[iloc]
-		pitch_gdu2  = pitch_gdu2[iloc]
 	endif
-
 
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
