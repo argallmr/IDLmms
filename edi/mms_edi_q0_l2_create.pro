@@ -223,13 +223,13 @@ STATUS=status
 	dss = mms_dss_read_sunpulse(dss_file)
 
 	;Despin det1
-	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21, /SPINUP)
+	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21)
 	traj_det1_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs))
 	traj_det1_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_lo))
 	traj_det1_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_hi))
 	
 	;Despin det2
-	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12, /SPINUP)
+	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12)
 	traj_det2_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs))
 	traj_det2_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_lo))
 	traj_det2_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_hi))
