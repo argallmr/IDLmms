@@ -145,8 +145,8 @@ STATUS=status
 	;Map firing angle to look direction (radians)
 	;   - lo is lower bound of n
 	;   - hi is lower bound of n+2
-	phi_det1    = phi[ (15 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
-	phi_det2    = phi[ (15 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
+	phi_det1    = phi[ (16 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
+	phi_det2    = phi[ (16 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
 	phi_det1_lo = phi[ (15 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
 	phi_det2_lo = phi[ (15 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
 	phi_det1_hi = phi[ (17 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
@@ -169,8 +169,8 @@ STATUS=status
 	traj_det2_hi = fltarr(3, q0_data.count_gd12)
 	
 	;GDU1
-	traj_det1[0,*] = -sin(theta_det1) * cos(phi_det1_hi)
-	traj_det1[1,*] = -sin(theta_det1) * sin(phi_det1_hi)
+	traj_det1[0,*] = -sin(theta_det1) * cos(phi_det1)
+	traj_det1[1,*] = -sin(theta_det1) * sin(phi_det1)
 	traj_det1[2,*] = -sin(theta_det1)
 	
 	;LO GDU1
@@ -184,8 +184,8 @@ STATUS=status
 	traj_det1_hi[2,*] = -sin(theta_det1)
 	
 	;GDU2
-	traj_det2[0,*] = -sin(theta_det2) * cos(phi_det1_hi)
-	traj_det2[1,*] = -sin(theta_det2) * sin(phi_det1_hi)
+	traj_det2[0,*] = -sin(theta_det2) * cos(phi_det2)
+	traj_det2[1,*] = -sin(theta_det2) * sin(phi_det2)
 	traj_det2[2,*] = -sin(theta_det2)
 	
 	;LO GDU2
@@ -223,13 +223,13 @@ STATUS=status
 	dss = mms_dss_read_sunpulse(dss_file)
 
 	;Despin det1
-	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21)
+	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21, /SPINUP)
 	traj_det1_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs))
 	traj_det1_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_lo))
 	traj_det1_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_hi))
 	
 	;Despin det2
-	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12)
+	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12, /SPINUP)
 	traj_det2_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs))
 	traj_det2_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_lo))
 	traj_det2_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_hi))
@@ -255,7 +255,6 @@ STATUS=status
 	traj_det2_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs))
 	traj_det2_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs_lo))
 	traj_det2_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs_hi))
-	traj_det2_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse_hi)
 	defatt           = !Null
 	
 	;
@@ -270,6 +269,7 @@ STATUS=status
 	;det1
 	traj_det2_gsm    = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse)
 	traj_det2_gsm_lo = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse_lo)
+	traj_det2_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse_hi)
 
 ;-----------------------------------------------------
 ; Spherical Coordinates \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -304,23 +304,23 @@ STATUS=status
 	
 	;DET1 GSE
 	traj_det1_gse[1,*]    = abs(traj_det1_gse[1,*] - 90.0)
-	traj_det1_gse_lo[1,*] = abs(traj_det1_gse[1,*] - 90.0)
-	traj_det1_gse_hi[1,*] = abs(traj_det1_gse[1,*] - 90.0)
+	traj_det1_gse_lo[1,*] = abs(traj_det1_gse_lo[1,*] - 90.0)
+	traj_det1_gse_hi[1,*] = abs(traj_det1_gse_hi[1,*] - 90.0)
 	
 	;DET1 gsm
 	traj_det1_gsm[1,*]    = abs(traj_det1_gsm[1,*] - 90.0)
-	traj_det1_gsm_lo[1,*] = abs(traj_det1_gsm[1,*] - 90.0)
-	traj_det1_gsm_hi[1,*] = abs(traj_det1_gsm[1,*] - 90.0)
+	traj_det1_gsm_lo[1,*] = abs(traj_det1_gsm_lo[1,*] - 90.0)
+	traj_det1_gsm_hi[1,*] = abs(traj_det1_gsm_hi[1,*] - 90.0)
 	
 	;DET2 GSE
 	traj_det2_gse[1,*]    = abs(traj_det2_gse[1,*] - 90.0)
-	traj_det2_gse_lo[1,*] = abs(traj_det2_gse[1,*] - 90.0)
-	traj_det2_gse_hi[1,*] = abs(traj_det2_gse[1,*] - 90.0)
+	traj_det2_gse_lo[1,*] = abs(traj_det2_gse_lo[1,*] - 90.0)
+	traj_det2_gse_hi[1,*] = abs(traj_det2_gse_hi[1,*] - 90.0)
 	
 	;DET2 gsm
 	traj_det2_gsm[1,*]    = abs(traj_det2_gsm[1,*] - 90.0)
-	traj_det2_gsm_lo[1,*] = abs(traj_det2_gsm[1,*] - 90.0)
-	traj_det2_gsm_hi[1,*] = abs(traj_det2_gsm[1,*] - 90.0)
+	traj_det2_gsm_lo[1,*] = abs(traj_det2_gsm_lo[1,*] - 90.0)
+	traj_det2_gsm_hi[1,*] = abs(traj_det2_gsm_hi[1,*] - 90.0)
 
 ;-----------------------------------------------------
 ; Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -332,7 +332,7 @@ STATUS=status
 	           tt2000_timetag:   q0_data.tt2000_timetag, $
 	           optics:           q0_data.optics, $
 	           energy_gdu1:      q0_data.energy_gd21, $
-	           energy_gdu2:      q0_data.energy_gd21, $
+	           energy_gdu2:      q0_data.energy_gd12, $
 	           counts_gdu1:      q0_data.word15_gd21, $
 	           counts_gdu2:      q0_data.word15_gd12, $
 	           traj_gdu1_gse:    traj_det1_gse[0:1,*], $
