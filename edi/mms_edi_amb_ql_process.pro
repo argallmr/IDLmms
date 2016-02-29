@@ -9,12 +9,12 @@
 ;   sorted by 0 and 180 degree pitch angle.
 ;
 ;   Calling Sequence::
-;       FILES = mms_edi_ql_amb_process()
-;       FILES = mms_edi_ql_amb_process(SC)
-;       FILES = mms_edi_ql_amb_process(SC, MODE)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, '')
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, DATE_END)
+;       FILES = mms_edi_amb_ql_process()
+;       FILES = mms_edi_amb_ql_process(SC)
+;       FILES = mms_edi_amb_ql_process(SC, MODE)
+;       FILES = mms_edi_amb_ql_process(SC, MODE, DATE_START)
+;       FILES = mms_edi_amb_ql_process(SC, MODE, DATE_START, '')
+;       FILES = mms_edi_amb_ql_process(SC, MODE, DATE_START, DATE_END)
 ;
 ; :Categories:
 ;    MMS, EDI, QL, Ambient
@@ -57,10 +57,10 @@
 ;                               LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
 ;                               MMS SDC data directory structure. "/day" is included only if
 ;                               burst files are being processed.
-;       PACMO:                      in, optional, type=integer, default=1
-;                                   Packing mode. Options are:
-;                                       1 - Magnetic field is focused between pads 2 & 3
-;                                       2 - Magnetic field is focused on pad 1
+;       PACK_MODE:          in, optional, type=integer, default=1
+;                           Packing mode. Options are:
+;                               1 - Magnetic field is focused between channels 2 & 3
+;                               2 - Magnetic field is focused on channels 1
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -80,15 +80,19 @@ NO_LOG=no_log, $
 DATA_PATH_ROOT=data_path_in, $
 DROPBOX_ROOT=dropbox_in, $
 LOG_PATH_ROOT=log_path_in, $
-PACMO=pacmo
+PACK_MODE=pacmo
 	compile_opt idl2
 	
-	;Error handling
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		oLog -> AddError
-		obj_destroy, oLog
+		if n_elements(oLog) gt 0 then begin
+			oLog -> AddError
+			obj_destroy, oLog
+		endif else begin
+			print, !error_state.msg
+			print, transpose(mrtraceback())
+		endelse
 		return
 	endif
 	
@@ -96,7 +100,7 @@ PACMO=pacmo
 	status = 0
 	
 	;Initialize
-	unh_edi_amb_init
+	unh_edi_init
 	
 	;Calculate the current date
 	caldat, systime(/JULIAN, /UTC), month, day, year, hour, minute, second
@@ -106,9 +110,9 @@ PACMO=pacmo
 	;Error destination: Console or file?
 	tf_log = ~keyword_set(no_log)
 	if tf_log then begin
-		logDir = filepath('', ROOT_DIR=!edi_amb_init.log_path_root, SUBDIRECTORY='batch_logs')
+		logDir = filepath('', ROOT_DIR=!edi_init.log_path_root, SUBDIRECTORY='batch_logs')
 		if ~file_test(logDir, /DIRECTORY) then file_mkdir, logDir
-		fLog   = filepath('mms_edi_amb_ql_' + date + '_' + time + '.log', ROOT_DIR=logDir)
+		fLog   = filepath('mms_edi_amb_l2_' + date + '_' + time + '.log', ROOT_DIR=logDir)
 	endif else begin
 		fLog      = 'StdErr'
 	endelse
@@ -130,9 +134,9 @@ PACMO=pacmo
 
 	;Keywords
 	if n_elements(pacmo)        eq 0 then pacmo     = 1
-	if n_elements(data_path_in) eq 0 then data_path = !edi_amb_init.data_path_root else data_path = data_path_in
-	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_amb_init.dropbox_root   else dropbox   = dropbox_in
-	if n_elements(log_path_in)  eq 0 then log_path  = !edi_amb_init.log_path_root  else log_path  = log_path_in
+	if n_elements(data_path_in) eq 0 then data_path = !edi_init.data_path_root else data_path = data_path_in
+	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_init.dropbox_root   else dropbox   = dropbox_in
+	if n_elements(log_path_in)  eq 0 then log_path  = !edi_init.log_path_root  else log_path  = log_path_in
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -159,7 +163,7 @@ PACMO=pacmo
 	if min(MrIsMember([1, 2], pacmo)) eq 0 $
 		then message, 'PACMO must be 1 and/or 2.'
 	
-	;Directories must be writable
+	;Directories must be read and/or writable
 	if tf_log && ~file_test(log_path, /DIRECTORY, /WRITE) $
 		then message, 'LOG_PATH must exist and be writeable.'
 	if ~file_test(data_path, /DIRECTORY, /READ) $
@@ -180,9 +184,13 @@ PACMO=pacmo
 	tend   = string(eyr, emo, eday, ehr, emin, esec, $
 	                FORMAT='(%"%04i-%02i-%02iT%02i:%02i:%02iZ")')
 
-	;Constants
+	;Constants for source files
 	instr   = 'edi'
 	level   = 'l1a'
+
+	;Constants for output
+	outinstr   = 'edi'
+	outlevel   = 'l1a'
 
 ;-----------------------------------------------------
 ; Loop Over Date & Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -206,7 +214,7 @@ PACMO=pacmo
 	for k = 0, n_elements(sc)    - 1 do begin
 		;Optional descriptor
 		optdesc = pacmo[p] eq 1 ? 'amb' : 'amb-pm' + string(pacmo[p], FORMAT='(i0)')
-	
+
 		;Starting a new sc/mode
 		oLog -> AddText, '------------------------------------------------'
 		oLog -> AddText, '################################################'
@@ -220,7 +228,7 @@ PACMO=pacmo
 		;If we are processing "srvy" data, we must search
 		;for 'fast' and 'slow' files. Search for "fast" first.
 		fmode = mode[j] eq 'srvy' ? 'fast' : mode[j]
-		
+
 		;Find files
 		f_mode1 = mms_find_file(sc[k], instr, fmode, level, $
 		                        COUNT   = cnt1, $
@@ -312,8 +320,8 @@ PACMO=pacmo
 			
 			;Process data
 			status_out = mms_edi_amb_ql_sdc(sc[k], mode[j], fstart, $
-			                                FILE_OUT = file_out, $
-			                                PACMO    = pacmo[p])
+			                                FILE_OUT  = file_out, $
+			                                PACK_MODE = pacmo[p])
 
 			;End of processing time
 			f_end = systime(1)
@@ -326,7 +334,7 @@ PACMO=pacmo
 			;Save results
 			if status_out eq 0 $
 				then files[count] = file_out $
-				else files[count] = strjoin([sc[k], 'edi', mode[j], 'ql', optdesc, fstart], '_')
+				else files[count] = strjoin([sc[k], instr, outmode[j], outlevel, optdesc, fstart], '_')
 			status[count]   = status_out
 			telapsed[count] = f_end - f_begin
 			count++
@@ -341,8 +349,8 @@ PACMO=pacmo
 
 			;Report results
 			oLog -> AddText, 'Finished processing'
-			if cnt1 gt 0 then oLog -> AddText, '   ' + fmode + ' file:   "' + f_mode1[i] + '"'
-			if cnt2 gt 0 then oLog -> AddText, '   Slow file:   "' + f_mode2[i] + '"'
+			if cnt1 gt 0 then oLog -> AddText, '   ' + fmode + ' file:   "' + f_mode1[i1] + '"'
+			if cnt2 gt 0 then oLog -> AddText, '   Slow file:   "' + f_mode2[i2] + '"'
 			oLog -> AddText, '   Output file: "' + file_out   + '"'
 			oLog -> AddText, '   Error status: ' + string(status_out, FORMAT='(i0)')
 			oLog -> AddText, '   Proc time:    ' + string(telapsed[count-1]/60.0, FORMAT='(f0.2)') + ' min'
@@ -366,13 +374,26 @@ PACMO=pacmo
 
 	;Number of errors
 	ierror = where(status ge 100, nerror)
-	iwarn  = where(status lt 100, nwarn)
+	iwarn  = where(status gt   0 and status lt 100, nwarn)
 
 	;Time elapsed
 	dt     = t_end - t_begin
 	dt_hr  = floor((dt) / 3600.0)
 	dt_min = floor( (dt mod 3600.0) / 60.0 )
 	dt_sec = dt mod 60
+
+	;Print error code look-up table
+	if nwarn + nerror gt 0 then begin
+		;Get the error codes and their messages
+		txt = mms_edi_amb_error_codes(/TXT)
+
+		;Print them to the log file.
+		oLog -> AddText, '-----------------------------------------'
+		oLog -> AddText, ''
+		oLog -> AddText, txt
+		oLog -> AddText, ''
+		oLog -> AddText, '-----------------------------------------'
+	endif
 
 	;Log summary information
 	oLog -> AddText, ''

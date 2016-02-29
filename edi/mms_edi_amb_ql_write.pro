@@ -50,6 +50,12 @@
 ;                           Optional filename descriptor, with parts separated by a hyphen.
 ;       PARENTS:            in, optional, type=string/strarr, default=''
 ;                           Names of the parent files required to make `AMB_DATA`.
+;       STATUS:             out, required, type=byte
+;                           An error code. Values are:::
+;                               OK      = 0
+;                               Warning = 1-99
+;                               Error   = 100-255
+;                                   100      -  Unexpected trapped error
 ;
 ; :Returns:
 ;       AMB_FILE:           Name of the file created.
@@ -67,20 +73,29 @@
 ;       2015/10/26  -   Written by Matthew Argall
 ;       2015/01/16  -   Determine the correct output file version more reliably.
 ;                           Change inputs to make program more versatile. - MRA
+;       2015/02/27  -   Added the STATUS keyword. - MRA
 ;-
 function mms_edi_amb_ql_write, sc, mode, tstart, amb_data, $
 DROPBOX_ROOT=dropbox, $
 DATA_PATH_ROOT=data_path, $
 OPTDESC=optdesc, $
-PARENTS=parents
+PARENTS=parents, $
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
+		
+		;Close and delete the file, if it was created
 		if obj_valid(oamb) then obj_destroy, oamb
 		if n_elements(amb_file) gt 0 && file_test(amb_file) then file_delete, amb_file
+		
+		;Report error
+		if n_elements(status) eq 0 || status eq 0 then status = 100
 		MrPrintF, 'LogErr'
+		
+		;Return
 		return, ''
 	endif
 
@@ -558,6 +573,10 @@ PARENTS=parents
 ;------------------------------------------------------
 ; Close the File                                      |
 ;------------------------------------------------------
+	;Close the file
 	obj_destroy, oamb
+	
+	;Return
+	if n_elements(status) eq 0 then status = 0
 	return, amb_file
 end

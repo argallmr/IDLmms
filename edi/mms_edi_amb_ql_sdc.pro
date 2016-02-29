@@ -52,10 +52,6 @@
 ;                               Warning = 1-99
 ;                               Error   = 100-255
 ;                                   100      -  Trapped error
-;                                   101      -  Bad inputs given
-;                                   102      -  No EDI files found
-;                                   105      -  Error from mms_edi_amb_create
-;                                   110      -  Error from mms_edi_amb_ql_write
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -79,8 +75,8 @@ DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
 LOG_PATH_ROOT=log_path_root, $
-UNH_PATH_ROOT=unh_path_root, $
-PACMO=pacmo
+PACK_MODE=pacmo, $
+NO_LOG=no_log
 	compile_opt idl2
 	
 	;Error handler
@@ -108,7 +104,7 @@ PACMO=pacmo
 
 	;Initialize
 	;   - Setup directory structure
-	unh_edi_amb_init
+	unh_edi_init
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -128,11 +124,12 @@ PACMO=pacmo
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	if n_elements(pacmo)          eq 0 then pacmo     = 1
-	data_path = n_elements(data_path_root) eq 0 ? !edi_amb_init.data_path_root : data_path_root
-	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_amb_init.dropbox_root   : dropbox_root
-	log_path  = n_elements(log_path_root)  eq 0 ? !edi_amb_init.log_path_root  : log_path_root
-	unh_path  = n_elements(unh_path_root)  eq 0 ? !edi_amb_init.unh_data_root  : unh_data_root
+	tf_log = ~keyword_set(no_log)
+	if n_elements(pacmo) eq 0 then pacmo = 1
+	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
+	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
+	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
+	unh_path  = n_elements(unh_path_root)  eq 0 ? !edi_init.unh_data_root  : unh_data_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -141,10 +138,10 @@ PACMO=pacmo
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
-	if mode eq 'brst' && ~file_test(dropbox, /DIRECTORY, /READ) $
-		then message, 'DROPBOX_ROOT directory must exist and be readable.'
+	if mode eq 'brst' && ~file_test(unh_path, /DIRECTORY, /READ) $
+		then message, 'UNH_PATH_ROOT directory must exist and be readable.'
 
-	;Constants for data to be processed
+	;Constants for source files
 	instr   = 'edi'
 	level   = 'l1a'
 	case pacmo of
@@ -152,12 +149,12 @@ PACMO=pacmo
 		2: optdesc = 'amb-pm2'
 		else: message, 'Unknown value for PACMO (' + strtrim(pacmo, 2) + ').'
 	endcase
-	status  = 0
 	
-	;Constants for output
+	;Constants for destination files
 	outmode    = mode
 	outlevel   = 'ql'
 	outoptdesc = optdesc
+	status     = 0
 
 ;-----------------------------------------------------
 ; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -180,7 +177,7 @@ PACMO=pacmo
 	if ~file_test(fDir, /DIRECTORY) then file_mkdir, fDir
 	
 	;Create the log file
-	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
+	if tf_log then !Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
 ;-----------------------------------------------------
 ; Find FAST/BRST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -224,14 +221,22 @@ PACMO=pacmo
 
 	;Zero files found
 	if edi_files[0] eq '' then begin
-		status = 101
+		status = 103
 		message, 'No EDI files found.'
 	endif
 	
 ;-----------------------------------------------------
-; Find CAL File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Find CAL Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	cal_file = mms_edi_amb_cal_find(sc, tstart, CAL_PATH_ROOT=cal_path)
+	;FGM survey data works for FAST and SLOW
+	cal_file = mms_edi_amb_cal_find(sc)
+	
+	;No SLOW files found
+	if cal_file eq '' then begin
+		code = 103
+		message, string(sc, instr, 'cal', 'l2', optdesc, tstart, $
+		                FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+	endif
 
 ;-----------------------------------------------------
 ; Process Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -247,7 +252,7 @@ PACMO=pacmo
 
 	;Process data
 	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
-	if status ne 0 then message, 'Error creating AMB QL data.'
+	if status ge 100 then message, 'Error creating AMB QL data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -265,8 +270,9 @@ PACMO=pacmo
 	                                DROPBOX_ROOT   = dropbox, $
 	                                DATA_PATH_ROOT = out_path, $
 	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = parents)
-	if file_out eq '' then message, 'Error writing QL file.'
+	                                PARENTS        = parents, $
+	                                STATUS         = status)
+	if status ge 100 then message, 'Error writing QL file.'
 
 	;Time elapsed
 	dt     = systime(1) - t0
@@ -282,5 +288,6 @@ PACMO=pacmo
 	!Null = MrStdLog('stderr')
 	
 	;Return STATUS: 0 => everything OK
+	if n_elements(status) eq 0 then status = 0
 	return, status
 end

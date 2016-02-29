@@ -61,11 +61,15 @@ function mms_edi_amb_brst_sort_cnts, edi
 
 	;Select 0 pitch angle
 	if n0_gdu1 gt 0 && n0_gdu2 gt 0 then begin
-		t_0       = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2] ]
+		t_0       = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2]   ]
 		counts1_0 = [ edi.counts1_gdu1[i0_gdu1], edi.counts1_gdu2[i0_gdu2] ]
 		counts2_0 = [ edi.counts2_gdu1[i0_gdu1], edi.counts2_gdu2[i0_gdu2] ]
 		counts3_0 = [ edi.counts3_gdu1[i0_gdu1], edi.counts3_gdu2[i0_gdu2] ]
 		counts4_0 = [ edi.counts4_gdu1[i0_gdu1], edi.counts4_gdu2[i0_gdu2] ]
+		delta1_0  = [ edi.delta1_gdu1[i0_gdu1],  edi.delta1_gdu2[i0_gdu2]  ]
+		delta2_0  = [ edi.delta2_gdu1[i0_gdu1],  edi.delta2_gdu2[i0_gdu2]  ]
+		delta3_0  = [ edi.delta3_gdu1[i0_gdu1],  edi.delta3_gdu2[i0_gdu2]  ]
+		delta4_0  = [ edi.delta4_gdu1[i0_gdu1],  edi.delta4_gdu2[i0_gdu2]  ]
 	
 		;Sort times
 		isort     = sort(t_0)
@@ -74,6 +78,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_0 = counts2_0[isort]
 		counts3_0 = counts3_0[isort]
 		counts4_0 = counts4_0[isort]
+		delta1_0  = delta1_0[isort]
+		delta2_0  = delta2_0[isort]
+		delta3_0  = delta3_0[isort]
+		delta4_0  = delta4_0[isort]
 	
 		;Mark GDU
 		gdu_0          = bytarr(n0_gdu1 + n0_gdu2)
@@ -87,6 +95,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_0 = edi.counts2_gdu1[i0_gdu1]
 		counts3_0 = edi.counts3_gdu1[i0_gdu1]
 		counts4_0 = edi.counts4_gdu1[i0_gdu1]
+		delta1_0  = edi.delta1_gdu1[i0_gdu1]
+		delta2_0  = edi.delta2_gdu1[i0_gdu1]
+		delta3_0  = edi.delta3_gdu1[i0_gdu1]
+		delta4_0  = edi.delta4_gdu1[i0_gdu1]
 		gdu_0     = replicate(1B, n0_gdu1)
 
 	;Only GDU2 data
@@ -96,6 +108,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_0 = edi.counts2_gdu2[i0_gdu2]
 		counts3_0 = edi.counts3_gdu2[i0_gdu2]
 		counts4_0 = edi.counts4_gdu2[i0_gdu2]
+		delta1_0  = edi.delta1_gdu2[i0_gdu2]
+		delta2_0  = edi.delta2_gdu2[i0_gdu2]
+		delta3_0  = edi.delta3_gdu2[i0_gdu2]
+		delta4_0  = edi.delta4_gdu2[i0_gdu2]
 		gdu_0     = replicate(2B, n0_gdu2)
 
 	;No EDI data
@@ -113,11 +129,15 @@ function mms_edi_amb_brst_sort_cnts, edi
 
 	;Select 180 pitch angle
 	if n180_gdu1 gt 0 && n180_gdu2 gt 0 then begin
-		t_180       = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2] ]
+		t_180       = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2]   ]
 		counts1_180 = [ edi.counts1_gdu1[i180_gdu1], edi.counts1_gdu2[i180_gdu2] ]
 		counts2_180 = [ edi.counts2_gdu1[i180_gdu1], edi.counts2_gdu2[i180_gdu2] ]
 		counts3_180 = [ edi.counts3_gdu1[i180_gdu1], edi.counts3_gdu2[i180_gdu2] ]
 		counts4_180 = [ edi.counts4_gdu1[i180_gdu1], edi.counts4_gdu2[i180_gdu2] ]
+		delta1_180  = [ edi.delta1_gdu1[i180_gdu1],  edi.delta1_gdu2[i180_gdu2]  ]
+		delta2_180  = [ edi.delta2_gdu1[i180_gdu1],  edi.delta2_gdu2[i180_gdu2]  ]
+		delta3_180  = [ edi.delta3_gdu1[i180_gdu1],  edi.delta3_gdu2[i180_gdu2]  ]
+		delta4_180  = [ edi.delta4_gdu1[i180_gdu1],  edi.delta4_gdu2[i180_gdu2]  ]
 	
 		;Sort times
 		isort       = sort(t_180)
@@ -126,6 +146,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_180 = counts2_180[isort]
 		counts3_180 = counts3_180[isort]
 		counts4_180 = counts4_180[isort]
+		delta1_180  = delta1_180[isort]
+		delta2_180  = delta2_180[isort]
+		delta3_180  = delta3_180[isort]
+		delta4_180  = delta4_180[isort]
 	
 		;Mark GDU
 		gdu_180            = bytarr(n180_gdu1 + n180_gdu2)
@@ -139,6 +163,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_180 = edi.counts2_gdu1[i180_gdu1]
 		counts3_180 = edi.counts3_gdu1[i180_gdu1]
 		counts4_180 = edi.counts4_gdu1[i180_gdu1]
+		delta1_180  = edi.delta1_gdu1[i180_gdu1]
+		delta2_180  = edi.delta2_gdu1[i180_gdu1]
+		delta3_180  = edi.delta3_gdu1[i180_gdu1]
+		delta4_180  = edi.delta4_gdu1[i180_gdu1]
 		gdu_180     = replicate(1B, n180_gdu1)
 
 	;Only GDU2 data
@@ -148,6 +176,10 @@ function mms_edi_amb_brst_sort_cnts, edi
 		counts2_180 = edi.counts2_gdu2[i180_gdu2]
 		counts3_180 = edi.counts3_gdu2[i180_gdu2]
 		counts4_180 = edi.counts4_gdu2[i180_gdu2]
+		delta1_180  = edi.delta1_gdu2[i180_gdu2]
+		delta2_180  = edi.delta2_gdu2[i180_gdu2]
+		delta3_180  = edi.delta3_gdu2[i180_gdu2]
+		delta4_180  = edi.delta4_gdu2[i180_gdu2]
 		gdu_180     = replicate(2B, n180_gdu2)
 	
 	;No EDI data
@@ -171,6 +203,14 @@ function mms_edi_amb_brst_sort_cnts, edi
 	            counts2_180: temporary(counts2_180), $
 	            counts3_180: temporary(counts3_180), $
 	            counts4_180: temporary(counts4_180), $
+	            delta1_0:    temporary(delta1_0),   $
+	            delta2_0:    temporary(delta2_0),   $
+	            delta3_0:    temporary(delta3_0),   $
+	            delta4_0:    temporary(delta4_0),   $
+	            delta1_180:  temporary(delta1_180), $
+	            delta2_180:  temporary(delta2_180), $
+	            delta3_180:  temporary(delta3_180), $
+	            delta4_180:  temporary(delta4_180), $
 	            gdu_0:       temporary(gdu_0),       $
 	            gdu_180:     temporary(gdu_180)      $
 	          }

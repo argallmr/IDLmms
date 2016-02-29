@@ -52,13 +52,15 @@ function mms_edi_amb_srvy_sort_cnts, edi
 
 	;Select 0 pitch angle
 	if n0_gdu1 gt 0 && n0_gdu2 gt 0 then begin
-		t_0      = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2] ]
-		counts_0 = [ edi.counts1_gdu1[i0_gdu1], edi.counts1_gdu2[i0_gdu2] ]
+		t_0       = [ edi.epoch_gdu1[i0_gdu1],   edi.epoch_gdu2[i0_gdu2]   ]
+		counts1_0 = [ edi.counts1_gdu1[i0_gdu1], edi.counts1_gdu2[i0_gdu2] ]
+		delta1_0  = [ edi.delta1_gdu1[i0_gdu1],  edi.delta1_gdu2[i0_gdu2]  ]
 	
 		;Sort times
 		isort    = sort(t_0)
 		t_0      = t_0[isort]
-		counts_0 = counts_0[isort]
+		counts1_0 = counts1_0[isort]
+		delta1_0  = delta1_0[isort]
 	
 		;Mark GDU
 		gdu_0          = bytarr(n0_gdu1 + n0_gdu2)
@@ -67,14 +69,16 @@ function mms_edi_amb_srvy_sort_cnts, edi
 
 	;Only GDU1 data
 	endif else if n0_gdu1 gt 0 then begin
-		t_0      = edi.epoch_gdu1[i0_gdu1]
-		counts_0 = edi.counts1_gdu1[i0_gdu1]
-		gdu_0    = replicate(1B, n0_gdu1)
+		t_0       = edi.epoch_gdu1[i0_gdu1]
+		counts1_0 = edi.counts1_gdu1[i0_gdu1]
+		delta1_0  = edi.delta1_gdu1[i0_gdu1]
+		gdu_0     = replicate(1B, n0_gdu1)
 
 	;Only GDU2 data
 	endif else if n0_gdu2 gt 0 then begin
 		t_0      = edi.epoch_gdu2[i0_gdu2]
 		counts_0 = edi.counts1_gdu2[i0_gdu2]
+		delta1_0 = edi.delta1_gdu2[i0_gdu2]
 		gdu_0    = replicate(2B, n0_gdu2)
 
 	;No EDI data
@@ -92,13 +96,15 @@ function mms_edi_amb_srvy_sort_cnts, edi
 
 	;Select 180 pitch angle
 	if n180_gdu1 gt 0 && n180_gdu2 gt 0 then begin
-		t_180      = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2] ]
-		counts_180 = [ edi.counts1_gdu1[i180_gdu1], edi.counts1_gdu2[i180_gdu2] ]
+		t_180       = [ edi.epoch_gdu1[i180_gdu1],   edi.epoch_gdu2[i180_gdu2]   ]
+		counts1_180 = [ edi.counts1_gdu1[i180_gdu1], edi.counts1_gdu2[i180_gdu2] ]
+		delta1_180  = [ edi.delta1_gdu1[i180_gdu1],  edi.delta1_gdu2[i180_gdu2]  ]
 	
 		;Sort times
-		isort      = sort(t_180)
-		t_180      = t_180[isort]
-		counts_180 = counts_180[isort]
+		isort       = sort(t_180)
+		t_180       = t_180[isort]
+		counts1_180 = counts1_180[isort]
+		delta1_180  = delta1_180[isort]
 	
 		;Mark GDU
 		gdu_180            = bytarr(n180_gdu1 + n180_gdu2)
@@ -107,15 +113,17 @@ function mms_edi_amb_srvy_sort_cnts, edi
 
 	;Only GDU1 data
 	endif else if n180_gdu1 gt 0 then begin
-		t_180      = edi.epoch_gdu1[i180_gdu1]
-		counts_180 = edi.counts1_gdu1[i180_gdu1]
-		gdu_180    = replicate(1B, n180_gdu1)
+		t_180       = edi.epoch_gdu1[i180_gdu1]
+		counts1_180 = edi.counts1_gdu1[i180_gdu1]
+		delta1_180  = edi.counts1_gdu1[i180_gdu1]
+		gdu_180     = replicate(1B, n180_gdu1)
 
 	;Only GDU2 data
 	endif else if n180_gdu2 gt 0 then begin
-		t_180      = edi.epoch_gdu2[i180_gdu2]
-		counts_180 = edi.counts1_gdu2[i180_gdu2]
-		gdu_180    = replicate(2B, n180_gdu2)
+		t_180       = edi.epoch_gdu2[i180_gdu2]
+		counts1_180 = edi.counts1_gdu2[i180_gdu2]
+		delta1_180  = edi.delta1_gdu2[i180_gdu2]
+		gdu_180     = replicate(2B, n180_gdu2)
 	
 	;No EDI data
 	endif else begin
@@ -128,12 +136,14 @@ function mms_edi_amb_srvy_sort_cnts, edi
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
-	edi_out = { tt2000_0:    temporary(t_0),        $
-	            tt2000_180:  temporary(t_180),      $
-	            counts1_0:   temporary(counts_0),   $
-	            counts1_180: temporary(counts_180), $
-	            gdu_0:       temporary(gdu_0),      $
-	            gdu_180:     temporary(gdu_180)     $
+	edi_out = { tt2000_0:    temporary(t_0),         $
+	            tt2000_180:  temporary(t_180),       $
+	            counts1_0:   temporary(counts1_0),   $
+	            counts1_180: temporary(counts1_180), $
+	            delta1_0:    temporary(delta1_0),    $
+	            delta1_180:  temporary(delta1_180),  $
+	            gdu_0:       temporary(gdu_0),       $
+	            gdu_180:     temporary(gdu_180)      $
 	          }
 
 	return, edi_out

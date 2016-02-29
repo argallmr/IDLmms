@@ -13,15 +13,23 @@
 ; :Params:
 ;       FILES:          in, required, type=string/strarr
 ;                       Name of the EDI e-field mode file or files to be read.
+;       TSTART:         in, optional, type=string
+;                       Start time of the data interval to read, as an ISO-8601 string.
+;       TEND:           in, optional, type=string
+;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
 ;       QUALITY:        in, optional, type=integer/intarr, default=pwd
 ;                       Quality of EDI beams to return. Can be a scalar or vector with
 ;                           values [0, 1, 2, 3].
-;       TSTART:         in, optional, type=string
-;                       Start time of the data interval to read, as an ISO-8601 string.
-;       TEND:           in, optional, type=string
-;                       End time of the data interval to read, as an ISO-8601 string.
+;       STATUS:         in, optional, type=integer
+;                       Error status. Output codes are:
+;                           OK      = 0
+;                           Warning = 1-99
+;                           Error   = 100-255
+;                               100      -  Unknown trapped error
+;                               101      -  Error reading file
+;                               102      -  No data in file
 ;
 ; :Returns:
 ;       EDI:            Structure of EDI data. Fields are below.
@@ -61,17 +69,26 @@
 ;       2015/10/15  -   Read burst data. - MRA
 ;       2015/11/24  -   Renamed from mms_edi_read_l1a_amb to mms_edi_amb_l1a_read. - MRA
 ;       2016/02/01  -   Accommodate packing mode = 2 files. - MRA
+;       2016/02/27  -   Added STATUS keyword. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
+EXPAND_ANGLES=expand_angles, $
 QUALITY=quality, $
-EXPAND_ANGLES=expand_angles
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
+		
+		;Unknown status?
+		if n_elements(status) eq 0 || status eq 0 then status = 100
+		
+		;Close files
 		if n_elements(cdfIDs) gt 0 then $
 			for i = 0, nFiles - 1 do if cdfIDs[i] ne 0 then cdf_close, cdfIDs[i]
+		
+		;Report error and return
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
@@ -137,11 +154,12 @@ EXPAND_ANGLES=expand_angles
 ;-----------------------------------------------------
 ; Version Control \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;v0.6.z brst files had incorrect DEPEND_0 for pitch_gdu[1,2]
-	if mode eq 'brst' then begin
-		ibad = where( (vx eq 0) and (vy le 6), nbad )
-		if nbad gt 0 then message, 'PICH_GDU[1,2] have bad time tags.'
-	endif
+	;
+	;v0.6.z brst -- DEPEND_0 for pitch_gdu[1,2] points to wrong variable.
+	;               It should be "Epoch", but instead is "epoch_angle".
+	;               No special action is required so long as you are
+	;               aware of this.
+
 	
 	;Convert from energy bit to energy
 	tf_energy_units = 1B
@@ -196,20 +214,29 @@ EXPAND_ANGLES=expand_angles
 	;Read the data for GD12
 	counts_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
 	                          DEPEND_0 = epoch_gdu1, $
+	                          NRECS    = nRecs_gdu1, $
 	                          STATUS   = status, $
 	                          TSTART   = tstart, $
 	                          TEND     = tend)
+
+	;Read the data for GD21
+	counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
+	                          DEPEND_0 = epoch_gdu2, $
+	                          NRECS    = nRecs_gdu2, $
+	                          TSTART   = tstart, $
+	                          TEND     = tend)
 	
+	;No records in file
+	;   - It is possible for only one of the detectors to be operating.
+	if nRecs_gdu1 + nRecs_gdu2 eq 0 then begin
+		status = 102
+		message, 'No records in file.'
+	endif
+
 	;Read the rest of the variables?
 	if status eq 0 then begin
 		energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
 		pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,   TSTART=tstart, TEND=tend)
-
-		;Read the data for GD21
-		counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
-		                          DEPEND_0 = epoch_gdu2, $
-		                          TSTART   = tstart, $
-		                          TEND     = tend)
 		energy_gdu2  = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
 		pitch_gdu2   = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
 		
@@ -231,6 +258,7 @@ EXPAND_ANGLES=expand_angles
 		endif
 			
 	endif else begin
+		status = 101
 		message, /REISSUE_LAST
 	endelse
 	
@@ -249,17 +277,17 @@ EXPAND_ANGLES=expand_angles
 		energy_gdu2 = fix(energy_gdu2, TYPE=12)
 
 		;GDU1
-		i250 = where(energy_gdu1 eq 1, n250)
+		i250 = where(energy_gdu1 eq 3, n250)
 		i500 = where(energy_gdu1 eq 2, n500)
-		i1k  = where(energy_gdu1 eq 3, n1k)
+		i1k  = where(energy_gdu1 eq 1, n1k)
 		if n250 gt 0 then energy_gdu1[i250] = 250US
 		if n500 gt 0 then energy_gdu1[i500] = 500US
 		if n1k  gt 0 then energy_gdu1[i1k]  = 1000US
 	
 		;GDU2
-		i250 = where(energy_gdu2 eq 1, n250)
+		i250 = where(energy_gdu2 eq 3, n250)
 		i500 = where(energy_gdu2 eq 2, n500)
-		i1k  = where(energy_gdu2 eq 3, n1k)
+		i1k  = where(energy_gdu2 eq 1, n1k)
 		if n250 gt 0 then energy_gdu2[i250] = 250US
 		if n500 gt 0 then energy_gdu2[i500] = 500US
 		if n1k  gt 0 then energy_gdu2[i1k]  = 1000US
@@ -354,5 +382,6 @@ EXPAND_ANGLES=expand_angles
 	endif
 	
 	;Return the data
+	if n_elements(status) eq 0 then status = 0
 	return, edi_amb
 end

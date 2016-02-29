@@ -64,7 +64,7 @@
 ;                       OK      = 0
 ;                       Warning = 1-99
 ;                       Error   = 100-255
-;                           105      -  Trapped error
+;                           100      -  Unexpected trapped error
 ;
 ; :Returns:
 ;       EDI_OUT:    Structure of processed data. Fields are::
@@ -101,7 +101,7 @@ STATUS=status
 		catch, /CANCEL
 		
 		;TODO: Give error codes to specific errors.
-		status = 105
+		if n_elements(status) eq 0 || status eq 0 then status = 100
 
 		MrPrintF, 'LogErr'
 		return, !Null
@@ -138,7 +138,10 @@ STATUS=status
 	;Read Data
 	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
-	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend, /EXPAND_ANGLES)
+	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend, /EXPAND_ANGLES, STATUS=status)
+	if status ge 100 then message, 'Error reading file.'
+	
+	;Number of elements.
 	ncts = n_elements(edi.epoch_gdu1)
 	ntt  = n_elements(edi.epoch_timetag)
 	
@@ -186,6 +189,7 @@ STATUS=status
 	;Burst mode counts
 	edi_out = create_struct(edi_out, temporary(counts_0_180))
 
-	status = 0
+	;Return
+	if n_elements(status) eq 0 then status = 0
 	return, edi_out
 end
