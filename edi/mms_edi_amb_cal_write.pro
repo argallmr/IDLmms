@@ -66,7 +66,8 @@ PARENTS=parents
 ; Version History                    ;
 ;------------------------------------;
 	;Mods to data processing
-	mods = [ 'v0.0.0 - Original version.' ]
+	mods = [ 'v0.0.0 - Original version.', $
+	         'v1.0.0 - Added optics state.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -90,13 +91,13 @@ PARENTS=parents
 
 	;Cal path. Can be in two places:
 	;   - The environment variable CAL_PATH_ROOT
-	;   - The system variable !EDI_AMB_INIT (unh_edi_amb_init.pro)
+	;   - The system variable !EDI_INIT (unh_edi_init.pro)
 	if n_elements(cal_path) eq 0 then begin
 		cal_path = getenv('CAL_PATH_ROOT')
 		if cal_path eq '' then begin
-			defsysv, '!edi_amb_init', EXIST=tf_exist
+			defsysv, '!edi_init', EXIST=tf_exist
 			if tf_exist $
-				then cal_path = !edi_amb_init.cal_path_root $
+				then cal_path = !edi_init.cal_path_root $
 				else message, 'Cannot determine CAL_PATH_ROOT.'
 		endif
 	endif
@@ -128,11 +129,6 @@ PARENTS=parents
 ;------------------------------------;
 ; Check Data                         ;
 ;------------------------------------;
-	;
-	; Check sizes
-	;
-	
-	; TODO
 
 	;Open the CDF file
 	ocal = MrCDF_File(cal_file, /CREATE, /CLOBBER)
@@ -168,7 +164,7 @@ PARENTS=parents
 	ocal -> WriteGlobalAttr, /CREATE, 'Instrument_type',            'Particles (space)'
 	ocal -> WriteGlobalAttr, /CREATE, 'Logical_file_id',            logical_file_id
 	ocal -> WriteGlobalAttr, /CREATE, 'Logical_source',             logical_source
-	ocal -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'EDI Calibration File'
+	ocal -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'EDI Ambient Calibration File'
 	ocal -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	ocal -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
 	ocal -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
@@ -204,11 +200,11 @@ PARENTS=parents
 	phi_vname          = prefix + 'phi'
 	theta_vname        = prefix + 'theta'
 	rel_opt_vname      = prefix + 'optics_rel'  + suffix
-	rel_gdu1_vname     = prefix + 'relcal_gdu1' + suffix
-	rel_gdu2_vname     = prefix + 'relcal_gdu2' + suffix
+	rel_gdu1_vname     = prefix + 'rel_gdu1' + suffix
+	rel_gdu2_vname     = prefix + 'rel_gdu2' + suffix
 	abs_opt_vname      = prefix + 'optics_abs'  + suffix
-	abs_gdu1_vname     = prefix + 'abscal_gdu1' + suffix
-	abs_gdu2_vname     = prefix + 'abscal_gdu2' + suffix
+	abs_gdu1_vname     = prefix + 'abs_gdu1' + suffix
+	abs_gdu2_vname     = prefix + 'abs_gdu2' + suffix
 	phi_labels_vname   = prefix + 'phi_labels'
 	theta_labels_vname = prefix + 'theta_labels'
 
@@ -218,16 +214,25 @@ PARENTS=parents
 	;the number of records (WriteVar will handle the rest).
 	ncal = n_elements(cal_data)
 
+;------------------------------------------------------
+; Support Data                                        |
+;------------------------------------------------------
+	nPhi   = 32
+	nTheta = 129
+	
+	dPhi   = 360.0 / 32.0
+	dTheta = 360.0 / 512.0
+
 	;Support data
-	phi   = findgen(32)  * 360.0 / 32.0
-	theta = findgen(129) * 360.0 / 512.0
+	phi   = findgen(nPhi)  * dPhi
+	theta = findgen(nTheta) * dTheta
 	ocal -> CreateVar, t_vname, 'CDF_TIME_TT2000'
 	ocal -> WriteVar, /CREATE, phi_vname,   phi,   COMPRESSION='GZIP', GZIP_LEVEL=6, /REC_NOVARY
 	ocal -> WriteVar, /CREATE, theta_vname, theta, COMPRESSION='GZIP', GZIP_LEVEL=6, /REC_NOVARY
-	
-	;
-	;Relative Calibrations
-	;
+
+;------------------------------------------------------
+; Relative Cals                                       |
+;------------------------------------------------------
 
 	;Write Data
 	if ncal ne 0 && MrStruct_HasTag(cal_data, 'tt2000_rel') then begin
@@ -244,13 +249,13 @@ PARENTS=parents
 	endif else begin
 		ocal -> CreateVar, trel_vname,     'CDF_TIME_TT2000'
 		ocal -> CreateVar, rel_opt_vname,  'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
-		ocal -> CreateVar, rel_gdu1_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
-		ocal -> CreateVar, rel_gdu2_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
+		ocal -> CreateVar, rel_gdu1_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6, DIMENSIONS=[nTheta, nPhi]
+		ocal -> CreateVar, rel_gdu2_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6, DIMENSIONS=[nTheta, nPhi]
 	endelse
-	
-	;
-	;Absolute Calibrations
-	;
+
+;------------------------------------------------------
+; Absolute Cals                                       |
+;------------------------------------------------------
 	
 	;Write data
 	if ncal gt 0 && MrStruct_HasTag(cal_data, 'tt2000_abs') then begin 
@@ -266,6 +271,10 @@ PARENTS=parents
 		ocal -> CreateVar, abs_gdu1_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 		ocal -> CreateVar, abs_gdu2_vname, 'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
+
+;------------------------------------------------------
+; Metadata                                            |
+;------------------------------------------------------
 	
 	;Label pointers
 	ph_lbl_vals = 'Phi'   + string(indgen(32),  FORMAT='(i0)')
@@ -295,6 +304,7 @@ PARENTS=parents
 	ocal -> CreateAttr, /VARIABLE_SCOPE, 'UNITS'
 	ocal -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMIN'
 	ocal -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMAX'
+	ocal -> CreateAttr, /VARIABLE_SCOPE, 'VAR_NOTES'
 	ocal -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
 	
 	;EPOCH
@@ -343,7 +353,7 @@ PARENTS=parents
 	ocal -> WriteVarAttr, phi_vname, 'FILLVAL',       -1e31
 	ocal -> WriteVarAttr, phi_vname, 'FORMAT',        'F12.4'
 	ocal -> WriteVarAttr, phi_vname, 'LABLAXIS',      'Phi'
-	ocal -> WriteVarAttr, phi_vname, 'SI_CONVERSION', '1e0>deg'
+	ocal -> WriteVarAttr, phi_vname, 'SI_CONVERSION', '0.01745>rad'
 	ocal -> WriteVarAttr, phi_vname, 'UNITS',         'deg'
 	ocal -> WriteVarAttr, phi_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, phi_vname, 'VALIDMAX',      360.0
@@ -356,7 +366,7 @@ PARENTS=parents
 	ocal -> WriteVarAttr, theta_vname, 'FILLVAL',        -1e31
 	ocal -> WriteVarAttr, theta_vname, 'FORMAT',        'F12.4'
 	ocal -> WriteVarAttr, theta_vname, 'LABLAXIS',      'Theta'
-	ocal -> WriteVarAttr, theta_vname, 'SI_CONVERSION', '1e0>deg'
+	ocal -> WriteVarAttr, theta_vname, 'SI_CONVERSION', '0.01745>rad'
 	ocal -> WriteVarAttr, theta_vname, 'UNITS',         'deg'
 	ocal -> WriteVarAttr, theta_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, theta_vname, 'VALIDMAX',      90.0
@@ -373,9 +383,7 @@ PARENTS=parents
 	ocal -> WriteVarAttr, rel_opt_vname, 'VAR_TYPE',      'support_data'
 
 	;REL_CAL_GDU1
-	ocal -> WriteVarAttr, rel_gdu1_vname, 'CATDESC',       'EDI relative calibration factor as a function of polar and azimuthal look angle for GDU1. ' + $
-	                                                       'Relative calibrations are obtained via a linear fit of electron counts during intervals ' + $
-	                                                       'during which count rates are assumed to be constant.'
+	ocal -> WriteVarAttr, rel_gdu1_vname, 'CATDESC',       'EDI relative calibration factor as a function of polar and azimuthal look angle for GDU1.'
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'DEPEND_0',      trel_vname
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'DEPEND_1',      theta_vname
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'DEPEND_2',      phi_vname
@@ -385,16 +393,16 @@ PARENTS=parents
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'FORMAT',        'F12.6'
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'LABL_PTR_1',    theta_labels_vname
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'LABL_PTR_2',    phi_labels_vname
-;	ocal -> WriteVarAttr, rel_gdu1_vname, 'SI_CONVERSION', '1.602e-19>J'
-;	ocal -> WriteVarAttr, rel_gdu1_vname, 'UNITS',         'eV'
+;	ocal -> WriteVarAttr, rel_gdu1_vname, 'SI_CONVERSION', ' '
+;	ocal -> WriteVarAttr, rel_gdu1_vname, 'UNITS',         ' '
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'VALIDMAX',      100.0
+	ocal -> WriteVarAttr, rel_gdu1_vname, 'VAR_NOTES',     'Relative calibrations are obtained via a linear fit of electron counts during intervals ' + $
+	                                                       'during which count rates are assumed to be constant.'
 	ocal -> WriteVarAttr, rel_gdu1_vname, 'VAR_TYPE',      'data'
 
 	;REL_CAL_GDU2
-	ocal -> WriteVarAttr, rel_gdu2_vname, 'CATDESC',       'EDI relative calibration factor as a function of polar and azimuthal look angle for GDU2. ' + $
-	                                                       'Relative calibrations are obtained via a linear fit of electron counts during intervals ' + $
-	                                                       'during which count rates are assumed to be constant.'
+	ocal -> WriteVarAttr, rel_gdu2_vname, 'CATDESC',       'EDI relative calibration factor as a function of polar and azimuthal look angle for GDU2.'
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'DEPEND_0',       trel_vname
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'DEPEND_1',       theta_vname
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'DEPEND_2',       phi_vname
@@ -404,10 +412,12 @@ PARENTS=parents
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'FORMAT',        'F12.6'
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'LABL_PTR_1',    theta_labels_vname
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'LABL_PTR_2',    phi_labels_vname
-;	ocal -> WriteVarAttr, rel_gdu2_vname, 'SI_CONVERSION', '1.602e-19>J'
-;	ocal -> WriteVarAttr, rel_gdu2_vname, 'UNITS',         'eV'
+;	ocal -> WriteVarAttr, rel_gdu2_vname, 'SI_CONVERSION', ' '
+;	ocal -> WriteVarAttr, rel_gdu2_vname, 'UNITS',         ' '
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VALIDMIN',      0.0
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VALIDMAX',      100.0
+	ocal -> WriteVarAttr, rel_gdu2_vname, 'VAR_NOTES',     'Relative calibrations are obtained via a linear fit of electron counts during intervals ' + $
+	                                                       'during which count rates are assumed to be constant.'
 	ocal -> WriteVarAttr, rel_gdu2_vname, 'VAR_TYPE',      'data'
 	
 	;OPTICS_ABS
@@ -421,35 +431,37 @@ PARENTS=parents
 	ocal -> WriteVarAttr, abs_opt_vname, 'VAR_TYPE',      'support_data'
 
 	;ABS_CAL_GDU1
-	ocal -> WriteVarAttr, abs_gdu1_vname, 'CATDESC',       'EDI absolute calibration factor for GDU1. ' + $
-	                                                       'Absolute calibrations are obtained by comparing FPI electron fluxes in the energy ' + $
-	                                                       'bin closest to EDI operation energy to EDI electron counts.'
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'CATDESC',       'EDI absolute calibration factor for GDU1.'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'DEPEND_0',       tabs_vname
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'DISPLAY_TYPE',   'spectrogram'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'FIELDNAM',      'Absolute calibration factor'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'FILLVAL',        -1e31
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'FORMAT',        'F12.6'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'LABLAXIS',      'AbsCal GDU1'
-;	ocal -> WriteVarAttr, abs_gdu1_vname, 'SI_CONVERSION', '1.602e-19>J'
-;	ocal -> WriteVarAttr, abs_gdu1_vname, 'UNITS',         'eV'
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'UNITS',         'cm^-2 s^-1'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'VALIDMIN',      0.0
-	ocal -> WriteVarAttr, abs_gdu1_vname, 'VALIDMAX',      100.0
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'VALIDMAX',      1e8
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'VAR_NOTES',     'Absolute calibrations are obtained by comparing FPI electron fluxes in the energy ' + $
+	                                                       'bin closest to EDI operation enery to EDI electron counts. They have an error of ' + $
+	                                                       '+/- 20%, which is accounted for during the calibration process.'
 	ocal -> WriteVarAttr, abs_gdu1_vname, 'VAR_TYPE',      'data'
 
 	;ABS_CAL_GDU2
-	ocal -> WriteVarAttr, abs_gdu2_vname, 'CATDESC',       'EDI absolute calibration factor for GDU2. ' + $
-	                                                       'Absolute calibrations are obtained by comparing FPI electron fluxes in the energy ' + $
-	                                                       'bin closest to EDI operation energy to EDI electron counts.'
+	ocal -> WriteVarAttr, abs_gdu2_vname, 'CATDESC',       'EDI absolute calibration factor for GDU2.'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'DEPEND_0',       tabs_vname
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'DISPLAY_TYPE',   'spectrogram'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'FIELDNAM',      'Relative calibration factor'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'FILLVAL',        -1e31
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'FORMAT',        'F12.6'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'LABLAXIS',      'AbsCal GDU2'
-;	ocal -> WriteVarAttr, abs_gdu2_vname, 'SI_CONVERSION', '1.602e-19>J'
-;	ocal -> WriteVarAttr, abs_gdu2_vname, 'UNITS',         ' '
+	ocal -> WriteVarAttr, abs_gdu2_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+	ocal -> WriteVarAttr, abs_gdu2_vname, 'UNITS',         'cm^-2 s^-1'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'VALIDMIN',      0.0
-	ocal -> WriteVarAttr, abs_gdu2_vname, 'VALIDMAX',      100.0
+	ocal -> WriteVarAttr, abs_gdu2_vname, 'VALIDMAX',      1e8
+	ocal -> WriteVarAttr, abs_gdu1_vname, 'VAR_NOTES',     'Absolute calibrations are obtained by comparing FPI electron fluxes in the energy ' + $
+	                                                       'bin closest to EDI operation enery to EDI electron counts. They have an error of ' + $
+	                                                       '+/- 20%, which is accounted for during the calibration process.'
 	ocal -> WriteVarAttr, abs_gdu2_vname, 'VAR_TYPE',      'data'
 
 	;PHI_LABELS

@@ -47,8 +47,19 @@ ABSCAL=abscal
 	on_error, 2
 
 	;Make sure the packing mode is not changing
-	if max(edi.pack_mode ne edi.pack_mode[0]) $
-		then message, 'Packing mode is changing. How do I deal with this?'
+	if ~array_equal(edi.pack_mode, edi.pack_mode[0]) then begin
+		;BRST
+		if MrStruct_HasTag(edi, 'COUNTS4_GDU1') then begin
+			if nPacMo ne nPacMo01 then message, 'Packing mode is changing.'
+		
+		;SRVY
+		endif else begin
+			;PACK_MODE 0 and 1 are identical
+			nPacMo     = n_elements(edi.pack_mode)
+			tf_pacmo01 = MrIsMember([0B,1B], edi.pack_mode, COUNT=nPacMo01)
+			if nPacMo ne nPacMo01 then message, 'Packing mode is changing.'
+		endelse
+	endif
 	
 	;Check for fill values
 	ncts1      = float(n_elements(edi.epoch_gdu1))
@@ -62,7 +73,7 @@ ABSCAL=abscal
 	tf_brst   = keyword_set(brst)
 	tf_relcal = 1
 	tf_abscal = keyword_set(abscal)
-	
+
 ;------------------------------------------------------
 ; Locate Nearest Calibration Set                      |
 ;------------------------------------------------------
@@ -155,7 +166,7 @@ ABSCAL=abscal
 			0: iphi1 = temporary(iphi3)
 			1: iphi1 = temporary(iphi3)
 			2: ;Use iphi1 as calculated above
-			else: message, 'PACK_MODE ' + strtrim(edi.pack_mode[0], 2) + ' not recognized.'
+			else: message, 'PACK_MODE ' + string(edi.pack_mode[0], FORMAT='(i0)', /PRINT) + ' not recognized.'
 		endcase
 		
 		;Junk data in srvy mode
@@ -168,29 +179,29 @@ ABSCAL=abscal
 ; Calibrate                                           |
 ;------------------------------------------------------
 	;Counts1 GDU1
-	c1_gdu1 = mms_edi_amb_cal_apply(edi.counts1_gdu1, cals.relcal_gdu1[itheta, iphi1, irel_gdu1], abscal, $
+	c1_gdu1 = mms_edi_amb_cal_apply(edi.counts1_gdu1, cals.relcal_gdu1[itheta, iphi1, irel_gdu1], cals.abscal_gdu1[iabs_gdu1], $
 	                                BRST=brst, DELTA=delta1_gdu1)
 	
 	;Counts1 GDU2
-	c1_gdu2 = mms_edi_amb_cal_apply(edi.counts1_gdu2, cals.relcal_gdu2[itheta, iphi1, irel_gdu2], abscal, $
+	c1_gdu2 = mms_edi_amb_cal_apply(edi.counts1_gdu2, cals.relcal_gdu2[itheta, iphi1, irel_gdu2], cals.abscal_gdu2[iabs_gdu2], $
 	                                BRST=brst, DELTA=delta1_gdu2)
 	
 	;Burst
 	if keyword_set(brst) then begin
 		;GDU1 
-		c2_gdu1 = mms_edi_amb_cal_apply(edi.counts2_gdu1, cals.relcal_gdu1[itheta, iphi2, irel_gdu1], abscal, $
+		c2_gdu1 = mms_edi_amb_cal_apply(edi.counts2_gdu1, cals.relcal_gdu1[itheta, iphi2, irel_gdu1], cals.abscal_gdu1[iabs_gdu1], $
 		                                /BRST, DELTA=delta2_gdu1)
-		c3_gdu1 = mms_edi_amb_cal_apply(edi.counts3_gdu1, cals.relcal_gdu1[itheta, iphi3, irel_gdu1], abscal, $
+		c3_gdu1 = mms_edi_amb_cal_apply(edi.counts3_gdu1, cals.relcal_gdu1[itheta, iphi3, irel_gdu1], cals.abscal_gdu1[iabs_gdu1], $
 		                                /BRST, DELTA=delta3_gdu1)
-		c4_gdu1 = mms_edi_amb_cal_apply(edi.counts4_gdu1, cals.relcal_gdu1[itheta, iphi4, irel_gdu1], abscal, $
+		c4_gdu1 = mms_edi_amb_cal_apply(edi.counts4_gdu1, cals.relcal_gdu1[itheta, iphi4, irel_gdu1], cals.abscal_gdu1[iabs_gdu1], $
 		                                /BRST, DELTA=delta4_gdu1)
 		
 		;GDU2
-		c2_gdu2 = mms_edi_amb_cal_apply(edi.counts2_gdu2, cals.relcal_gdu2[itheta, iphi2, irel_gdu2], abscal, $
+		c2_gdu2 = mms_edi_amb_cal_apply(edi.counts2_gdu2, cals.relcal_gdu2[itheta, iphi2, irel_gdu2], cals.abscal_gdu2[iabs_gdu2], $
 		                                /BRST, DELTA=delta2_gdu2)
-		c3_gdu2 = mms_edi_amb_cal_apply(edi.counts3_gdu2, cals.relcal_gdu2[itheta, iphi3, irel_gdu2], abscal, $
+		c3_gdu2 = mms_edi_amb_cal_apply(edi.counts3_gdu2, cals.relcal_gdu2[itheta, iphi3, irel_gdu2], cals.abscal_gdu2[iabs_gdu2], $
 		                                /BRST, DELTA=delta3_gdu2)
-		c4_gdu2 = mms_edi_amb_cal_apply(edi.counts4_gdu2, cals.relcal_gdu2[itheta, iphi4, irel_gdu2], abscal, $
+		c4_gdu2 = mms_edi_amb_cal_apply(edi.counts4_gdu2, cals.relcal_gdu2[itheta, iphi4, irel_gdu2], cals.abscal_gdu2[iabs_gdu2], $
 		                                /BRST, DELTA=delta4_gdu2)
 	endif
 	

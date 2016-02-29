@@ -14,12 +14,6 @@
 ; :Params:
 ;       SC:             in, required, type=string
 ;                       Spacecraft (e.g., 'mms1').
-;       TSTART:         in, required, type=string
-;                       Start time, formatted as either is 'YYYYMMDD' or 'YYYYMMDDhhmmss'.
-;                           This program first searches for the calibration file closest
-;                           to TSTART without going over. If it finds nothing, it will
-;                           search for the first cal file after TSTART. The latest version
-;                           of the cal file is always selected.
 ;
 ; :Keywords:
 ;       CAL_PATH_ROOT:  in, optional, type=integer
@@ -52,11 +46,15 @@
 ; :History:
 ;    Modification History::
 ;       2015/01/30  -   Written by Matthew Argall
+;       2015/02/25  -   Remove TSTART parameter because there is only one cal file. - MRA
 ;-
-function mms_edi_amb_cal_find, sc, tstart, $
+function mms_edi_amb_cal_find, sc, $
 CAL_PATH_ROOT=cal_path_root
 	compile_opt idl2
 	on_error, 2
+	
+	;Only one cal file per spacecraft. TSTART is constant.
+	tstart = '20150312'
 	
 ;------------------------------------------------------
 ; Check Inputs                                        |
@@ -71,9 +69,9 @@ CAL_PATH_ROOT=cal_path_root
 	if n_elements(cal_path_root) eq 0 then begin
 		cal_path_root = getenv('CAL_PATH_ROOT')
 		if cal_path_root eq '' then begin
-			defsysv, '!edi_amb_init', EXIST=tf_exist
+			defsysv, '!edi_init', EXIST=tf_exist
 			if tf_exist $
-				then cal_path_root = !edi_amb_init.cal_path_root $
+				then cal_path_root = !edi_init.cal_path_root $
 				else message, 'Cannot determine CAL_PATH_ROOT.'
 		endif
 	endif
@@ -86,7 +84,7 @@ CAL_PATH_ROOT=cal_path_root
 ;------------------------------------------------------
 
 	;Search for all versions and all times
-	fname     = mms_forge_filename(sc, 'edi', 'cal', 'l2', '*', OPTDESC='amb')
+	fname     = mms_forge_filename(sc, 'edi', 'cal', 'l2', tstart, OPTDESC='amb')
 	cal_files = file_search(cal_path, fname, COUNT=count)
 	
 	;No cal files
@@ -97,27 +95,6 @@ CAL_PATH_ROOT=cal_path_root
 	
 	;TT2000 value of file's start time
 	mms_dissect_filename, cal_files, TT2000=tt2000_file
-	
-;------------------------------------------------------
-; Most Recent Cal File                                |
-;------------------------------------------------------
-
-	;Find the file before the given time
-	ical = where(tt2000_file le tt2000_start, count)
-	if count gt 0 then begin
-		;Select the last file before the given time
-		;   - There may be more than one version with the same start time.
-		tt2000    = tt2000_file[count-1]
-		ical      = where(tt2000_file eq tt2000, count)
-		cal_files = cal_files[ical]
-	
-	;No cal file found
-	endif else begin
-		;Issue warning
-		MrPrintF, 'LogWarn', 'No EDI cal file found on or before ' + tstart + '.'
-		cal_file = ''
-		count    = 0
-	endelse
 	
 ;------------------------------------------------------
 ; Latest Version                                      |

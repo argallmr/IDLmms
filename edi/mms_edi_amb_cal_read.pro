@@ -66,7 +66,10 @@ function mms_edi_amb_cal_read, files, tstart, tend
 	                      LEVEL   = level, $
 	                      MODE    = mode, $
 	                      OPTDESC = optdesc, $
-	                      SC      = sc
+	                      SC      = sc, $
+	                      VX      = vx, $
+	                      VY      = vy, $
+	                      VZ      = VZ
 
 	;Ensure L1A EDI files were given
 	if min(file_test(files, /READ)) eq 0 then message, 'Files must exist and be readable.'
@@ -87,21 +90,51 @@ function mms_edi_amb_cal_read, files, tstart, tend
 	end
 
 ;-----------------------------------------------------
+; Version Control \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;v0.y.z had different names
+	tf_v0_names = 0B
+	iv0 = where(vx eq 0, nv0)
+	if nv0 gt 0 then begin
+		tf_v0_names = 1B
+		if nv0 ne nFiles then message, 'Incompatible file versions given.'
+	endif
+	
+	;v1.y.z added optics state
+	tf_optics = 0B
+	iv1 = where(vx ge 1, nv1)
+	if nv1 gt 0 then begin
+		tf_optics = 1B
+		if nv1 ne nFiles then message, 'Incompatible file versions given.'
+	endif
+
+;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	prefix = strjoin([sc, instr], '_') + '_'
 	suffix = '_' + strjoin([mode, level], '_')
 	
 	
-	;Variable names for GDU1
-	trel_vname        = 'epoch_rel'
-	tabs_vname        = 'epoch_rel'
-	theta_vname       = prefix + 'theta'
-	phi_vname         = prefix + 'phi'
-	relcal_gdu1_vname = prefix + 'relcal_gdu1' + suffix
-	relcal_gdu2_vname = prefix + 'relcal_gdu2' + suffix
-	abscal_gdu1_vname = prefix + 'abscal_gdu1' + suffix
-	abscal_gdu2_vname = prefix + 'abscal_gdu2' + suffix
+	trel_vname       = 'epoch_rel'
+	tabs_vname       = 'epoch_abs'
+	theta_vname      = prefix + 'theta'
+	phi_vname        = prefix + 'phi'
+	optics_rel_vname = prefix + 'optics_rel' + suffix
+	optics_abs_vname = prefix + 'optics_abs' + suffix
+
+	;Cal names
+	if tf_v0_names then begin
+		relcal_gdu1_vname = prefix + 'relcal_gdu1' + suffix
+		relcal_gdu2_vname = prefix + 'relcal_gdu2' + suffix
+		abscal_gdu1_vname = prefix + 'abscal_gdu1' + suffix
+		abscal_gdu2_vname = prefix + 'abscal_gdu2' + suffix
+	endif else begin
+		relcal_gdu1_vname = prefix + 'rel_gdu1' + suffix
+		relcal_gdu2_vname = prefix + 'rel_gdu2' + suffix
+		abscal_gdu1_vname = prefix + 'abs_gdu1' + suffix
+		abscal_gdu2_vname = prefix + 'abs_gdu2' + suffix
+	endelse
+		
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -123,9 +156,17 @@ function mms_edi_amb_cal_read, files, tstart, tend
 	;Read the rest of the variables?
 	if status eq 0 then begin
 		;Calibration data
-		relcal_gdu2 = MrCDF_nRead(cdfIDs, relcal_gdu2_vname, TSTART=tstart, TEND=tend, NRECS=nt_abs, DEPEND_0=tt2000_abs)
-		abscal_gdu1 = MrCDF_nRead(cdfIDs, abscal_gdu1_vname, TSTART=tstart, TEND=tend, NRECS=nabs_gdu1)
+		relcal_gdu2 = MrCDF_nRead(cdfIDs, relcal_gdu2_vname, TSTART=tstart, TEND=tend, NRECS=nt_abs)
+		abscal_gdu1 = MrCDF_nRead(cdfIDs, abscal_gdu1_vname, TSTART=tstart, TEND=tend, NRECS=nabs_gdu1, DEPEND_0=tt2000_abs)
 		abscal_gdu2 = MrCDF_nRead(cdfIDs, abscal_gdu2_vname, TSTART=tstart, TEND=tend, NRECS=nabs_gdu2)
+		
+		if tf_optics then begin
+			optics_rel = MrCDF_nRead(cdfIDs, optics_rel_vname, TSTART=tstart, TEND=tend, NRECS=nOptRel)
+			optics_abs = MrCDF_nRead(cdfIDs, optics_abs_vname, TSTART=tstart, TEND=tend, NRECS=nOptAbs)
+		endif else begin
+			nOptRel = 0
+			nOptAbs = 0
+		endelse
 	endif else begin
 		message, /REISSUE_LAST
 	endelse
@@ -147,6 +188,8 @@ function mms_edi_amb_cal_read, files, tstart, tend
 	            relcal_gdu2: temporary(relcal_gdu2) $
 	          }
 	
+	if nOptRel   gt 0 then edi_cal = create_struct(edi_cal, 'optics_rel', temporary(optics_rel))
+	if nOptAbs   gt 0 then edi_cal = create_struct(edi_cal, 'optics_abs', temporary(optics_abs))
 	if nt_abs    gt 0 then edi_cal = create_struct(edi_cal, 'tt2000_abs',  temporary(tt2000_abs))
 	if nabs_gdu1 gt 0 then edi_cal = create_struct(edi_cal, 'abscal_gdu1', temporary(abscal_gdu1))
 	if nabs_gdu2 gt 0 then edi_cal = create_struct(edi_cal, 'abscal_gdu2', temporary(abscal_gdu2))
