@@ -37,8 +37,8 @@ pro mms_test_rotations, sc, tstart, tend
 	endif
 
 	sc       = 'mms3'
-	tstart   = '2015-08-15T11:00:00Z'
-	tend     = '2015-08-15T16:00:00Z'
+	tstart   = '2015-08-16T12:45:00Z'
+	tend     = '2015-08-16T13:45:00Z'
 	sdc_dir  = '/nfs'
 	hk_dir   = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY='hk')
 	att_dir  = filepath('', ROOT_DIR=sdc_dir, SUBDIRECTORY=['ancillary', sc, 'defatt'])
@@ -125,6 +125,7 @@ pro mms_test_rotations, sc, tstart, tend
 ;-------------------------------------------------------
 ; BCS --> GEI //////////////////////////////////////////
 ;-------------------------------------------------------
+
 	;Method 1: BCS --> GEI
 	bcs2gei     = mms_fdoa_xgei2bcs(defatt.q, defatt.tt2000, t, /INVERSE)
 	b_unh_gei_q = qtvrot(b_bcs, bcs2gei)
@@ -149,14 +150,15 @@ pro mms_test_rotations, sc, tstart, tend
 	tgeigse_vect, yr, doy, hr, mnt, sec, $
 	              reform(b_unh_gei_q[0,*]), reform(b_unh_gei_q[1,*]), reform(b_unh_gei_q[2,*]), $
 	              xqgse, yqgse, zqgse
-	
+
+
 	;GEI --> GSE
 	tgeigse_vect, yr, doy, hr, mnt, sec, $
 	              reform(b_unh_gei_p[0,*]), reform(b_unh_gei_p[1,*]), reform(b_unh_gei_p[2,*]), $
 	              xpgse, ypgse, zpgse
 
 	;Combine components to 3xN array
-	b_unh_gse_q = transpose( [ [temporary(xqgse)], [temporary(yqgse)], [temporary(zqgse)] ] )
+;	b_unh_gse_q = transpose( [ [temporary(xqgse)], [temporary(yqgse)], [temporary(zqgse)] ] )
 	b_unh_gse_p = transpose( [ [temporary(xpgse)], [temporary(ypgse)], [temporary(zpgse)] ] )
 
 ;-------------------------------------------------------
@@ -226,6 +228,54 @@ pro mms_test_rotations, sc, tstart, tend
 	win_dmpa -> SetProperty, NOEXECUTECOMMANDS=0, /UPDATE
 
 ;-------------------------------------------------------
+; GEI Results //////////////////////////////////////////
+;-------------------------------------------------------
+	;Create a window
+	cgWindow, WOBJECT=win_gei
+	win_gei -> SetProperty, /NOEXECUTECOMMANDS
+	
+	;BX Component
+	cgPlot, t_ssm, b_unh_gei_q[0,*], $
+	        /ADDCMD, $
+	        COLOR       = 'blue', $
+	        /NOERASE, $
+	        POSITION    = p[*,0], $
+	        TITLE       = 'GEI Transformation Comparision', $
+	        XTICKFORMAT = '(a1)', $
+	        YTITLE      = 'B$\downX$!C(nT)'
+	cgOPlot, t_ssm, b_unh_gei_p[0,*], /ADDCMD, COLOR = 'red'
+	
+	;BY Component
+	cgPlot, t_ssm, b_unh_gei_q[1,*], $
+	        /ADDCMD, $
+	        COLOR       = 'blue', $
+	        /NOERASE, $
+	        POSITION    = p[*,1], $
+	        XTICKFORMAT = '(a1)', $
+	        YTITLE      = 'B$\downY$!C(nT)'
+	cgOPlot, t_ssm, b_unh_gei_p[1,*], /ADDCMD, COLOR = 'red'
+	
+	;BZ Component
+	cgPlot, t_ssm, b_unh_gei_q[2,*], $
+	        /ADDCMD, $
+	        /NOERASE, $
+	        POSITION    = p[*,2], $
+	        XTICKFORMAT = 'time_labels', $
+	        YTITLE      = 'B$\downZ$!C(nT)'
+	cgOPlot, t_ssm, b_unh_gei_p[2,*], /ADDCMD, COLOR = 'red'
+
+	;Create a legend
+	cgLegend, /ADDCMD, $
+	          ALIGNMENT = 1, $
+	          TITLES    = ['UNH QT', 'UNH P'], $
+	          TCOLORS   = ['blue', 'red'], $
+	          LENGTH    = 0, $
+	          LOCATION  = [p[2,0], p[3,0]]
+	
+	;Update the windwo
+	win_gei -> SetProperty, NOEXECUTECOMMANDS=0, /UPDATE
+
+;-------------------------------------------------------
 ; GSE Results //////////////////////////////////////////
 ;-------------------------------------------------------
 	;Create a window
@@ -244,7 +294,7 @@ pro mms_test_rotations, sc, tstart, tend
 	cgOPlot, t_ssm, b_unh_gse_p[0,*], /ADDCMD, COLOR = 'red'
 	
 	;BY Component
-	cgPlot, t_ssm, b_dmpa[1,*], $
+	cgPlot, t_ssm, b_gse[1,*], $
 	        /ADDCMD, $
 	        /NOERASE, $
 	        POSITION    = p[*,1], $
@@ -254,7 +304,7 @@ pro mms_test_rotations, sc, tstart, tend
 	cgOPlot, t_ssm, b_unh_gse_p[1,*], /ADDCMD, COLOR = 'red'
 	
 	;BZ Component
-	cgPlot, t_ssm, b_dmpa[2,*], $
+	cgPlot, t_ssm, b_gse[2,*], $
 	        /ADDCMD, $
 	        /NOERASE, $
 	        POSITION    = p[*,2], $
