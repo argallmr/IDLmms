@@ -77,7 +77,8 @@ TYPE=type
 ;-----------------------------------------------------
 
 	;Get transformation to GEI
-	despun2gei = mms_fdoa_xgei2despun(defatt, t, TYPE=type)
+	gei2despun = mms_fdoa_xgei2despun(defatt, t, TYPE=type)
+	despun2gei = transpose( temporary(gei2despun), [1,0,2] )
 	
 	;Rotate vector to GEI
 	v_gei = MrVector_Rotate(despun2gei, v)

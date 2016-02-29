@@ -41,8 +41,8 @@
 ;       TIME:               in, required, type=long64arr (cdf_time_tt2000)
 ;                           CDF TT2000 epoch time of each vector.
 ;       V:                  in, required, type=3xN fltarr
-;                           Set of 3-vectors in GSE coordinates to undergo the
-;                               transformation to GSM coordinates.
+;                           Set of 3-vectors in despun coordinates to undergo the
+;                               transformation to GSE coordinates.
 ;
 ; :Keywords:
 ;       TYPE:               in, optional, type=string, default='P'
@@ -72,15 +72,17 @@ TYPE=type
 	;Load the CoTrans library
 	cotrans_lib
 
+
 	;Get transformation to GEI
-	despun2gei = mms_fdoa_xgei2despun(defatt, t, TYPE=type)
+	gei2despun = mms_fdoa_xgei2despun(defatt, t, TYPE=type)
+	despun2gei = transpose( temporary(gei2despun), [1,0,2] )
 	
 	;Rotate vector to GEI
 	v_gei = MrVector_Rotate(despun2gei, v)
 
 	;Breakdown time
 	MrCDF_Epoch_Breakdown, reform(t), yr, mo, day, hr, mnt, sec, milli, micro, nano
-	doy = MrDate2DOY(mo, day, year)
+	doy = MrDate2DOY(mo, day, yr)
 	sec = sec + milli*1d-3 + micro*1d-6 + nano*1d-9
 		
 	;GEI -->  GSE

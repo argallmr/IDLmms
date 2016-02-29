@@ -107,7 +107,7 @@ ROOT=root
 	if tf_root then begin
 		;Housekeeping files are found in DATA_PATH/HK
 		if mode eq 'hk' then data_path = filepath('', ROOT_DIR=data_path, SUBDIRECTORY='hk')
-		
+
 		;Create the SDC directory chain
 		data_path = mms_forge_path(data_path, sc, instr, mode, level, tstart, OPTDESC=optdesc)
 		
