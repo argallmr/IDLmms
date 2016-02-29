@@ -61,17 +61,28 @@ function mms_edi_q0_ql_write, sc, mode, tstart, q0_data, $
 DROPBOX_ROOT=dropbox, $
 DATA_PATH_ROOT=data_path, $
 OPTDESC=optdesc, $
-PARENTS=parents
+PARENTS=parents, $
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
+		
+		;Close and delete file
 		if obj_valid(oq0) then obj_destroy, oq0
 		if n_elements(q0_file) gt 0 && file_test(q0_file) then file_delete, q0_file
+		
+		;Report error
+		if n_elements(status) eq 0 || status eq 0 then status = 100
 		MrPrintF, 'LogErr'
+		
+		;Return
 		return, ''
 	endif
+	
+	;Everything starts out ok
+	status = 0
 
 ;------------------------------------;
 ; Version History                    ;

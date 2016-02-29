@@ -105,7 +105,8 @@
 ;   Modification History::
 ;       2015/02/23  -   Written by Matthew Argall
 ;-
-function mms_edi_q0_l1a_read, files, tstart, tend
+function mms_edi_q0_l1a_read, files, tstart, tend, $
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
@@ -116,6 +117,9 @@ function mms_edi_q0_l1a_read, files, tstart, tend
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
+	
+	;Everything starts off ok
+	status = 0
 
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -163,7 +167,10 @@ function mms_edi_q0_l1a_read, files, tstart, tend
 	;time tags for the optics state variable.
 	if mode eq 'fast' || mode eq 'slow' then begin
 		ibad = where( (vx eq 0) and (vy le 10), nbad )
-		if nbad gt 0 then message, 'Optics state has bad time tags.'
+		if nbad gt 0 then begin
+			status = 101
+			message, 'Optics state has bad time tags.'
+		endif
 	endif
 
 ;-----------------------------------------------------
@@ -204,20 +211,20 @@ function mms_edi_q0_l1a_read, files, tstart, tend
 	                       DEPEND_0 = epoch_gd12, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd12     = MrCDF_nRead(cdfIDs, theta_gd12_name,     TSTART=tstart, TEND=tend)
-	q_gd12         = MrCDF_nRead(cdfIDs, q_gd12_name,         TSTART=tstart, TEND=tend)
-	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,         TSTART=tstart, TEND=tend)
-	word15_gd12    = MrCDF_nRead(cdfIDs, word15_gd12_name,    TSTART=tstart, TEND=tend)
+	theta_gd12     = MrCDF_nRead(cdfIDs, theta_gd12_name,  TSTART=tstart, TEND=tend)
+	q_gd12         = MrCDF_nRead(cdfIDs, q_gd12_name,      TSTART=tstart, TEND=tend)
+	e_gd12         = MrCDF_nRead(cdfIDs, e_gd12_name,      TSTART=tstart, TEND=tend)
+	word15_gd12    = MrCDF_nRead(cdfIDs, word15_gd12_name, TSTART=tstart, TEND=tend)
 
 	;Read the data for GD21
 	phi_gd21 = MrCDF_nRead(cdfIDs, phi_gd21_name, $
 	                       DEPEND_0 = epoch_gd21, $
 	                       TSTART   = tstart, $
 	                       TEND     = tend)
-	theta_gd21     = MrCDF_nRead(cdfIDs, theta_gd21_name,     TSTART=tstart, TEND=tend)
-	q_gd21         = MrCDF_nRead(cdfIDs, q_gd21_name,         TSTART=tstart, TEND=tend)
-	e_gd21         = MrCDF_nRead(cdfIDs, e_gd21_name,         TSTART=tstart, TEND=tend)
-	word15_gd21    = MrCDF_nRead(cdfIDs, word15_gd21_name,    TSTART=tstart, TEND=tend)
+	theta_gd21     = MrCDF_nRead(cdfIDs, theta_gd21_name,  TSTART=tstart, TEND=tend)
+	q_gd21         = MrCDF_nRead(cdfIDs, q_gd21_name,      TSTART=tstart, TEND=tend)
+	e_gd21         = MrCDF_nRead(cdfIDs, e_gd21_name,      TSTART=tstart, TEND=tend)
+	word15_gd21    = MrCDF_nRead(cdfIDs, word15_gd21_name, TSTART=tstart, TEND=tend)
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
@@ -275,9 +282,12 @@ function mms_edi_q0_l1a_read, files, tstart, tend
 		;Energy may be on a different time base
 		if ~tf_timetag then e_gd21= e_gd21[iq0_gd21]
 	endif
-	
+
 	;No quality 0 data
-	if count_gd12 + count_gd21 eq 0 then message, 'No Q0 data found.'
+	if count_gd12 + count_gd21 eq 0 then begin
+		status = 102
+		message, 'No Q0 data found.'
+	endif
 
 ;-----------------------------------------------------
 ; Survey Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -364,5 +374,6 @@ function mms_edi_q0_l1a_read, files, tstart, tend
 	q0_l1a = create_struct(temporary(edi), temporary(edi_gd12), temporary(edi_gd21))
 	
 	;Return the data
+	if n_elements(status) eq 0 then status = 0
 	return, q0_l1a
 end

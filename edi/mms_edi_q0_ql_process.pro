@@ -101,7 +101,7 @@ LOG_PATH_ROOT=log_path_in
 	if tf_log then begin
 		logDir = filepath('', ROOT_DIR=!edi_amb_init.log_path_root, SUBDIRECTORY='batch_logs')
 		if ~file_test(logDir, /DIRECTORY) then file_mkdir, logDir
-		fLog   = filepath('mms_edi_q0_unh_' + date + '_' + time + '.log', ROOT_DIR=logDir)
+		fLog   = filepath('mms_edi_q0_ql_' + date + '_' + time + '.log', ROOT_DIR=logDir)
 	endif else begin
 		fLog      = 'StdErr'
 	endelse
