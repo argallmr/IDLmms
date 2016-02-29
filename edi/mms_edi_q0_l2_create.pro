@@ -69,11 +69,14 @@ STATUS=status
 		catch, /CANCEL
 		
 		;TODO: Give error codes to specific errors.
-		status = 105
+		if n_elements(status) eq 0 || status eq 0 then status = 105
 
 		MrPrintF, 'LogErr'
 		return, !Null
 	endif
+	
+	;Everything starts out ok
+	status = 0
 	
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -96,14 +99,15 @@ STATUS=status
 	;Read Data
 	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
-	q0_data = mms_edi_q0_l1a_read(edi_files, tstart, tend)
+	q0_data = mms_edi_q0_l1a_read(edi_files, tstart, tend, STATUS=status)
+	if status ge 100 then message, 'Error reading Q0 data.'
 
 ;-----------------------------------------------------
 ; Angular Bins \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Degrees to radians
-	deg2rad = !dpi / 360.0D
+	deg2rad = !dpi / 180.0D
 	
 	;Delta look direction (degrees)
 	dphi   = 360.0 / 32.0
@@ -145,75 +149,77 @@ STATUS=status
 	;Map firing angle to look direction (radians)
 	;   - lo is lower bound of n
 	;   - hi is lower bound of n+2
-	phi_det1    = phi[ (16 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
-	phi_det2    = phi[ (16 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
-	phi_det1_lo = phi[ (15 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
-	phi_det2_lo = phi[ (15 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
-	phi_det1_hi = phi[ (17 - round(q0_data.azimuth_gd21/dphi) + 32) mod 32 ] * deg2rad
-	phi_det2_hi = phi[ (17 - round(q0_data.azimuth_gd12/dphi) + 32) mod 32 ] * deg2rad
+	
+	phi_gd12    = q0_data.azimuth_gd12 * deg2rad
+	phi_gd12_lo = ( ( (q0_data.azimuth_gd12 - dphi) + 360.0 ) mod 360.0 ) * deg2rad
+	phi_gd12_hi = ( (q0_data.azimuth_gd12 + dphi) mod 360.0 ) * deg2rad
+	
+	phi_gd21    = q0_data.azimuth_gd21 * deg2rad
+	phi_gd21_lo = ( ( (q0_data.azimuth_gd21 - dphi) + 360.0 ) mod 360.0 ) * deg2rad
+	phi_gd21_hi = ( (q0_data.azimuth_gd21 + dphi) mod 360.0 ) * deg2rad
 	
 	;Polar look direction (radians)
-	theta_det1 = q0_data.polar_gd21 * deg2rad
-	theta_det2 = q0_data.polar_gd12 * deg2rad
+	theta_gd12 = q0_data.polar_gd12 * deg2rad
+	theta_gd21 = q0_data.polar_gd21 * deg2rad
 
 ;-----------------------------------------------------
-; Error in Electron Trajectories \\\\\\\\\\\\\\\\\\\\\
+; Electron Trajectories \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;Allocate memory
-	traj_det1    = fltarr(3, q0_data.count_gd21)
-	traj_det1_lo = fltarr(3, q0_data.count_gd21)
-	traj_det1_hi = fltarr(3, q0_data.count_gd21)
-	traj_det2    = fltarr(3, q0_data.count_gd12)
-	traj_det2_lo = fltarr(3, q0_data.count_gd12)
-	traj_det2_hi = fltarr(3, q0_data.count_gd12)
+	traj_gd12    = fltarr(3, q0_data.count_gd12)
+	traj_gd12_lo = fltarr(3, q0_data.count_gd12)
+	traj_gd12_hi = fltarr(3, q0_data.count_gd12)
+	traj_gd21    = fltarr(3, q0_data.count_gd21)
+	traj_gd21_lo = fltarr(3, q0_data.count_gd21)
+	traj_gd21_hi = fltarr(3, q0_data.count_gd21)
 	
-	;GDU1
-	traj_det1[0,*] = -sin(theta_det1) * cos(phi_det1)
-	traj_det1[1,*] = -sin(theta_det1) * sin(phi_det1)
-	traj_det1[2,*] = -sin(theta_det1)
-	
+	;GD21
+	traj_gd21[0,*] = sin(theta_gd21) * cos(phi_gd21)
+	traj_gd21[1,*] = sin(theta_gd21) * sin(phi_gd21)
+	traj_gd21[2,*] = cos(theta_gd21)
+
 	;LO GDU1
-	traj_det1_lo[0,*] = -sin(theta_det1) * cos(phi_det1_lo)
-	traj_det1_lo[1,*] = -sin(theta_det1) * sin(phi_det1_lo)
-	traj_det1_lo[2,*] = -sin(theta_det1)
+	traj_gd21_lo[0,*] = sin(theta_gd21) * cos(phi_gd21_lo)
+	traj_gd21_lo[1,*] = sin(theta_gd21) * sin(phi_gd21_lo)
+	traj_gd21_lo[2,*] = cos(theta_gd21)
 	
 	;HI GDU1
-	traj_det1_hi[0,*] = -sin(theta_det1) * cos(phi_det1_hi)
-	traj_det1_hi[1,*] = -sin(theta_det1) * sin(phi_det1_hi)
-	traj_det1_hi[2,*] = -sin(theta_det1)
+	traj_gd21_hi[0,*] = sin(theta_gd21) * cos(phi_gd21_hi)
+	traj_gd21_hi[1,*] = sin(theta_gd21) * sin(phi_gd21_hi)
+	traj_gd21_hi[2,*] = cos(theta_gd21)
 	
-	;GDU2
-	traj_det2[0,*] = -sin(theta_det2) * cos(phi_det2)
-	traj_det2[1,*] = -sin(theta_det2) * sin(phi_det2)
-	traj_det2[2,*] = -sin(theta_det2)
+	;GD12
+	traj_gd12[0,*] = sin(theta_gd12) * cos(phi_gd12)
+	traj_gd12[1,*] = sin(theta_gd12) * sin(phi_gd12)
+	traj_gd12[2,*] = cos(theta_gd12)
 	
 	;LO GDU2
-	traj_det2_lo[0,*] = -sin(theta_det2) * cos(phi_det2_lo)
-	traj_det2_lo[1,*] = -sin(theta_det2) * sin(phi_det2_lo)
-	traj_det2_lo[2,*] = -sin(theta_det2)
+	traj_gd12_lo[0,*] = sin(theta_gd12) * cos(phi_gd12_lo)
+	traj_gd12_lo[1,*] = sin(theta_gd12) * sin(phi_gd12_lo)
+	traj_gd12_lo[2,*] = cos(theta_gd12)
 	
 	;HI GDU2
-	traj_det2_hi[0,*] = -sin(theta_det2) * cos(phi_det2_hi)
-	traj_det2_hi[1,*] = -sin(theta_det2) * sin(phi_det2_hi)
-	traj_det2_hi[2,*] = -sin(theta_det2)
+	traj_gd12_hi[0,*] = sin(theta_gd12) * cos(phi_gd12_hi)
+	traj_gd12_hi[1,*] = sin(theta_gd12) * sin(phi_gd12_hi)
+	traj_gd12_hi[2,*] = cos(theta_gd12)
 
 ;-----------------------------------------------------
 ; EDI --> BCS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Rotate first to BCS (same orientation as OCS)
-	edi1_to_bcs = mms_instr_xxyz2ocs('EDI1')
-	edi2_to_bcs = mms_instr_xxyz2ocs('EDI2')
+	gd12_to_bcs = mms_instr_xxyz2ocs('EDI1')
+	gd21_to_bcs = mms_instr_xxyz2ocs('EDI2')
 	
 	;DET1
-	traj_det1_bcs    = MrVector_Rotate(edi1_to_bcs, traj_det1)
-	traj_det1_bcs_lo = MrVector_Rotate(edi1_to_bcs, traj_det1_lo)
-	traj_det1_bcs_hi = MrVector_Rotate(edi1_to_bcs, traj_det1_hi)
+	traj_gd21_bcs    = MrVector_Rotate(gd21_to_bcs, traj_gd21)
+	traj_gd21_bcs_lo = MrVector_Rotate(gd21_to_bcs, traj_gd21_lo)
+	traj_gd21_bcs_hi = MrVector_Rotate(gd21_to_bcs, traj_gd21_hi)
 	
 	;DET2
-	traj_det2_bcs    = MrVector_Rotate(edi2_to_bcs, traj_det2)
-	traj_det2_bcs_lo = MrVector_Rotate(edi2_to_bcs, traj_det2_lo)
-	traj_det2_bcs_hi = MrVector_Rotate(edi2_to_bcs, traj_det2_hi)
+	traj_gd12_bcs    = MrVector_Rotate(gd12_to_bcs, traj_gd12)
+	traj_gd12_bcs_lo = MrVector_Rotate(gd12_to_bcs, traj_gd12_lo)
+	traj_gd12_bcs_hi = MrVector_Rotate(gd12_to_bcs, traj_gd12_hi)
 
 ;-----------------------------------------------------
 ; Despin \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -224,15 +230,15 @@ STATUS=status
 
 	;Despin det1
 	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21)
-	traj_det1_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs))
-	traj_det1_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_lo))
-	traj_det1_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det1_bcs_hi))
+	traj_gd21_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs))
+	traj_gd21_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs_lo))
+	traj_gd21_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs_hi))
 	
 	;Despin det2
 	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12)
-	traj_det2_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs))
-	traj_det2_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_lo))
-	traj_det2_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_det2_bcs_hi))
+	traj_gd12_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs))
+	traj_gd12_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs_lo))
+	traj_gd12_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs_hi))
 	bcs2dbcs          = !Null
 
 ;-----------------------------------------------------
@@ -243,33 +249,33 @@ STATUS=status
 	defatt = mms_fdoa_read_defatt(defatt_file)
 	
 	;
-	;DBCS -> GSE
+	; DBCS --> GSE
 	;
 	
 	;det1
-	traj_det1_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_det1_dbcs))
-	traj_det1_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_det1_dbcs_lo))
-	traj_det1_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_det1_dbcs_hi))
+	traj_gd21_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs),    TYPE='Z')
+	traj_gd21_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs_lo), TYPE='Z')
+	traj_gd21_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs_hi), TYPE='Z')
 	
-	;det2
-	traj_det2_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs))
-	traj_det2_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs_lo))
-	traj_det2_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_det2_dbcs_hi))
+	;gd12
+	traj_gd12_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs),    TYPE='Z')
+	traj_gd12_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs_lo), TYPE='Z')
+	traj_gd12_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs_hi), TYPE='Z')
 	defatt           = !Null
-	
+
 	;
-	;GSE -> GSM
+	; GSE --> GSM
 	;
 	
-	;det1
-	traj_det1_gsm    = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_det1_gse)
-	traj_det1_gsm_lo = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_det1_gse_lo)
-	traj_det1_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_det1_gse_hi)
+	;gd21
+	traj_gd21_gsm    = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_gd21_gse)
+	traj_gd21_gsm_lo = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_gd21_gse_lo)
+	traj_gd21_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd21, traj_gd21_gse_hi)
 	
-	;det1
-	traj_det2_gsm    = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse)
-	traj_det2_gsm_lo = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse_lo)
-	traj_det2_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_det2_gse_hi)
+	;gd21
+	traj_gd12_gsm    = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_gd12_gse)
+	traj_gd12_gsm_lo = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_gd12_gse_lo)
+	traj_gd12_gsm_hi = mms_rot_gse2gsm(q0_data.tt2000_gd12, traj_gd12_gse_hi)
 
 ;-----------------------------------------------------
 ; Spherical Coordinates \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -277,50 +283,65 @@ STATUS=status
 	;
 	;Reduce data by one dimensions by converting to spherical coordinates
 	;
+
+	;gd21 GSE
+	traj_gd21_gse    = cv_coord(FROM_RECT=traj_gd21_gse,    /TO_SPHERE, /DEGREES)
+	traj_gd21_gse_lo = cv_coord(FROM_RECT=traj_gd21_gse_lo, /TO_SPHERE, /DEGREES)
+	traj_gd21_gse_hi = cv_coord(FROM_RECT=traj_gd21_gse_hi, /TO_SPHERE, /DEGREES)
 	
-	;DET1 GSE
-	traj_det1_gse    = cv_coord(FROM_RECT=traj_det1_gse,    /TO_SPHERE, /DEGREES)
-	traj_det1_gse_lo = cv_coord(FROM_RECT=traj_det1_gse_lo, /TO_SPHERE, /DEGREES)
-	traj_det1_gse_hi = cv_coord(FROM_RECT=traj_det1_gse_hi, /TO_SPHERE, /DEGREES)
+	;gd12 GSE
+	traj_gd12_gse    = cv_coord(FROM_RECT=traj_gd12_gse,    /TO_SPHERE, /DEGREES)
+	traj_gd12_gse_lo = cv_coord(FROM_RECT=traj_gd12_gse_lo, /TO_SPHERE, /DEGREES)
+	traj_gd12_gse_hi = cv_coord(FROM_RECT=traj_gd12_gse_hi, /TO_SPHERE, /DEGREES)
 	
-	;DET1 GSM
-	traj_det2_gse    = cv_coord(FROM_RECT=traj_det2_gse,    /TO_SPHERE, /DEGREES)
-	traj_det2_gse_lo = cv_coord(FROM_RECT=traj_det2_gse_lo, /TO_SPHERE, /DEGREES)
-	traj_det2_gse_hi = cv_coord(FROM_RECT=traj_det2_gse_hi, /TO_SPHERE, /DEGREES)
+	;gd21 GSM
+	traj_gd21_gsm    = cv_coord(FROM_RECT=traj_gd21_gsm,    /TO_SPHERE, /DEGREES)
+	traj_gd21_gsm_lo = cv_coord(FROM_RECT=traj_gd21_gsm_lo, /TO_SPHERE, /DEGREES)
+	traj_gd21_gsm_hi = cv_coord(FROM_RECT=traj_gd21_gsm_hi, /TO_SPHERE, /DEGREES)
 	
-	;DET1 GSE
-	traj_det1_gsm    = cv_coord(FROM_RECT=traj_det1_gsm,    /TO_SPHERE, /DEGREES)
-	traj_det1_gsm_lo = cv_coord(FROM_RECT=traj_det1_gsm_lo, /TO_SPHERE, /DEGREES)
-	traj_det1_gsm_hi = cv_coord(FROM_RECT=traj_det1_gsm_hi, /TO_SPHERE, /DEGREES)
-	
-	;DET2 GSM
-	traj_det2_gsm    = cv_coord(FROM_RECT=traj_det2_gsm,    /TO_SPHERE, /DEGREES)
-	traj_det2_gsm_lo = cv_coord(FROM_RECT=traj_det2_gsm_lo, /TO_SPHERE, /DEGREES)
-	traj_det2_gsm_hi = cv_coord(FROM_RECT=traj_det2_gsm_hi, /TO_SPHERE, /DEGREES)
-	
+	;gd12 GSM
+	traj_gd12_gsm    = cv_coord(FROM_RECT=traj_gd12_gsm,    /TO_SPHERE, /DEGREES)
+	traj_gd12_gsm_lo = cv_coord(FROM_RECT=traj_gd12_gsm_lo, /TO_SPHERE, /DEGREES)
+	traj_gd12_gsm_hi = cv_coord(FROM_RECT=traj_gd12_gsm_hi, /TO_SPHERE, /DEGREES)
+
 	;
 	;Convert from elevation to polar angle
 	;
 	
-	;DET1 GSE
-	traj_det1_gse[1,*]    = abs(traj_det1_gse[1,*] - 90.0)
-	traj_det1_gse_lo[1,*] = abs(traj_det1_gse_lo[1,*] - 90.0)
-	traj_det1_gse_hi[1,*] = abs(traj_det1_gse_hi[1,*] - 90.0)
+	;gd21 GSE
+	traj_gd21_gse[1,*]    = abs(traj_gd21_gse[1,*] - 90.0)
+	traj_gd21_gse_lo[1,*] = abs(traj_gd21_gse_lo[1,*] - 90.0)
+	traj_gd21_gse_hi[1,*] = abs(traj_gd21_gse_hi[1,*] - 90.0)
+
+	;gd12 GSE
+	traj_gd12_gse[1,*]    = abs(traj_gd12_gse[1,*] - 90.0)
+	traj_gd12_gse_lo[1,*] = abs(traj_gd12_gse_lo[1,*] - 90.0)
+	traj_gd12_gse_hi[1,*] = abs(traj_gd12_gse_hi[1,*] - 90.0)
 	
-	;DET1 gsm
-	traj_det1_gsm[1,*]    = abs(traj_det1_gsm[1,*] - 90.0)
-	traj_det1_gsm_lo[1,*] = abs(traj_det1_gsm_lo[1,*] - 90.0)
-	traj_det1_gsm_hi[1,*] = abs(traj_det1_gsm_hi[1,*] - 90.0)
+	;gd21 gsm
+	traj_gd21_gsm[1,*]    = abs(traj_gd21_gsm[1,*] - 90.0)
+	traj_gd21_gsm_lo[1,*] = abs(traj_gd21_gsm_lo[1,*] - 90.0)
+	traj_gd21_gsm_hi[1,*] = abs(traj_gd21_gsm_hi[1,*] - 90.0)
 	
-	;DET2 GSE
-	traj_det2_gse[1,*]    = abs(traj_det2_gse[1,*] - 90.0)
-	traj_det2_gse_lo[1,*] = abs(traj_det2_gse_lo[1,*] - 90.0)
-	traj_det2_gse_hi[1,*] = abs(traj_det2_gse_hi[1,*] - 90.0)
+	;gd12 gsm
+	traj_gd12_gsm[1,*]    = abs(traj_gd12_gsm[1,*] - 90.0)
+	traj_gd12_gsm_lo[1,*] = abs(traj_gd12_gsm_lo[1,*] - 90.0)
+	traj_gd12_gsm_hi[1,*] = abs(traj_gd12_gsm_hi[1,*] - 90.0)
+
+;-----------------------------------------------------
+; Deltas \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;GD12
+	traj_gd12_gse_lo = traj_gd12_gse - traj_gd12_gse_lo
+	traj_gd12_gse_hi = traj_gd12_gse_hi - traj_gd12_gse
+	traj_gd12_gsm_lo = traj_gd12_gsm - traj_gd12_gsm_lo
+	traj_gd12_gsm_hi = traj_gd12_gsm_hi - traj_gd12_gsm
 	
-	;DET2 gsm
-	traj_det2_gsm[1,*]    = abs(traj_det2_gsm[1,*] - 90.0)
-	traj_det2_gsm_lo[1,*] = abs(traj_det2_gsm_lo[1,*] - 90.0)
-	traj_det2_gsm_hi[1,*] = abs(traj_det2_gsm_hi[1,*] - 90.0)
+	;GD12
+	traj_gd21_gse_lo = traj_gd21_gse - traj_gd21_gse_lo
+	traj_gd21_gse_hi = traj_gd21_gse_hi - traj_gd21_gse
+	traj_gd21_gsm_lo = traj_gd21_gsm - traj_gd21_gsm_lo
+	traj_gd21_gsm_hi = traj_gd21_gsm_hi - traj_gd21_gsm
 
 ;-----------------------------------------------------
 ; Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -335,18 +356,18 @@ STATUS=status
 	           energy_gdu2:      q0_data.energy_gd12, $
 	           counts_gdu1:      q0_data.word15_gd21, $
 	           counts_gdu2:      q0_data.word15_gd12, $
-	           traj_gdu1_gse:    traj_det1_gse[0:1,*], $
-	           traj_gdu1_gse_lo: traj_det1_gse_lo[0:1,*], $
-	           traj_gdu1_gse_hi: traj_det1_gse_hi[0:1,*], $
-	           traj_gdu1_gsm:    traj_det1_gsm[0:1,*], $
-	           traj_gdu1_gsm_lo: traj_det1_gsm_lo[0:1,*], $
-	           traj_gdu1_gsm_hi: traj_det1_gsm_hi[0:1,*], $
-	           traj_gdu2_gse:    traj_det2_gse[0:1,*], $
-	           traj_gdu2_gse_lo: traj_det2_gse_lo[0:1,*], $
-	           traj_gdu2_gse_hi: traj_det2_gse_hi[0:1,*], $
-	           traj_gdu2_gsm:    traj_det2_gsm[0:1,*], $
-	           traj_gdu2_gsm_lo: traj_det2_gsm_lo[0:1,*], $
-	           traj_gdu2_gsm_hi: traj_det2_gsm_hi[0:1,*] $
+	           traj_gdu1_gse:    traj_gd21_gse[0:1,*], $
+	           traj_gdu1_gse_lo: traj_gd21_gse_lo[0:1,*], $
+	           traj_gdu1_gse_hi: traj_gd21_gse_hi[0:1,*], $
+	           traj_gdu2_gse:    traj_gd12_gse[0:1,*], $
+	           traj_gdu2_gse_lo: traj_gd12_gse_lo[0:1,*], $
+	           traj_gdu2_gse_hi: traj_gd12_gse_hi[0:1,*], $
+	           traj_gdu1_gsm:    traj_gd21_gsm[0:1,*], $
+	           traj_gdu1_gsm_lo: traj_gd21_gsm_lo[0:1,*], $
+	           traj_gdu1_gsm_hi: traj_gd21_gsm_hi[0:1,*], $
+	           traj_gdu2_gsm:    traj_gd12_gsm[0:1,*], $
+	           traj_gdu2_gsm_lo: traj_gd12_gsm_lo[0:1,*], $
+	           traj_gdu2_gsm_hi: traj_gd12_gsm_hi[0:1,*] $
 	         }
 
 	;Done

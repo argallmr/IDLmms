@@ -65,7 +65,8 @@ DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
 LOG_PATH_ROOT=log_path_root, $
 UNH_PATH_ROOT=unh_path_root, $
-PACMO=pacmo
+PACMO=pacmo, $
+NO_LOG=no_log
 	compile_opt idl2
 	
 	;Error handler
@@ -111,6 +112,7 @@ PACMO=pacmo
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
+	tf_log = ~keyword_set(no_log)
 	if n_elements(pacmo)          eq 0 then pacmo     = 1
 	data_path = n_elements(data_path_root) eq 0 ? !edi_amb_init.data_path_root : data_path_root
 	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_amb_init.dropbox_root   : dropbox_root
@@ -128,7 +130,6 @@ PACMO=pacmo
 	instr   = 'edi'
 	level   = 'l1a'
 	optdesc = 'efield'
-	status  = 0
 	
 	;Constants for output
 	outmode    = mode
@@ -156,7 +157,7 @@ PACMO=pacmo
 	if ~file_test(fDir, /DIRECTORY) then file_mkdir, fDir
 	
 	;Create the log file
-	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
+	if tf_log then !Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
 ;-----------------------------------------------------
 ; Find FAST/BRST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -200,16 +201,22 @@ PACMO=pacmo
 
 	;Zero files found
 	if edi_files[0] eq '' then begin
-		status = 101
+		status = 103
 		message, 'No EDI files found.'
 	endif
 	
 ;-----------------------------------------------------
 ; Find SunPulse Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	dss_file = mms_latest_file(dropbox, sc, 'fields', 'hk', 'l1b', tstart, $
+	hk_tstart = mode eq 'brst' ? strmid(tstart, 0, 8) : tstart
+	dss_file = mms_latest_file(dropbox, sc, 'fields', 'hk', 'l1b', hk_tstart, $
 	                           OPTDESC='101', ROOT=data_path)
-	if dss_file eq '' then message, 'No DSS file found.'
+	
+	;No file found
+	if dss_file eq '' then begin
+		status = 103
+		message, 'No DSS file found.'
+	endif
 	
 ;-----------------------------------------------------
 ; Find DEFATT Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -217,7 +224,12 @@ PACMO=pacmo
 	defatt_file = mms_anc_search(dropbox, sc, 'defatt', tstart, $
 	                             COUNT = count, $
 	                             ROOT  = data_path)
-	if count eq 0 then message, 'No DEFATT files found.'
+	
+	;No file found
+	if count eq 0 then begin
+		status = 103
+		message, 'No DEFATT files found.'
+	endif
 
 ;-----------------------------------------------------
 ; Process Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -247,8 +259,9 @@ PACMO=pacmo
 	                               DROPBOX_ROOT   = dropbox, $
 	                               DATA_PATH_ROOT = data_path, $
 	                               OPTDESC        = outoptdesc, $
-	                               PARENTS        = parents)
-	if file_out eq '' then message, 'Error writing L2 file.'
+	                               PARENTS        = parents, $
+	                               STATUS         = status)
+	if file_out eq '' then message, 'Error writing Q0 L2 file.'
 
 	;Time elapsed
 	dt     = systime(1) - t0

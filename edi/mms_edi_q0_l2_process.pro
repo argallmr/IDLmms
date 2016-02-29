@@ -101,7 +101,7 @@ LOG_PATH_ROOT=log_path_in
 	if tf_log then begin
 		logDir = filepath('', ROOT_DIR=!edi_amb_init.log_path_root, SUBDIRECTORY='batch_logs')
 		if ~file_test(logDir, /DIRECTORY) then file_mkdir, logDir
-		fLog   = filepath('mms_edi_q0_unh_' + date + '_' + time + '.log', ROOT_DIR=logDir)
+		fLog   = filepath('mms_edi_q0_l2_' + date + '_' + time + '.log', ROOT_DIR=logDir)
 	endif else begin
 		fLog      = 'StdErr'
 	endelse
@@ -316,7 +316,7 @@ LOG_PATH_ROOT=log_path_in
 			status[count]   = status_out
 			telapsed[count] = f_end - f_begin
 			count++
-			
+
 			;Allocate more memory (double allocation each time)
 			if count ge nalloc then begin
 				nalloc  += count
@@ -327,8 +327,8 @@ LOG_PATH_ROOT=log_path_in
 
 			;Report results
 			oLog -> AddText, 'Finished processing'
-			if cnt1 gt 0 then oLog -> AddText, '   ' + fmode + ' file:   "' + f_mode1[i] + '"'
-			if cnt2 gt 0 then oLog -> AddText, '   Slow file:   "' + f_mode2[i] + '"'
+			if n1 gt 0 then oLog -> AddText, '   ' + fmode + ' file:   "' + f_mode1[i1] + '"'
+			if n2 gt 0 then oLog -> AddText, '   Slow file:   "' + f_mode2[i2] + '"'
 			oLog -> AddText, '   Output file: "' + file_out   + '"'
 			oLog -> AddText, '   Error status: ' + string(status_out, FORMAT='(i0)')
 			oLog -> AddText, '   Proc time:    ' + string(telapsed[count-1]/60.0, FORMAT='(f0.2)') + ' min'
@@ -358,6 +358,19 @@ LOG_PATH_ROOT=log_path_in
 	dt_hr  = floor((dt) / 3600.0)
 	dt_min = floor( (dt mod 3600.0) / 60.0 )
 	dt_sec = dt mod 60
+
+	;Print error code look-up table
+	if nwarn + nerror gt 0 then begin
+		;Get the error codes and their messages
+		txt = mms_edi_q0_error_codes(/TXT)
+
+		;Print them to the log file.
+		oLog -> AddText, '-----------------------------------------'
+		oLog -> AddText, ''
+		oLog -> AddText, txt
+		oLog -> AddText, ''
+		oLog -> AddText, '-----------------------------------------'
+	endif
 
 	;Log summary information
 	oLog -> AddText, ''
