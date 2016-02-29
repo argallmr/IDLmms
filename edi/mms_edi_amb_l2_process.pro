@@ -3,89 +3,64 @@
 ; NAME:
 ;    mms_edi_amb_ql_process
 ;
-;*****************************************************************************************
-;   Copyright (c) 2015, Matthew Argall                                                   ;
-;   All rights reserved.                                                                 ;
-;                                                                                        ;
-;   Redistribution and use in source and binary forms, with or without modification,     ;
-;   are permitted provided that the following conditions are met:                        ;
-;                                                                                        ;
-;       * Redistributions of source code must retain the above copyright notice,         ;
-;         this list of conditions and the following disclaimer.                          ;
-;       * Redistributions in binary form must reproduce the above copyright notice,      ;
-;         this list of conditions and the following disclaimer in the documentation      ;
-;         and/or other materials provided with the distribution.                         ;
-;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may be used to endorse or promote products derived from this      ;
-;         software without specific prior written permission.                            ;
-;                                                                                        ;
-;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
-;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
-;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
-;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
-;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
-;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
-;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
-;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
-;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
-;   DAMAGE.                                                                              ;
-;*****************************************************************************************
-;
 ; PURPOSE:
 ;+
 ;   Process EDI ambient mode data to produce a quick-look data product with counts
 ;   sorted by 0 and 180 degree pitch angle.
 ;
 ;   Calling Sequence::
-;       FILES = mms_edi_ql_amb_process()
-;       FILES = mms_edi_ql_amb_process(SC)
-;       FILES = mms_edi_ql_amb_process(SC, MODE)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START)
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, '')
-;       FILES = mms_edi_ql_amb_process(SC, MODE, DATE_START, DATE_END)
+;       FILES = mms_edi_amb_l2_process()
+;       FILES = mms_edi_amb_l2_process(SC)
+;       FILES = mms_edi_amb_l2_process(SC, MODE)
+;       FILES = mms_edi_amb_l2_process(SC, MODE, DATE_START)
+;       FILES = mms_edi_amb_l2_process(SC, MODE, DATE_START, '')
+;       FILES = mms_edi_amb_l2_process(SC, MODE, DATE_START, DATE_END)
 ;
 ; :Categories:
 ;    MMS, EDI, QL, Ambient
 ;
 ; :Params:
-;       SC:         in, optional, type=string/strarr, default=['mms1'\, 'mms2'\, 'mms3'\, 'mms4']
-;                   Spacecraft for which to process data. The empty string is equivalent
-;                       to choosing the default value. Options are::
-;                       mms1, mms2, mms3, or mms4
-;       MODE:       in, optional, type=string/strarr, default='srvy'
-;                   Telemetry mode of the data to be processed. The empty string is
-;                       equivalent to choosing the default value. Options are: 
-;                       'srvy' and/or 'brst'
-;       DATE_START: in, optional, type=string, default=current date
-;                   First date of data to be processed. Formatted as 'YYYY-MM-DD'. The
-;                       empty string is equivalent to choosing the default value.
-;       DATE_END:   in, optional, type=string, default=`DATE_START`
-;                   Last date of data to be processed. Formatted as 'YYYY-MM-DD'. If
-;                       not defined, the value of `DATE_START` will be used and one
-;                       day of data will be processed. If DATE_END is the empty string,
-;                       then it will be set equal to the current date.
+;       SC:                 in, optional, type=string/strarr, default=['mms1', 'mms2', 'mms3', 'mms4']
+;                           Spacecraft identifiers for the data to process. Options are::
+;                               'mms1', 'mms2', 'mms3', and/or 'mms4'
+;       MODE:               in, required, type=string/strarr, default=['srvy', 'brst']
+;                           Data rate mode of the files to be processed. Choices are:
+;                               'slow', 'fast', 'srvy', 'brst'. The 'srvy' option combines
+;                               'slow' and 'fast' into a single 'srvy' file.
+;       TSTART:             in, optional, type=string, default=current date
+;                           First date of data to be processed. Formatted as 'YYYYMMDD' or
+;                               'YYYYMMDDhhmmss'. The empty string is equivalent to choosing
+;                               the default value.
+;       TEND:               in, optional, type=string, default=`TSTART`
+;                           Last date of data to be processed. Formatted as 'YYYYMMDD' or
+;                               'YYYYMMDDhhmmss'. All files between `TSTART` and TEND
+;                               are processed. If TEND is not defined, the value of `TSTART`
+;                               is used and the file for which the start date is closest to
+;                               TSTART without going over will be processed. If TEND
+;                               is the empty string, then the current date is used.
 ;
 ; :Keywords:
-;       COUNT:      out, optional, type=integer
-;                   Number of files created.
-;       CREATE_LOG: in, optional, type=boolean, default=1
-;                   If set, a log file will be created. If not, messages will be
-;                       directed to the current error logging file (defaults to the
-;                       console window -- see MrStdLog.pro)
-;       FLATTEN:    in, optional, type=boolean, default=0
-;                   If set, all files will be saved to their root directories, without
-;                       creating the standard SDC directory structure. This means
-;                       `OUTPUT_DIR` and `LOG_DIR` will be the destination directories.
-;       OUTPUT_DIR: in, optional, type=string, default='/nfs/edi'
-;                   Root directory in which to save data. Files are actually saved to
-;                       OUTPUT_DIR/sc/instr/mode/level/year/month[/day] to mimick the
-;                       MMS SDC data directory structure. "/day" is included only if
-;                       burst files are being processed.
-;       LOG_DIR:    in, optional, type=string, default='/nfs/edi'
-;                   Root directory in which to save log files. Files are actually saved to
-;                       LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
-;                       MMS SDC data directory structure. "/day" is included only if
-;                       burst files are being processed.
+;       NO_LOG:             in, optional, type=boolean, default=0
+;                           If set, no log file will be created and messages will be
+;                               directed to the current error logging file (defaults to the
+;                               console window -- see MrStdLog.pro)
+;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_unh_init.data_dir
+;                           Root directory of the SDC directory structure where files are
+;                               stored. The structure looks like
+;                               DATA_DIR/sc/instr/mode/level[/optdesc]/year/month[/day],
+;                               where "/day" is used only for brst data.
+;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_unh_init.dropbox
+;                           Directory in which to save data. Externally, files are moved from
+;                               DROPBOX into `DATA_DIR`.
+;       LOG_PATH_ROOT:      in, optional, type=string, default='/nfs/edi'
+;                           Root directory in which to save log files. Files are actually saved to
+;                               LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
+;                               MMS SDC data directory structure. "/day" is included only if
+;                               burst files are being processed.
+;       PACK_MODE:          in, optional, type=integer, default=1
+;                           Packing mode. Options are:
+;                               1 - Magnetic field is focused between channels 2 & 3
+;                               2 - Magnetic field is focused on channels 1
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -99,45 +74,68 @@
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
 ;-
-function mms_edi_amb_l2_process, sc, mode, date_start, date_end, $
-COUNT=count, $
-CREATE_LOG=create_log, $
-FLATTEN=flatten, $
-OUTPUT_DIR=output_dir, $
-LOG_DIR=log_dir
+PRO mms_edi_amb_l2_process, sc, mode, tstart, tend, $
+NO_LOG=no_log, $
+DATA_PATH_ROOT=data_path_in, $
+DROPBOX_ROOT=dropbox_in, $
+LOG_PATH_ROOT=log_path_in, $
+PACK_MODE=pacmo
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		MrPrintF, 'LogErr'
-		count = 0
-		return, ''
+		if n_elements(oLog) gt 0 then begin
+			oLog -> AddError
+			obj_destroy, oLog
+		endif else begin
+			print, !error_state.msg
+			print, transpose(mrtraceback())
+		endelse
+		return
 	endif
+	
+	;Everything starts out ok
+	status = 0
+	
+	;Initialize
+	unh_edi_init
+	
+	;Calculate the current date
+	caldat, systime(/JULIAN, /UTC), month, day, year, hour, minute, second
+	date = string(FORMAT='(%"%04i%02i%02i")', year, month, day)
+	time = string(FORMAT='(%"%02i%02i%02i")', hour, minute, second)
+	
+	;Error destination: Console or file?
+	tf_log = ~keyword_set(no_log)
+	if tf_log then begin
+		logDir = filepath('', ROOT_DIR=!edi_init.log_path_root, SUBDIRECTORY='batch_logs')
+		if ~file_test(logDir, /DIRECTORY) then file_mkdir, logDir
+		fLog   = filepath('mms_edi_amb_l2_' + date + '_' + time + '.log', ROOT_DIR=logDir)
+	endif else begin
+		fLog      = 'StdErr'
+	endelse
+	
+	;Create error logger
+	oLog = MrLogFile(fLog)
 
 ;-----------------------------------------------------
 ; Defaults \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Calculate the current date
-	caldat, systime(/JULIAN, /UTC), month, day, year
-	date = string(FORMAT='(%"%4i-%2i-%2i")', year, month, day)
 
 	;Parameters
-	if n_elements(sc)         eq 0 || sc[0]      eq '' then sc         = ['mms1', 'mms2', 'mms3', 'mms4']
-	if n_elements(mode)       eq 0 || mode[0]    eq '' then mode       = 'srvy'
-	if n_elements(date_start) eq 0 || date_start eq '' then date_start = date
-	if n_elements(date_end)   eq 0 $
-		then date_end = date_start $
-		else if date_end eq '' then date_end = date
-	
+	if n_elements(sc)     eq 0 || sc[0]   eq '' then sc     = ['mms1', 'mms2', 'mms3', 'mms4']
+	if n_elements(mode)   eq 0 || mode[0] eq '' then mode   = ['srvy', 'brst']
+	if n_elements(tstart) eq 0 || tstart  eq '' then tstart = date
+	if n_elements(tend)   eq 0 $
+		then tend = tstart $
+		else if tend eq '' then tend = date
+
 	;Keywords
-	create_log = keyword_set(create_log)
-	flatten    = keyword_set(flatten)
-	if n_elements(sdc_root)   eq 0 then sdc_root   = '/nfs'
-	if n_elements(output_dir) eq 0 then output_dir = filepath('', ROOT_DIR=sdc_root, $
-	                                                          SUBDIRECTORY=['edi'])
-	if n_elements(log_dir)    eq 0 then log_dir    = filepath('', ROOT_DIR=sdc_root, $
-	                                                          SUBDIRECTORY=['edi', 'logs'])
+	if n_elements(pacmo)        eq 0 then pacmo     = 1
+	if n_elements(data_path_in) eq 0 then data_path = !edi_init.data_path_root else data_path = data_path_in
+	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_init.dropbox_root   else dropbox   = dropbox_in
+	if n_elements(log_path_in)  eq 0 then log_path  = !edi_init.log_path_root  else log_path  = log_path_in
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -145,263 +143,271 @@ LOG_DIR=log_dir
 	;Number of elements
 	nSC    = n_elements(sc)
 	nMode  = n_elements(mode)
-	nStart = n_elements(date_start)
-	nEnd   = n_elements(date_end)
+	nStart = n_elements(tstart)
+	nEnd   = n_elements(tend)
+	nPacmo = n_elements(pacmo)
 	
 	;Unique values
-	if n_elements(uniq(sc,   sort(sc)))   ne nSC   then message, 'SC must contain only unique values.'
-	if n_elements(uniq(mode, sort(mode))) ne nMode then message, 'MODE must contain only unique values.'
-	if nStart ne 1 then message, 'DATE_START must be a scalar string.'
-	if nEnd   ne 1 then message, 'DATE_END must be a scalar string.'
+	if n_elements(uniq(sc,    sort(sc)))    ne nSC    then message, 'SC must contain only unique values.'
+	if n_elements(uniq(mode,  sort(mode)))  ne nMode  then message, 'MODE must contain only unique values.'
+	if n_elements(uniq(pacmo, sort(pacmo))) ne nPacmo then message, 'PACMO must contain only unique values.'
+	if nStart ne 1 then message, 'TSTART must be a scalar string.'
+	if nEnd   ne 1 then message, 'TEND must be a scalar string.'
 	
-	;Valid SC and MODE
+	;Valid SC, MODE, and PACMO
 	if min(MrIsMember(['mms1', 'mms2', 'mms3', 'mms4'], sc)) eq 0 $
 		then message, 'Invalid spacecraft ID given.'
 	if min(MrIsMember(['brst', 'srvy'], mode)) eq 0 $
 		then message, 'MODE mode be "brst" and/or "srvy"'
+	if min(MrIsMember([1, 2], pacmo)) eq 0 $
+		then message, 'PACMO must be 1 and/or 2.'
 	
-	;Directories must be writable
-	if create_log && ~file_test(log_dir, /DIRECTORY, /READ) $
-		then message, 'LOG_DIR must exist and be readable.'
-	if ~file_test(output_dir) $
-		then message, 'OUTPUT_DIR must exist and be readable.'
+	;Directories must be read and/or writable
+	if tf_log && ~file_test(log_path, /DIRECTORY, /WRITE) $
+		then message, 'LOG_PATH must exist and be writeable.'
+	if ~file_test(data_path, /DIRECTORY, /READ) $
+		then message, 'DATA_PATH directory must exist and be readable.'
+	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
+		then message, 'DROPBOX directory must exist and be read- and writeable.'
 	
+;-----------------------------------------------------
+; Reformat Times \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Parse the start and end times
+	mms_parse_time, tstart, syr, smo, sday, shr, smin, ssec, /INTEGER
+	mms_parse_time, tend,   eyr, emo, eday, ehr, emin, esec, /INTEGER
 
-;-----------------------------------------------------
-; Mods \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Mods to data processing
-	mods = ['v0.0.0 - Original version.']
-
-;-----------------------------------------------------
-; Generate Dates \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-	;Generate a series of dates
-	syr  = fix(strmid(date_start, 0, 4))
-	smo  = fix(strmid(date_start, 5, 2))
-	sday = fix(strmid(date_start, 8, 2))
-	eyr  = fix(strmid(date_end, 0, 4))
-	emo  = fix(strmid(date_end, 5, 2))
-	eday = fix(strmid(date_end, 8, 2))
-	times = timegen( START = julday(smo, sday, syr), $
-	                 FINAL = julday(emo, eday, eyr), $
-	                 UNITS = 'days', STEP_SIZE = 1 )
-
-	;Convert to start and end times
-	caldat, times, mo, day, yr, hr, mnt, sec
-	dates = string(yr,  FORMAT='(i04)') + '-' + $
-	        string(mo,  FORMAT='(i02)') + '-' + $
-	        string(day, FORMAT='(i02)')
-	tstart = dates + 'T00:00:00Z'
-	tend   = dates + 'T24:00:00Z'
+	;Form the start and stop times
+	tstart = string(syr, smo, sday, shr, smin, ssec, $
+	                FORMAT='(%"%04i-%02i-%02iT%02i:%02i:%02iZ")')
+	tend   = string(eyr, emo, eday, ehr, emin, esec, $
+	                FORMAT='(%"%04i-%02i-%02iT%02i:%02i:%02iZ")')
 	
-	;Undefine varaibles
-	undefine, syr, sm, sday, eyr, emo, eday, times
-	undefine, mo, day, yr, hr, mnt, sec, dates
+	;Constants for source files
+	instr = 'edi'
+	level = 'l1a'
+	
+	;Constants for output
+	outinstr = 'edi'
+	outlevel = 'l2'
 	
 ;-----------------------------------------------------
 ; Loop Over Date & Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Allocate memory
-	nt     = n_elements(tstart)
-	nm     = n_elements(mode)
-	nsc    = n_elements(sc)
-	nalloc = nsc * nm * nt
-	files  = strarr(nalloc)
-	count  = 0
+	nalloc   = 100
+	files    = strarr(nalloc)
+	status   = bytarr(nalloc)
+	telapsed = dblarr(nalloc)
+	count    = 0
+	
+	;Record start time
+	oLog -> AddText, 'Processing EDI Ambient data.'
+	oLog -> AddText, 'Start: ' + systime(/UTC)
+	oLog -> AddText, ''
+	t_begin = systime(1)
 
 	;Loop
-	for i = 0, n_elements(tstart) - 1 do begin
-	for j = 0, n_elements(mode)   - 1 do begin
-	for k = 0, n_elements(sc)     - 1 do begin
-		;Start time of file
-		year   = strmid(tstart[i], 0, 4)
-		month  = strmid(tstart[i], 5, 2)
-		day    = strmid(tstart[i], 8, 2)
-		fstart = strjoin([year, month, day], '-')
-		if mode[j] eq 'brst' then fstart += 'T' + strmid(tstart[i], 11, 2) + $
-		                                    ':' + strmid(tstart[i], 14, 2) + $
-		                                    ':' + strmid(tstart[i], 17, 2)
+	for p = 0, n_elements(pacmo) - 1 do begin
+	for j = 0, n_elements(mode)  - 1 do begin
+	for k = 0, n_elements(sc)    - 1 do begin
+		;Optional descriptor
+		optdesc = pacmo[p] eq 1 ? 'amb' : 'amb-pm' + string(pacmo[p], FORMAT='(i0)')
+
+		;Starting a new sc/mode
+		oLog -> AddText, '------------------------------------------------'
+		oLog -> AddText, '################################################'
+		oLog -> AddText, string(sc[k], instr, mode[j], level, optdesc, tstart, tend, $
+		                        FORMAT='(%"PROCESSING %s %s %s %s %s %s - %s")')
+		oLog -> AddText, ''
 
 	;-----------------------------------------------------
-	; Create a Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	; Find FAST/BRST Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;Create a log file
-		;   - If not, all errors will be written to console (IDL's stderr)
-		if create_log then begin
-			;Create the directory if it does not exist
-			logdir = log_dir
-			if ~flatten then mms_mkdir, log_dir, sc[k], 'edi', mode[j], 'ql', 'amb', year+month+day, OUT=logdir
-			
-			;File version
-			version = stregex(mods[-1], '(v[0-9]+\.[0-9]+\.[0-9]+)', /SUBEXP, /EXTRACT)
-			version = version[1]
+		;If we are processing "srvy" data, we must search
+		;for 'fast' and 'slow' files. Search for "fast" first.
+		fmode = mode[j] eq 'srvy' ? 'fast' : mode[j]
+
+		;Find files
+		f_mode1 = mms_find_file(sc[k], instr, fmode, level, $
+		                        COUNT   = cnt1, $
+		                        OPTDESC = optdesc, $
+		                        TSTART  = tstart, $
+		                        TEND    = tend)
 		
-			;Create the file name
-			log_fname = mms_construct_filename(sc[k], 'edi', mode[j], 'ql', $
-			                                   DIRECTORY = logmo, $
-			                                   OPTDESC   = 'amb', $
-			                                   TSTART    = fstart, $
-			                                   VERSION   = version)
-			log_fname = strmid(log_fname, 0, strpos(log_fname, '.', /REVERSE_SEARCH)) + '.log'
-			
-			;Create the error logging object
-			!Null = MrStdLog(log_fname)
+		;No FAST/BRST files found
+		if cnt1 eq 0 then begin
+			oLog -> AddText, string(sc[k], instr, fmode, level, optdesc, tstart, tend, $
+			                        FORMAT='(%"No %s %s %s %s %s files found in interval %s - %s")')
 		endif
-
+	
 	;-----------------------------------------------------
-	; Find Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	; Find SLOW Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;Input file mode
-		fmode = mode[j] eq 'brst' ? mode[j] : ['fast', 'slow']
+		cnt2 = 0
+		if mode[j] eq 'srvy' then begin
+			f_mode2 = mms_find_file(sc[k], instr, 'slow', level, $
+			                        COUNT   = cnt2, $
+			                        OPTDESC = optdesc, $
+			                        TSTART  = tstart, $
+			                        TEND    = tend)
 		
-		;EDI files
-		files_edi = mms_find_file(sc[k], 'edi', fmode, 'l1a', $
-		                          COUNT     = nEDI, $
-		                          OPTDESC   = 'amb', $
-		                          SEARCHSTR = searchstr, $
-		                          TSTART    = tstart[i], $
-		                          TEND      = tend[i])
-		
-		;Did we find any files?
-		if nEDI eq 0 then begin
-			MrPrintF, 'LogErr', tstart[i], tend[i], FORMAT='(%"EDI files not found for interval %s - %s")'
+			;No SLOW files found
+			if cnt2 eq 0 then begin
+				oLog -> AddText, string(sc[k], instr, 'slow', level, optdesc, tstart, tend, $
+				                        FORMAT='(%"No %s %s %s %s %s files found in interval %s - %s")')
+			endif
+		endif
+	
+		;Zero files found
+		if cnt1 + cnt2 eq 0 then begin
+			oLog -> AddError, 'No files found. Skipping.'
 			continue
 		endif
-
-		;DFG file
-		files_fgm = mms_find_file(sc[k], 'dfg', mode[j], 'l1b', $
-		                          COUNT     = nFGM, $
-		                          OPTDESC   = '', $
-		                          SEARCHSTR = searchstr, $
-		                          TSTART    = tstart[i], $
-		                          TEND      = tend[i])
-		if nFGM eq 0 then MrPrintF, 'LogWarn', 'FGM files not found: "' + searchstr + '".'
-
+	
 	;-----------------------------------------------------
-	; SRVY data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	; Sort Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if mode[j] eq 'srvy' then begin
-			;Write parents to log file
-			MrPrintF, 'LogText', ''
-			MrPrintF, 'LogText', '---------------------------------'
-			MrPrintF, 'LogText', '| Parent Files                  |'
-			MrPrintF, 'LogText', '---------------------------------'
-			MrPrintF, 'LogText', files_edi
-			if nFGM gt 0 then MrPrintF, 'LogText', files_fgm
-			MrPrintF, 'LogText', '---------------------------------'
-			MrPrintF, 'LogText', ''
+		;Gather start times of all files
+		if cnt1 gt 0 then mms_dissect_filename, f_mode1, TT2000=tt2000_mode1
+		if cnt2 gt 0 then mms_dissect_filename, f_mode2, TT2000=tt2000_mode2
+		
+		;Combine the start times into a single array
+		if cnt1 gt 0 && cnt2 gt 0 then begin
+			tt2000 = [tt2000_mode1, tt2000_mode2]
+		endif else if cnt1 gt 0 then begin
+			tt2000 = tt2000_mode1
+		endif else begin
+			tt2000 = tt2000_mode2
+		endelse
+		
+		;Extract the uniq times
+		tt2000 = tt2000[uniq(tt2000, sort(tt2000))]
+		nTimes = n_elements(tt2000)
+	
+	;-----------------------------------------------------
+	; Process Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		for i = 0, nTimes - 1 do begin
+			;Locate the files for each unique time
+			if cnt1 gt 0 then i1 = where(tt2000_mode1 eq tt2000[i], n1) else n1 = 0
+			if cnt2 gt 0 then i2 = where(tt2000_mode2 eq tt2000[i], n2) else n2 = 0
+			
+			;Should have only one file of each type per interval
+			if n1 gt 1 then begin
+				oLog -> AddError, 'More than one ' + fmode + ' file found for ' + $
+				                  MrCDF_Epoch_Encode(tt2000[i])
+				oLog -> AddText, f_mode1[i1]
+				continue
+			endif
+			if n2 gt 1 then begin
+				oLog -> AddError, 'More than one SLOW file found for ' + $
+				                  MrCDF_Epoch_Encode(tt2000[i])
+				oLog -> AddText, f_mode2[i2]
+				continue
+			endif
+			
+			;Reformat the time
+			;   - File start time for brst or srvy mode
+			MrCDF_Epoch_Breakdown, tt2000[i], yr, mo, day, hr, mnt, sec
+			fstart = mode[j] eq 'brst' ? string(FORMAT='(%"%04i%02i%02i%02i%02i%02i")', yr, mo, day, hr, mnt, sec) $
+			                           : string(FORMAT='(%"%04i%02i%02i")', yr, mo, day)
+
+			;Report start and end
+			oLog -> AddText, 'Processing started at:  ' + systime(/UTC)
+			f_begin = systime(1)
 			
 			;Process data
-			edi_l2 = mms_edi_amb_create(files_edi, FGM_FILES=files_fgm)
-			if n_elements(edi_l2) eq 0 then continue
-			
-			;Write data
-			;Create the directory if it does not exist
-			outdir = output_dir
-			if ~flatten then mms_mkdir, output_dir, sc[k], 'edi', mode[j], 'l2', 'amb', year+month+day, OUT=outdir
+			status_out = mms_edi_amb_l2_sdc(sc[k], mode[j], fstart, $
+			                                FILE_OUT  = file_out, $
+			                                PACK_MODE = pacmo[p])
 
-			;Gather metadata
-			parents = nFGM eq 0 ? files_edi : [files_edi, files_fgm]
-			parents = file_basename(parents)
-			meta_data = { sc:        sc[k], $
-			              instr:     'edi', $
-			              mode:      mode, $
-			              mods:      mods, $
-			              level:     'l2', $
-			              optdesc:   'amb', $
-			              tstart:    fstart, $
-			              parents:   files_edi, $
-			              directory: outdir $
-			            }
+			;End of processing time
+			f_end = systime(1)
+			oLog -> AddText, 'Processing finished at: ' + systime(/UTC)
 	
-			;Create the file
-			files[count] = mms_edi_amb_l2_write(temporary(edi_l2), temporary(meta_data))
+		;-----------------------------------------------------
+		; Results \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+		;-----------------------------------------------------
 			
-			;Write destination to log file
-			if create_log then MrPrintF, 'LogText', 'File written to: "' + files[count] + '".'
-			
-			;Increase the file count
+			;Save results
+			if status_out eq 0 $
+				then files[count] = file_out $
+				else files[count] = strjoin([sc[k], outinstr, mode[j], outlevel, optdesc, fstart], '_')
+			status[count]   = status_out
+			telapsed[count] = f_end - f_begin
 			count++
+			
+			;Allocate more memory (double allocation each time)
+			if count ge nalloc then begin
+				nalloc  += count
+				status   = [status,   bytarr(count)]
+				files    = [files,    strarr(count)]
+				telapsed = [telapsed, dblarr(count)]
+			endif
 
-			;Double the allocation?
-			if count ge nalloc then files = [files, strarr(count)]
-
-	;-----------------------------------------------------
-	; BRST data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-	;-----------------------------------------------------
-		endif else begin
-			;Dissect FGM file names
-			mms_dissect_filename, files_fgm, TSTART=fgm_tstart
-			mms_dissect_filename, files_edi, TSTART=edi_tstart
-	
-			;Loop through all EDI files
-			for m = 0, n_elements(files_edi) - 1 do begin
-				;Is there a matching FGM file?
-				ifgm = where(fgm_tstart eq edi_tstart[m], nFGM)
-				if nFGM gt 0 then fgm_file = files_fgm[ifgm]
-				
-				;Write parents to log file
-				MrPrintF, 'LogText', ''
-				MrPrintF, 'LogText', '---------------------------------'
-				MrPrintF, 'LogText', '| Parent Files                  |'
-				MrPrintF, 'LogText', '---------------------------------'
-				MrPrintF, 'LogText', files_edi[m]
-				if nFGM gt 0 then MrPrintF, 'LogText', fgm_file
-				MrPrintF, 'LogText', '---------------------------------'
-				MrPrintF, 'LogText', ''
-	
-				;Create the ambient quicklook file
-				edi_l2 = mms_edi_amb_create(files_edi[m], FGM_FILES=fgm_file)
-				if n_elements(edi_l2) eq 0 then continue
-				
-				;Create the directory if it does not exist
-				outdir = output_dir
-				if ~flatten then mms_mkdir, output_dir, sc[k], 'edi', mode[j], 'l2', 'amb', year+month+day, OUT=outdir
-				
-				;File time
-				MrTimeParser, edi_tstart[m], '%Y%M%d%H%m%S', '%Y-%M-%dT%H:%m:%S', fstart
-				
-				;Gather metadata
-				parents = nFGM eq 0 ? files_edi : [files_edi, files_fgm]
-				parents = file_basename(parents)
-				meta_data = { sc:        sc[k], $
-				              instr:     'edi', $
-				              mode:      mode, $
-				              mods:      mods, $
-				              level:     'l2', $
-				              optdesc:   'amb', $
-				              tstart:    fstart, $
-				              parents:   parents, $
-				              directory: outdir $
-				            }
-		
-				;Create the file
-				files[count] = mms_edi_amb_l2_write(temporary(edi_l2), temporary(meta_data))
-				
-				;Write destination to log file
-				if create_log then MrPrintF, 'LogText', 'File written to: "' + files[count] + '".'
-				
-				;Increase the file count
-				count++
-	
-				;Double the allocation?
-				if count ge nalloc then files = [files, strarr(count)]
-			endfor
-		endelse
-	
-	;-----------------------------------------------------
-	; Next Iteration \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-	;-----------------------------------------------------
-	endfor ;tstart
+			;Report results
+			oLog -> AddText, 'Finished processing'
+			if n1 gt 0 then oLog -> AddText, '   ' + fmode + ' file:   "' + f_mode1[i1] + '"'
+			if n2 gt 0 then oLog -> AddText, '   Slow file:   "' + f_mode2[i2] + '"'
+			oLog -> AddText, '   Output file: "' + file_out   + '"'
+			oLog -> AddText, '   Error status: ' + string(status_out, FORMAT='(i0)')
+			oLog -> AddText, '   Proc time:    ' + string(telapsed[count-1]/60.0, FORMAT='(f0.2)') + ' min'
+			oLog -> AddText, '##############################################'
+			oLog -> AddText, '----------------------------------------------'
+			oLog -> AddText, ''
+		endfor ;date
+	endfor ;sc
 	endfor ;mode
-	endfor ;date
+	endfor ;pacmo
 	
-	;Trim extra elements
-	if count eq 1 $
-		then files = files[0] $
-		else files = files[0:count-1]
+	;Finish processing
+	t_end = systime(1)
 	
-	;Return the files
-	return, files
+;-----------------------------------------------------
+; Executive Summary \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Trim results
+	files  = files[0:count - 1]
+	status = status[0:count - 1]
+
+	;Number of errors
+	ierror = where(status ge 100, nerror)
+	iwarn  = where(status gt   0 and status lt 100, nwarn)
+
+	;Time elapsed
+	dt     = t_end - t_begin
+	dt_hr  = floor((dt) / 3600.0)
+	dt_min = floor( (dt mod 3600.0) / 60.0 )
+	dt_sec = dt mod 60
+
+	;Print error code look-up table
+	if nwarn + nerror gt 0 then begin
+		;Get the error codes and their messages
+		txt = mms_edi_amb_error_codes(/TXT)
+
+		;Print them to the log file.
+		oLog -> AddText, '-----------------------------------------'
+		oLog -> AddText, ''
+		oLog -> AddText, txt
+		oLog -> AddText, ''
+		oLog -> AddText, '-----------------------------------------'
+	endif
+
+	;Log summary information
+	oLog -> AddText, ''
+	oLog -> AddText, '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'
+	oLog -> AddText, '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'
+	oLog -> AddText, 'EXECUTIVE SUMMARY'
+	oLog -> AddText, '   Number of Files:    ' + strtrim(count,  2)
+	oLog -> AddText, '   Number of Warnings: ' + strtrim(nwarn,  2)
+	oLog -> AddText, '   Number of Errors:   ' + strtrim(nerror, 2)
+	oLog -> AddText, '   Total Time Elapsed: ' + string(FORMAT='(%"%ihr %imin %0.2fsec")', dt_hr, dt_min, dt_sec)
+	oLog -> AddText, '   Status    Name'
+	oLog -> AddText, '    ' + string(status, FORMAT='(i3)') + '       ' + files
+	oLog -> AddText, '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'
+	oLog -> AddText, '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'
+	
+	;Close log object
+	obj_destroy, oLog
 end

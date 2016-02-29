@@ -3,34 +3,6 @@
 ; NAME:
 ;    mms_edi_amb_create
 ;
-;*****************************************************************************************
-;   Copyright (c) 2015, Matthew Argall                                                   ;
-;   All rights reserved.                                                                 ;
-;                                                                                        ;
-;   Redistribution and use in source and binary forms, with or without modification,     ;
-;   are permitted provided that the following conditions are met:                        ;
-;                                                                                        ;
-;       * Redistributions of source code must retain the above copyright notice,         ;
-;         this list of conditions and the following disclaimer.                          ;
-;       * Redistributions in binary form must reproduce the above copyright notice,      ;
-;         this list of conditions and the following disclaimer in the documentation      ;
-;         and/or other materials provided with the distribution.                         ;
-;       * Neither the name of the University of New Hampshire nor the names of its       ;
-;         contributors may be used to endorse or promote products derived from this      ;
-;         software without specific prior written permission.                            ;
-;                                                                                        ;
-;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
-;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
-;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
-;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
-;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
-;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
-;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
-;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
-;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
-;   DAMAGE.                                                                              ;
-;*****************************************************************************************
-;
 ; PURPOSE:
 ;+
 ;   Process EDI AMB L1A data, sorting counts by pitch angle instead of GDU and,
@@ -89,7 +61,7 @@
 ;                       OK      = 0
 ;                       Warning = 1-99
 ;                       Error   = 100-255
-;                           105      -  Trapped error
+;                           100      -  Unexpected trapped error
 ;
 ; :Returns:
 ;       EDI_OUT:    Structure of processed data. Fields are::
@@ -116,7 +88,11 @@
 ;                       PA4_0       - Pitch angle associated with COUNTS4_0 (L2 only)
 ;                       PA4_180     - Pitch angle associated with COUNTS4_180 (L2 only)
 ;-
-function mms_edi_amb_l2_create, amb_files, cal_file, tstart, tend, $
+;*****************************************************************************************
+;+
+;
+;-
+function mms_edi_amb_l2_create, amb_files, cal_file, dss_file, defatt_file, tstart, tend, $
 FGM_FILES=fgm_files, $
 STATUS=status
 	compile_opt idl2
@@ -127,7 +103,7 @@ STATUS=status
 		
 		;TODO: Give error codes to specific errors.
 		if n_elements(status) eq 0 || status eq 0 $
-			then status = 105
+			then status = 100
 		
 		MrPrintF, 'LogErr'
 		return, !Null
@@ -161,19 +137,30 @@ STATUS=status
 	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
 	;   - Expand AZIMUTH and POLAR angles to COUNTS time resolution
-	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend, /EXPAND_ANGLES)
-	
-	;Calibrations
+	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend, /EXPAND_ANGLES, STATUS=status)
+	if status ge 100 then message, 'Error reading Amb L1A data.'
+
+	;Read calibration file
 	cals = mms_edi_amb_cal_read(cal_file)
 
 ;-----------------------------------------------------
 ; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Read Calibration File
-	cal_cnts = mms_edi_amb_cal_apply(edi, cals, /ABSCAL)
+	cal_cnts = mms_edi_amb_calibrate(edi, cals, /ABSCAL, BRST=tf_brst)
 
-	;Replace old counts with new counts
-	edi = MrStruct_ReplaceValue(temporary(edi), temporary(cal_cnts))
+	;Remove uncalibrated data
+	if tf_brst then begin
+		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2', $
+		                                'COUNTS2_GDU1', 'COUNTS2_GDU2', $
+		                                'COUNTS3_GDU1', 'COUNTS3_GDU2', $
+		                                'COUNTS4_GDU1', 'COUNTS4_GDU2'])
+	endif else begin
+		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2'])
+	endelse
+
+	;Append calibrated data
+	edi = create_struct(edi, temporary(cal_cnts))
 
 ;-----------------------------------------------------
 ; Sort by 0 and 180 Pitch Angle \\\\\\\\\\\\\\\\\\\\\\
@@ -183,76 +170,27 @@ STATUS=status
 		else counts_0_180 = mms_edi_amb_srvy_sort_cnts(edi)
 
 ;-----------------------------------------------------
-; Pitch Angles (L2) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Calculate Pitch Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;If an error occurs while calculating pitch angles,
-	;make a note and move on.
-	catch, the_error
-	if the_error ne 0 then begin
-		catch, /CANCEL
-		MrPrintF, 'LogText', '--------------------------------------------'
-		MrPrintF, 'LogText', '|      Error Calculating Pitch Angles      |'
-		MrPrintF, 'LogText', '--------------------------------------------'
-		MrPrintF, 'LogErr'
-		nFGM = 0
-		
-	;Calculate pitch angles
-	endif else if nFGM gt 0 then begin
-		mms_dissect_filename, fgm_files, LEVEL=level_fgm
-		
-		;Read FGM data
-		;   - L2 is preferred
-		;   - Send warning about any other level
-		case level_fgm[0] of
-			'l2': fgm = mms_fg_read_l2(fgm_files, tstart, tend)
-			'l2pre': begin
-				MrPrintF, 'LogWarn', 'FGM L2PRE data provided. Expected L2.'
-				fgm = mms_fg_read_l2pre(fgm_files, tstart, tend)
-			endcase
-			'ql': begin
-				MrPrintF, 'LogWarn', 'FGM quick-look data provided. Expected L2.'
-				fgm = mms_fg_read_ql(fgm_files, tstart, tend)
-			endcase
-			'l1b': begin
-				MrPrintF, 'LogWarn', 'FGM L1B data provided. Expected L2.'
-				fgm = mms_fg_read_l1b(fgm_files, tstart, tend)
-			endcase
-			else: message, 'Unexpected FGM data level: "' + level_fgm[0] + '".'
-		endcase
-		
-		;Calculate pitch angles
-		if tf_brst $
-			then pa_0_180 = mms_edi_amb_brst_calc_pa(edi, temporary(fgm)) $
-			else pa_0_180 = mms_edi_amb_srvy_calc_pa(edi, temporary(fgm))
-	endif
-	catch, /CANCEL
+
+	;Compute trajectories
+	;   - Requires: azimuth, polar, epoch, pitch, pack
+	traj = mms_edi_amb_l2_trajectories(edi, dss_file, defatt_file)
 
 ;-----------------------------------------------------
 ; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;Establish a new error handler
-	catch, the_error
-	if the_error ne 0 then begin
-		catch, /CANCEL
-		MrPrintF, 'LogErr'
-		return, ''
-	endif
 
 	;Create the output structure
-	edi_out = { tt2000_tt:   reform(edi.epoch_timetag), $
-	            energy_gdu1: reform(edi.energy_gdu1), $
-	            energy_gdu2: reform(edi.energy_gdu2), $
-	            optics:      reform(edi.optics), $
-	            pack_mode:   reform(edi.pack_mode) $
+	edi_out = { tt2000_timetag: reform(edi.epoch_timetag), $
+	            optics:         reform(edi.optics), $
+	            energy_gdu1:    reform(edi.energy_gdu1), $
+	            energy_gdu2:    reform(edi.energy_gdu2) $
 	          }
 	edi = !Null
 
 	;Burst mode counts
-	edi_out = create_struct(edi_out, temporary(counts_0_180))
+	edi_out = create_struct(edi_out, temporary(counts_0_180), temporary(traj))
 
-	;Pitch angle (burst only)
-	if nFGM gt 0 then edi_out = create_struct(edi_out, temporary(pa_0_180))
-
-	status = 0
 	return, edi_out
 end

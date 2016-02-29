@@ -36,6 +36,12 @@
 ;                           Optional filename descriptor, with parts separated by a hyphen.
 ;       PARENTS:            in, optional, type=string/strarr, default=''
 ;                           Names of the parent files required to make `AMB_DATA`.
+;       STATUS:             out, required, type=byte
+;                           An error code. Values are:::
+;                               OK      = 0
+;                               Warning = 1-99
+;                               Error   = 100-255
+;                                   100      -  Unexpected trapped error
 ;
 ; :Returns:
 ;       AMB_FILE:           Name of the file created.
@@ -53,20 +59,29 @@
 ;       2015/10/26  -   Written by Matthew Argall
 ;       2015/01/16  -   Determine the correct output file version more reliably.
 ;                           Change inputs to make program more versatile. - MRA
+;       2015/02/27  -   Added the STATUS keyword. - MRA
 ;-
 function mms_edi_amb_l2_write, sc, mode, tstart, amb_data, $
 DROPBOX_ROOT=dropbox, $
 DATA_PATH_ROOT=data_path, $
 OPTDESC=optdesc, $
-PARENTS=parents
+PARENTS=parents, $
+STATUS=status
 	compile_opt idl2
 	
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
+		
+		;Close and delete the file, if it was created
 		if obj_valid(oamb) then obj_destroy, oamb
 		if n_elements(amb_file) gt 0 && file_test(amb_file) then file_delete, amb_file
+		
+		;Report error
+		if n_elements(status) eq 0 || status eq 0 then status = 100
 		MrPrintF, 'LogErr'
+		
+		;Return
 		return, ''
 	endif
 
@@ -74,7 +89,14 @@ PARENTS=parents
 ; Version History                    ;
 ;------------------------------------;
 	;Mods to data processing
-	mods = [ 'v0.0.0 - Original version.' ]
+	mods = [ 'v0.0.0 - Original version.', $
+	         'v1.0.0 - Include trajectory vectors and optics state.', $
+	         'v1.1.0 - Update metadata: counts -> flux.', $
+	         'v1.2.0 - Added flux error.', $
+	         'v1.3.0 - Trajectory vector errors are now deltas.', $
+	         'v1.4.0 - Fixed dead-time correction and error values.', $
+	         'v1.5.0 - Factor of 2 for accumulation time & 2 for abscal factor in srvy mode.', $
+	         'v1.6.0 - No factor of 2 for accumulation time in srvy mode.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -84,7 +106,7 @@ PARENTS=parents
 	
 	;Constants for output file
 	instr   = 'edi'
-	level   = 'q2'
+	level   = 'l2'
 
 ;------------------------------------;
 ; Check Inputs                       ;
@@ -137,23 +159,23 @@ PARENTS=parents
 	;
 	; Check sizes
 	;
-	if ~isa(amb_data.tt2000_0,     'LONG64') then message, 'amb_data.tt2000_0 must be LONG64.'
-	if ~isa(amb_data.tt2000_180,   'LONG64') then message, 'amb_data.tt2000_180 must be LONG64.'
-	if ~isa(amb_data.tt2000_tt,    'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
-	if ~isa(amb_data.optics,       'UINT')   then message, 'amb_data.optics must be UINT.'
-	if ~isa(amb_data.energy_gdu1,  'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
-	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
-	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
-	if ~isa(amb_data.gdu_180,      'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
-	if ~isa(amb_data.counts1_0,    'FLOAT')  then message, 'amb_data.counts1_0 must be UINT.'
-	if ~isa(amb_data.counts1_180,  'FLOAT')  then message, 'amb_data.counts1_180 must be UINT.'
+	if ~isa(amb_data.tt2000_0,       'LONG64') then message, 'amb_data.tt2000_0 must be LONG64.'
+	if ~isa(amb_data.tt2000_180,     'LONG64') then message, 'amb_data.tt2000_180 must be LONG64.'
+	if ~isa(amb_data.tt2000_timetag, 'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
+	if ~isa(amb_data.optics,         'BYTE')   then message, 'amb_data.optics must be BYTE.'
+	if ~isa(amb_data.energy_gdu1,    'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
+	if ~isa(amb_data.energy_gdu2,    'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
+	if ~isa(amb_data.gdu_0,          'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
+	if ~isa(amb_data.gdu_180,        'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
+	if ~isa(amb_data.counts1_0,      'FLOAT')  then message, 'amb_data.counts1_0 must be FLOAT.'
+	if ~isa(amb_data.counts1_180,    'FLOAT')  then message, 'amb_data.counts1_180 must be FLOAT.'
 	if mode eq 'brst' then begin
-		if ~isa(amb_data.counts2_0,    'FLOAT') then message, 'amb_data.counts2_0 must be UINT.'
-		if ~isa(amb_data.counts3_0,    'FLOAT') then message, 'amb_data.counts3_0 must be UINT.'
-		if ~isa(amb_data.counts4_0,    'FLOAT') then message, 'amb_data.counts4_0 must be UINT.'
-		if ~isa(amb_data.counts2_180,  'FLOAT') then message, 'amb_data.counts2_180 must be UINT.'
-		if ~isa(amb_data.counts3_180,  'FLOAT') then message, 'amb_data.counts3_180 must be UINT.'
-		if ~isa(amb_data.counts4_180,  'FLOAT') then message, 'amb_data.counts4_180 must be UINT.'
+		if ~isa(amb_data.counts2_0,    'FLOAT') then message, 'amb_data.counts2_0 must be FLOAT.'
+		if ~isa(amb_data.counts3_0,    'FLOAT') then message, 'amb_data.counts3_0 must be FLOAT.'
+		if ~isa(amb_data.counts4_0,    'FLOAT') then message, 'amb_data.counts4_0 must be FLOAT.'
+		if ~isa(amb_data.counts2_180,  'FLOAT') then message, 'amb_data.counts2_180 must be FLOAT.'
+		if ~isa(amb_data.counts3_180,  'FLOAT') then message, 'amb_data.counts3_180 must be FLOAT.'
+		if ~isa(amb_data.counts4_180,  'FLOAT') then message, 'amb_data.counts4_180 must be FLOAT.'
 	endif
 
 	;Open the CDF file
@@ -180,7 +202,7 @@ PARENTS=parents
 	;           Particles (space)
 	;           Plasma and Solar Wind
 	;           Spacecraft Potential Control
-	oamb -> WriteGlobalAttr, /CREATE, 'Data_Type',                  data_type
+	oamb -> WriteGlobalAttr, /CREATE, 'Data_type',                  data_type
 	oamb -> WriteGlobalAttr, /CREATE, 'Data_version',               version
 	oamb -> WriteGlobalAttr, /CREATE, 'Descriptor',                 'EDI'
 	oamb -> WriteGlobalAttr, /CREATE, 'Discipline',                 'Space Physics>Magnetospheric Science'
@@ -189,7 +211,7 @@ PARENTS=parents
 	oamb -> WriteGlobalAttr, /CREATE, 'Instrument_type',            'Particles (space)'
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_file_id',            logical_file_id
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source',             logical_source
-	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Quick-look EDI Ambient Counts'
+	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Level 2 EDI Ambient electron flux'
 	oamb -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
 	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
@@ -218,159 +240,209 @@ PARENTS=parents
 	prefix  = strjoin([sc, instr], '_') + '_'
 	suffix  = '_' + strjoin([mode, level], '_')
 	
-	t_0_vname           = 'epoch_pa0'
-	t_180_vname         = 'epoch_pa180'
-	t_tt_vname          = 'epoch_timetag'
-	optics_vname        = prefix + 'optics_state' + suffix
-	e_gdu1_vname        = prefix + 'energy_gdu1'  + suffix
-	e_gdu2_vname        = prefix + 'energy_gdu2'  + suffix
-	gdu_0_vname         = prefix + 'gdu_0'        + suffix
-	gdu_180_vname       = prefix + 'gdu_180'      + suffix
-	counts1_0_vname     = prefix + 'counts1_0'    + suffix
-	counts2_0_vname     = prefix + 'counts2_0'    + suffix
-	counts3_0_vname     = prefix + 'counts3_0'    + suffix
-	counts4_0_vname     = prefix + 'counts4_0'    + suffix
-	counts1_180_vname   = prefix + 'counts1_180'  + suffix
-	counts2_180_vname   = prefix + 'counts2_180'  + suffix
-	counts3_180_vname   = prefix + 'counts3_180'  + suffix
-	counts4_180_vname   = prefix + 'counts4_180'  + suffix
-	pa1_0_vname         = prefix + 'pa1_0'        + suffix
-	pa2_0_vname         = prefix + 'pa2_0'        + suffix
-	pa3_0_vname         = prefix + 'pa3_0'        + suffix
-	pa4_0_vname         = prefix + 'pa4_0'        + suffix
-	pa1_180_vname       = prefix + 'pa1_180'      + suffix
-	pa2_180_vname       = prefix + 'pa2_180'      + suffix
-	pa3_180_vname       = prefix + 'pa3_180'      + suffix
-	pa4_180_vname       = prefix + 'pa4_180'      + suffix
-	pa1_0_delta_minus   = prefix + 'pa1_0_delta_minus'   + suffix
-	pa1_0_delta_plus    = prefix + 'pa1_0_delta_plus'    + suffix
-	pa2_0_delta_minus   = prefix + 'pa2_0_delta_minus'   + suffix
-	pa2_0_delta_plus    = prefix + 'pa2_0_delta_plus'    + suffix
-	pa3_0_delta_minus   = prefix + 'pa3_0_delta_minus'   + suffix
-	pa3_0_delta_plus    = prefix + 'pa3_0_delta_plus'    + suffix
-	pa4_0_delta_minus   = prefix + 'pa4_0_delta_minus'   + suffix
-	pa4_0_delta_plus    = prefix + 'pa4_0_delta_plus'    + suffix
-	pa1_180_delta_minus = prefix + 'pa1_180_delta_minus' + suffix
-	pa1_180_delta_plus  = prefix + 'pa1_180_delta_plus'  + suffix
-	pa2_180_delta_minus = prefix + 'pa2_180_delta_minus' + suffix
-	pa2_180_delta_plus  = prefix + 'pa2_180_delta_plus'  + suffix
-	pa3_180_delta_minus = prefix + 'pa3_180_delta_minus' + suffix
-	pa3_180_delta_plus  = prefix + 'pa3_180_delta_plus'  + suffix
-	pa4_180_delta_minus = prefix + 'pa4_180_delta_minus' + suffix
-	pa4_180_delta_plus  = prefix + 'pa4_180_delta_plus'  + suffix
+	t_0_vname                 = 'epoch_0'
+	t_180_vname               = 'epoch_180'
+	t_tt_vname                = 'epoch_timetag'
+	optics_vname              = prefix + 'optics_state'             + suffix
+	e_gdu1_vname              = prefix + 'energy_gdu1'              + suffix
+	e_gdu2_vname              = prefix + 'energy_gdu2'              + suffix
+	gdu_0_vname               = prefix + 'gdu_0'                    + suffix
+	gdu_180_vname             = prefix + 'gdu_180'                  + suffix
+	flux1_0_vname             = prefix + 'flux1_0'                  + suffix
+	flux2_0_vname             = prefix + 'flux2_0'                  + suffix
+	flux3_0_vname             = prefix + 'flux3_0'                  + suffix
+	flux4_0_vname             = prefix + 'flux4_0'                  + suffix
+	flux1_180_vname           = prefix + 'flux1_180'                + suffix
+	flux2_180_vname           = prefix + 'flux2_180'                + suffix
+	flux3_180_vname           = prefix + 'flux3_180'                + suffix
+	flux4_180_vname           = prefix + 'flux4_180'                + suffix
+	traj1_gse_0_vname         = prefix + 'traj1_gse_0'              + suffix
+	traj2_gse_0_vname         = prefix + 'traj2_gse_0'              + suffix
+	traj3_gse_0_vname         = prefix + 'traj3_gse_0'              + suffix
+	traj4_gse_0_vname         = prefix + 'traj4_gse_0'              + suffix
+	traj1_gse_180_vname       = prefix + 'traj1_gse_180'            + suffix
+	traj2_gse_180_vname       = prefix + 'traj2_gse_180'            + suffix
+	traj3_gse_180_vname       = prefix + 'traj3_gse_180'            + suffix
+	traj4_gse_180_vname       = prefix + 'traj4_gse_180'            + suffix
+	traj1_gsm_0_vname         = prefix + 'traj1_gsm_0'              + suffix
+	traj2_gsm_0_vname         = prefix + 'traj2_gsm_0'              + suffix
+	traj3_gsm_0_vname         = prefix + 'traj3_gsm_0'              + suffix
+	traj4_gsm_0_vname         = prefix + 'traj4_gsm_0'              + suffix
+	traj1_gsm_180_vname       = prefix + 'traj1_gsm_180'            + suffix
+	traj2_gsm_180_vname       = prefix + 'traj2_gsm_180'            + suffix
+	traj3_gsm_180_vname       = prefix + 'traj3_gsm_180'            + suffix
+	traj4_gsm_180_vname       = prefix + 'traj4_gsm_180'            + suffix
+
+	flux1_0_delta_vname     = prefix + 'flux1_0_delta'     + suffix
+	flux2_0_delta_vname     = prefix + 'flux2_0_delta'     + suffix
+	flux3_0_delta_vname     = prefix + 'flux3_0_delta'     + suffix
+	flux4_0_delta_vname     = prefix + 'flux4_0_delta'     + suffix
+	flux1_180_delta_vname   = prefix + 'flux1_180_delta'   + suffix
+	flux2_180_delta_vname   = prefix + 'flux2_180_delta'   + suffix
+	flux3_180_delta_vname   = prefix + 'flux3_180_delta'   + suffix
+	flux4_180_delta_vname   = prefix + 'flux4_180_delta'   + suffix
+
+	traj1_gse_0_delta_minus   = prefix + 'traj1_gse_0_delta_minus'   + suffix
+	traj1_gse_0_delta_plus    = prefix + 'traj1_gse_0_delta_plus'    + suffix
+	traj2_gse_0_delta_minus   = prefix + 'traj2_gse_0_delta_minus'   + suffix
+	traj2_gse_0_delta_plus    = prefix + 'traj2_gse_0_delta_plus'    + suffix
+	traj3_gse_0_delta_minus   = prefix + 'traj3_gse_0_delta_minus'   + suffix
+	traj3_gse_0_delta_plus    = prefix + 'traj3_gse_0_delta_plus'    + suffix
+	traj4_gse_0_delta_minus   = prefix + 'traj4_gse_0_delta_minus'   + suffix
+	traj4_gse_0_delta_plus    = prefix + 'traj4_gse_0_delta_plus'    + suffix
+	traj1_gse_180_delta_minus = prefix + 'traj1_gse_180_delta_minus' + suffix
+	traj1_gse_180_delta_plus  = prefix + 'traj1_gse_180_delta_plus'  + suffix
+	traj2_gse_180_delta_minus = prefix + 'traj2_gse_180_delta_minus' + suffix
+	traj2_gse_180_delta_plus  = prefix + 'traj2_gse_180_delta_plus'  + suffix
+	traj3_gse_180_delta_minus = prefix + 'traj3_gse_180_delta_minus' + suffix
+	traj3_gse_180_delta_plus  = prefix + 'traj3_gse_180_delta_plus'  + suffix
+	traj4_gse_180_delta_minus = prefix + 'traj4_gse_180_delta_minus' + suffix
+
+	traj4_gse_180_delta_plus  = prefix + 'traj4_gse_180_delta_plus'  + suffix
+	traj1_gsm_0_delta_minus   = prefix + 'traj1_gsm_0_delta_minus'   + suffix
+	traj1_gsm_0_delta_plus    = prefix + 'traj1_gsm_0_delta_plus'    + suffix
+	traj2_gsm_0_delta_minus   = prefix + 'traj2_gsm_0_delta_minus'   + suffix
+	traj2_gsm_0_delta_plus    = prefix + 'traj2_gsm_0_delta_plus'    + suffix
+	traj3_gsm_0_delta_minus   = prefix + 'traj3_gsm_0_delta_minus'   + suffix
+	traj3_gsm_0_delta_plus    = prefix + 'traj3_gsm_0_delta_plus'    + suffix
+	traj4_gsm_0_delta_minus   = prefix + 'traj4_gsm_0_delta_minus'   + suffix
+	traj4_gsm_0_delta_plus    = prefix + 'traj4_gsm_0_delta_plus'    + suffix
+	traj1_gsm_180_delta_minus = prefix + 'traj1_gsm_180_delta_minus' + suffix
+	traj1_gsm_180_delta_plus  = prefix + 'traj1_gsm_180_delta_plus'  + suffix
+	traj2_gsm_180_delta_minus = prefix + 'traj2_gsm_180_delta_minus' + suffix
+	traj2_gsm_180_delta_plus  = prefix + 'traj2_gsm_180_delta_plus'  + suffix
+	traj3_gsm_180_delta_minus = prefix + 'traj3_gsm_180_delta_minus' + suffix
+	traj3_gsm_180_delta_plus  = prefix + 'traj3_gsm_180_delta_plus'  + suffix
+	traj4_gsm_180_delta_minus = prefix + 'traj4_gsm_180_delta_minus' + suffix
+	traj4_gsm_180_delta_plus  = prefix + 'traj4_gsm_180_delta_plus'  + suffix
 
 	;Write variable data to file
-	oamb -> WriteVar, /CREATE, t_0_vname,          transpose(amb_data.tt2000_0),    CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, t_180_vname,        transpose(amb_data.tt2000_180),  CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, t_tt_vname,         transpose(amb_data.tt2000_tt),   CDF_TYPE='CDF_TIME_TT2000'
-	oamb -> WriteVar, /CREATE, optics_vname,       transpose(amb_data.optics),      COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, e_gdu1_vname,       transpose(amb_data.energy_gdu1), COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, e_gdu2_vname,       transpose(amb_data.energy_gdu2), COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, gdu_0_vname,        transpose(amb_data.gdu_0),       COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> WriteVar, /CREATE, gdu_180_vname,      transpose(amb_data.gdu_180),     COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, t_0_vname,     amb_data.tt2000_0,       CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, t_180_vname,   amb_data.tt2000_180,     CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, t_tt_vname,    amb_data.tt2000_timetag, CDF_TYPE='CDF_TIME_TT2000'
+	oamb -> WriteVar, /CREATE, optics_vname,  amb_data.optics,      COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, e_gdu1_vname,  amb_data.energy_gdu1, COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, e_gdu2_vname,  amb_data.energy_gdu2, COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, gdu_0_vname,   amb_data.gdu_0,       COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> WriteVar, /CREATE, gdu_180_vname, amb_data.gdu_180,     COMPRESSION='GZIP', GZIP_LEVEL=6
 	
 	;Group counts by pitch angle
 	if mode eq 'brst' then begin
-		oamb -> WriteVar, /CREATE, counts1_0_vname,    transpose(amb_data.counts1_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts2_0_vname,    transpose(amb_data.counts2_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts3_0_vname,    transpose(amb_data.counts3_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts4_0_vname,    transpose(amb_data.counts4_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts1_180_vname,  transpose(amb_data.counts1_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts2_180_vname,  transpose(amb_data.counts2_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts3_180_vname,  transpose(amb_data.counts3_180), COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts4_180_vname,  transpose(amb_data.counts4_180), COMPRESSION='GZIP', GZIP_LEVEL=6
+		;Flux
+		oamb -> WriteVar, /CREATE, flux1_0_vname,    amb_data.counts1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux2_0_vname,    amb_data.counts2_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux3_0_vname,    amb_data.counts3_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux4_0_vname,    amb_data.counts4_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux1_180_vname,  amb_data.counts1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux2_180_vname,  amb_data.counts2_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux3_180_vname,  amb_data.counts3_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux4_180_vname,  amb_data.counts4_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;Errors
+		oamb -> WriteVar, /CREATE, flux1_0_delta_vname,   amb_data.delta1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux2_0_delta_vname,   amb_data.delta2_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux3_0_delta_vname,   amb_data.delta3_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux4_0_delta_vname,   amb_data.delta4_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux1_180_delta_vname, amb_data.delta1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux2_180_delta_vname, amb_data.delta2_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux3_180_delta_vname, amb_data.delta3_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux4_180_delta_vname, amb_data.delta4_180, COMPRESSION='GZIP', GZIP_LEVEL=6
 	endif else begin
-		oamb -> WriteVar, /CREATE, counts1_0_vname,    transpose(amb_data.counts1_0),   COMPRESSION='GZIP', GZIP_LEVEL=6
-		oamb -> WriteVar, /CREATE, counts1_180_vname,  transpose(amb_data.counts1_180), COMPRESSION='GZIP', GZIP_LEVEL=6
+		;Flux
+		oamb -> WriteVar, /CREATE, flux1_0_vname,    amb_data.counts1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux1_180_vname,  amb_data.counts1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;Errors
+		oamb -> WriteVar, /CREATE, flux1_0_delta_vname,    amb_data.delta1_0,   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, flux1_180_delta_vname,  amb_data.delta1_180, COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
 
-	;Pitch angle
-	if has_tag(amb_data, 'pa0') then begin
-		;BRST
-		if mode eq 'brst' then begin
-			;Pitch angle
-			oamb -> WriteVar, /CREATE, pa1_0_vname,         transpose(amb_data.pa0[*,0]),      COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_0_vname,         transpose(amb_data.pa0[*,1]),      COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_0_vname,         transpose(amb_data.pa0[*,2]),      COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_0_vname,         transpose(amb_data.pa0[*,3]),      COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_vname,       transpose(amb_data.pa180[*,0]),    COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_180_vname,       transpose(amb_data.pa180[*,1]),    COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_180_vname,       transpose(amb_data.pa180[*,2]),    COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_180_vname,       transpose(amb_data.pa180[*,3]),    COMPRESSION='GZIP', GZIP_LEVEL=6
-			
-			;Delta Minus
-			oamb -> WriteVar, /CREATE, pa1_0_delta_minus,   transpose(amb_data.pa0_lo[*,0]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_0_delta_minus,   transpose(amb_data.pa0_lo[*,1]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_0_delta_minus,   transpose(amb_data.pa0_lo[*,2]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_0_delta_minus,   transpose(amb_data.pa0_lo[*,3]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_delta_minus, transpose(amb_data.pa180_lo[*,0]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_180_delta_minus, transpose(amb_data.pa180_lo[*,1]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_180_delta_minus, transpose(amb_data.pa180_lo[*,2]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_180_delta_minus, transpose(amb_data.pa180_lo[*,3]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			
-			;Delta Plus
-			oamb -> WriteVar, /CREATE, pa1_0_delta_plus,    transpose(amb_data.pa0_hi[*,0]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_0_delta_plus,    transpose(amb_data.pa0_hi[*,1]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_0_delta_plus,    transpose(amb_data.pa0_hi[*,2]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_0_delta_plus,    transpose(amb_data.pa0_hi[*,3]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_delta_plus,  transpose(amb_data.pa180_hi[*,0]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa2_180_delta_plus,  transpose(amb_data.pa180_hi[*,1]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa3_180_delta_plus,  transpose(amb_data.pa180_hi[*,2]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa4_180_delta_plus,  transpose(amb_data.pa180_hi[*,3]), COMPRESSION='GZIP', GZIP_LEVEL=6
-		;'SRVY'
-		endif else begin
-			oamb -> WriteVar, /CREATE, pa1_0_vname,         transpose(amb_data.pa0[*,0]),      COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_vname,       transpose(amb_data.pa180[*,0]),    COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_0_delta_minus,   transpose(amb_data.pa0_lo[*,0]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_delta_minus, transpose(amb_data.pa180_lo[*,0]), COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_0_delta_plus,    transpose(amb_data.pa0_hi[*,0]),   COMPRESSION='GZIP', GZIP_LEVEL=6
-			oamb -> WriteVar, /CREATE, pa1_180_delta_plus,  transpose(amb_data.pa180_hi[*,0]), COMPRESSION='GZIP', GZIP_LEVEL=6
-		endelse
+	;BRST
+	if mode eq 'brst' then begin
+		;GSE Trajectories
+		oamb -> WriteVar, /CREATE, traj1_gse_0_vname,         amb_data.traj_0_gse[*,*,0],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_0_vname,         amb_data.traj_0_gse[*,*,1],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_0_vname,         amb_data.traj_0_gse[*,*,2],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_0_vname,         amb_data.traj_0_gse[*,*,3],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_vname,       amb_data.traj_180_gse[*,*,0],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_180_vname,       amb_data.traj_180_gse[*,*,1],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_180_vname,       amb_data.traj_180_gse[*,*,2],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_180_vname,       amb_data.traj_180_gse[*,*,3],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSE Delta Minus
+		oamb -> WriteVar, /CREATE, traj1_gse_0_delta_minus,   amb_data.traj_0_gse_lo[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_0_delta_minus,   amb_data.traj_0_gse_lo[*,*,1],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_0_delta_minus,   amb_data.traj_0_gse_lo[*,*,2],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_0_delta_minus,   amb_data.traj_0_gse_lo[*,*,3],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_delta_minus, amb_data.traj_180_gse_lo[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_180_delta_minus, amb_data.traj_180_gse_lo[*,*,1], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_180_delta_minus, amb_data.traj_180_gse_lo[*,*,2], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_180_delta_minus, amb_data.traj_180_gse_lo[*,*,3], COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSE Delta Plus
+		oamb -> WriteVar, /CREATE, traj1_gse_0_delta_plus,    amb_data.traj_0_gse_hi[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_0_delta_plus,    amb_data.traj_0_gse_hi[*,*,1],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_0_delta_plus,    amb_data.traj_0_gse_hi[*,*,2],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_0_delta_plus,    amb_data.traj_0_gse_hi[*,*,3],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_delta_plus,  amb_data.traj_180_gse_hi[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gse_180_delta_plus,  amb_data.traj_180_gse_hi[*,*,1], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gse_180_delta_plus,  amb_data.traj_180_gse_hi[*,*,2], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gse_180_delta_plus,  amb_data.traj_180_gse_hi[*,*,3], COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSM Trajectories
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_vname,         amb_data.traj_0_gsm[*,*,0],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_0_vname,         amb_data.traj_0_gsm[*,*,1],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_0_vname,         amb_data.traj_0_gsm[*,*,2],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_0_vname,         amb_data.traj_0_gsm[*,*,3],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_vname,       amb_data.traj_180_gsm[*,*,0],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_180_vname,       amb_data.traj_180_gsm[*,*,1],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_180_vname,       amb_data.traj_180_gsm[*,*,2],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_180_vname,       amb_data.traj_180_gsm[*,*,3],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSM Delta Minus
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_delta_minus,   amb_data.traj_0_gsm_lo[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_0_delta_minus,   amb_data.traj_0_gsm_lo[*,*,1],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_0_delta_minus,   amb_data.traj_0_gsm_lo[*,*,2],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_0_delta_minus,   amb_data.traj_0_gsm_lo[*,*,3],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_delta_minus, amb_data.traj_180_gsm_lo[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_180_delta_minus, amb_data.traj_180_gsm_lo[*,*,1], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_180_delta_minus, amb_data.traj_180_gsm_lo[*,*,2], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_180_delta_minus, amb_data.traj_180_gsm_lo[*,*,3], COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSM Delta Plus
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_delta_plus,    amb_data.traj_0_gsm_hi[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_0_delta_plus,    amb_data.traj_0_gsm_hi[*,*,1],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_0_delta_plus,    amb_data.traj_0_gsm_hi[*,*,2],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_0_delta_plus,    amb_data.traj_0_gsm_hi[*,*,3],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_delta_plus,  amb_data.traj_180_gsm_hi[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj2_gsm_180_delta_plus,  amb_data.traj_180_gsm_hi[*,*,1], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj3_gsm_180_delta_plus,  amb_data.traj_180_gsm_hi[*,*,2], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj4_gsm_180_delta_plus,  amb_data.traj_180_gsm_hi[*,*,3], COMPRESSION='GZIP', GZIP_LEVEL=6
 	
-	;No pitch-angle data
-	;   - Create empty variables
+	;'SRVY'
 	endif else begin
-		;BRST
-		if mode eq 'brst' then begin
-			;Pitch angle
-			oamb -> CreateVar, pa1_0_vname,         'FLOAT'
-			oamb -> CreateVar, pa2_0_vname,         'FLOAT'
-			oamb -> CreateVar, pa3_0_vname,         'FLOAT'
-			oamb -> CreateVar, pa4_0_vname,         'FLOAT'
-			oamb -> CreateVar, pa1_180_vname,       'FLOAT'
-			oamb -> CreateVar, pa2_180_vname,       'FLOAT'
-			oamb -> CreateVar, pa3_180_vname,       'FLOAT'
-			oamb -> CreateVar, pa4_180_vname,       'FLOAT'
-			
-			;Delta Minus
-			oamb -> CreateVar, pa1_0_delta_minus,   'FLOAT'
-			oamb -> CreateVar, pa2_0_delta_minus,   'FLOAT'
-			oamb -> CreateVar, pa3_0_delta_minus,   'FLOAT'
-			oamb -> CreateVar, pa4_0_delta_minus,   'FLOAT'
-			oamb -> CreateVar, pa1_180_delta_minus, 'FLOAT'
-			oamb -> CreateVar, pa2_180_delta_minus, 'FLOAT'
-			oamb -> CreateVar, pa3_180_delta_minus, 'FLOAT'
-			oamb -> CreateVar, pa4_180_delta_minus, 'FLOAT'
-			
-			;Delta Plus
-			oamb -> CreateVar, pa1_0_delta_plus,    'FLOAT'
-			oamb -> CreateVar, pa2_0_delta_plus,    'FLOAT'
-			oamb -> CreateVar, pa3_0_delta_plus,    'FLOAT'
-			oamb -> CreateVar, pa4_0_delta_plus,    'FLOAT'
-			oamb -> CreateVar, pa1_180_delta_plus,  'FLOAT'
-			oamb -> CreateVar, pa2_180_delta_plus,  'FLOAT'
-			oamb -> CreateVar, pa3_180_delta_plus,  'FLOAT'
-			oamb -> CreateVar, pa4_180_delta_plus,  'FLOAT'
-		;SRVY
-		endif else begin
-			oamb -> CreateVar, pa1_0_vname,         'FLOAT'
-			oamb -> CreateVar, pa1_180_vname,       'FLOAT'
-			oamb -> CreateVar, pa1_0_delta_minus,   'FLOAT'
-			oamb -> CreateVar, pa1_180_delta_minus, 'FLOAT'
-			oamb -> CreateVar, pa1_0_delta_plus,    'FLOAT'
-			oamb -> CreateVar, pa1_180_delta_plus,  'FLOAT'
-		endelse
+		;GSE
+		oamb -> WriteVar, /CREATE, traj1_gse_0_vname,         amb_data.traj_0_gse[*,*,0],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_vname,       amb_data.traj_180_gse[*,*,0],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_0_delta_minus,   amb_data.traj_0_gse_lo[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_delta_minus, amb_data.traj_180_gse_lo[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_0_delta_plus,    amb_data.traj_0_gse_hi[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gse_180_delta_plus,  amb_data.traj_180_gse_hi[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		
+		;GSM
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_vname,         amb_data.traj_0_gsm[*,*,0],      COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_vname,       amb_data.traj_180_gsm[*,*,0],    COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_delta_minus,   amb_data.traj_0_gsm_lo[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_delta_minus, amb_data.traj_180_gsm_lo[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_0_delta_plus,    amb_data.traj_0_gsm_hi[*,*,0],   COMPRESSION='GZIP', GZIP_LEVEL=6
+		oamb -> WriteVar, /CREATE, traj1_gsm_180_delta_plus,  amb_data.traj_180_gsm_hi[*,*,0], COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
+	
+	;Metadata
+	traj_labl_vname       = prefix + 'traj_labl'
+	traj_delta_labl_vname = prefix + 'traj_delta_labl'
+	oamb -> WriteVar, /CREATE, traj_labl_vname,       [ 'Phi',  'Theta'], /REC_NOVARY
+	oamb -> WriteVar, /CREATE, traj_delta_labl_vname, ['dPhi', 'dTheta'], /REC_NOVARY
 	
 ;------------------------------------------------------
 ; Variable Attributes                                 |
@@ -385,6 +457,7 @@ PARENTS=parents
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'FILLVAL'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'FORMAT'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'LABLAXIS'
+	oamb -> CreateAttr, /VARIABLE_SCOPE, 'LABL_PTR_1'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'SCALETYP'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'SI_CONVERSION'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'TIME_BASE'
@@ -393,7 +466,7 @@ PARENTS=parents
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMAX'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
 	
-	;TT2000_PA0
+	;TT2000_0
 	oamb -> WriteVarAttr, t_0_vname, 'CATDESC',       'TT2000 time tags for EDU 0 degree pitch angle electron counts.'
 	oamb -> WriteVarAttr, t_0_vname, 'FIELDNAM',      'Time'
 	oamb -> WriteVarAttr, t_0_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
@@ -402,11 +475,11 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_0_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_0_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_0_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_0_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_0_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_0_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_0_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_0_vname, 'VAR_TYPE',      'support_data'
 	
-	;TT2000_PA180
+	;TT2000_180
 	oamb -> WriteVarAttr, t_180_vname, 'CATDESC',       'TT2000 time tags for EDU 180 degree pitch angle electron counts.'
 	oamb -> WriteVarAttr, t_180_vname, 'FIELDNAM',      'Time'
 	oamb -> WriteVarAttr, t_180_vname, 'FILLVAL',       MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
@@ -415,8 +488,8 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_180_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_180_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_180_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_180_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_180_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_180_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_180_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_180_vname, 'VAR_TYPE',      'support_data'
 
 	;EPOCH_TIMETAG
@@ -428,19 +501,19 @@ PARENTS=parents
 	oamb -> WriteVarAttr, t_tt_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_tt_vname, 'TIME_BASE',     'J2000'
 	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'UT'
-	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2015, 3, 1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
 
 	;OPTICS
 	oamb -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
 	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',       t_tt_vname
 	oamb -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
-	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        65535US
+	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
 	oamb -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
-	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0US
-	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      1000US
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0B
+	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      254B
 	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
@@ -473,424 +546,964 @@ PARENTS=parents
 	oamb -> WriteVarAttr, gdu_0_vname, 'CATDESC',       'Sorts 0 degree counts by GDU'
 	oamb -> WriteVarAttr, gdu_0_vname, 'DEPEND_0',       t_0_vname
 	oamb -> WriteVarAttr, gdu_0_vname, 'FIELDNAM',      'GDU Identifier'
-	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255
+	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_0_vname, 'FORMAT',        'I1'
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMAX',      2B
-	oamb -> WriteVarAttr, gdu_0_vname, 'VAR_TYPE',      'meta_data'
+	oamb -> WriteVarAttr, gdu_0_vname, 'VAR_TYPE',      'support_data'
 
 	;GDU_180
 	oamb -> WriteVarAttr, gdu_180_vname, 'CATDESC',       'Sorts 180 degree counts by GDU'
 	oamb -> WriteVarAttr, gdu_180_vname, 'DEPEND_0',       t_180_vname
 	oamb -> WriteVarAttr, gdu_180_vname, 'FIELDNAM',      'GDU Identifier'
-	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',        255
+	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_180_vname, 'FORMAT',        'I1'
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMAX',      2B
-	oamb -> WriteVarAttr, gdu_180_vname, 'VAR_TYPE',      'meta_data'
+	oamb -> WriteVarAttr, gdu_180_vname, 'VAR_TYPE',      'support_data'
 
-	;COUNTS1_0
-	oamb -> WriteVarAttr, counts1_0_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa1_0'
-	oamb -> WriteVarAttr, counts1_0_vname, 'DEPEND_0',      t_0_vname
-	oamb -> WriteVarAttr, counts1_0_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     '0 degree electron counts'
-	oamb -> WriteVarAttr, counts1_0_vname, 'FILLVAL',      65535US
-	oamb -> WriteVarAttr, counts1_0_vname, 'FORMAT',       'I5'
-	oamb -> WriteVarAttr, counts1_0_vname, 'LABLAXIS',     'counts'
-	oamb -> WriteVarAttr, counts1_0_vname, 'SCALETYP',     'log'
-	oamb -> WriteVarAttr, counts1_0_vname, 'UNITS',        'counts'
-	oamb -> WriteVarAttr, counts1_0_vname, 'VALIDMIN',     0US
-	oamb -> WriteVarAttr, counts1_0_vname, 'VALIDMAX',     65534US
-	oamb -> WriteVarAttr, counts1_0_vname, 'VAR_TYPE',     'data'
+	;FLUX1_0
+	oamb -> WriteVarAttr, flux1_0_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj1_0'
+	oamb -> WriteVarAttr, flux1_0_vname, 'DEPEND_0',      t_0_vname
+	oamb -> WriteVarAttr, flux1_0_vname, 'DELTA_MINUS_VAR', flux1_0_delta_vname
+	oamb -> WriteVarAttr, flux1_0_vname, 'DELTA_PLUS_VAR',  flux1_0_delta_vname
+	oamb -> WriteVarAttr, flux1_0_vname, 'DISPLAY_TYPE', 'time_series'
+	oamb -> WriteVarAttr, flux1_0_vname, 'FIELDNAM',     '0 degree electron counts'
+	oamb -> WriteVarAttr, flux1_0_vname, 'FILLVAL',      -1e31
+	oamb -> WriteVarAttr, flux1_0_vname, 'FORMAT',       'E12.5'
+	oamb -> WriteVarAttr, flux1_0_vname, 'LABLAXIS',     'Flux'
+	oamb -> WriteVarAttr, flux1_0_vname, 'SCALETYP',     'log'
+	oamb -> WriteVarAttr, flux1_0_vname, 'UNITS',        'cm^-2 s^-1'
+	oamb -> WriteVarAttr, flux1_0_vname, 'VALIDMIN',     0.0
+	oamb -> WriteVarAttr, flux1_0_vname, 'VALIDMAX',     1e30
+	oamb -> WriteVarAttr, flux1_0_vname, 'VAR_TYPE',     'data'
 
-	;COUNTS1_180
-	oamb -> WriteVarAttr, counts1_180_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa1_180'
-	oamb -> WriteVarAttr, counts1_180_vname, 'DEPEND_0',      t_180_vname
-	oamb -> WriteVarAttr, counts1_180_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     '180 degree electron counts'
-	oamb -> WriteVarAttr, counts1_180_vname, 'FILLVAL',      65535US
-	oamb -> WriteVarAttr, counts1_180_vname, 'FORMAT',       'I5'
-	oamb -> WriteVarAttr, counts1_180_vname, 'LABLAXIS',     'counts'
-	oamb -> WriteVarAttr, counts1_180_vname, 'SCALETYP',     'log'
-	oamb -> WriteVarAttr, counts1_180_vname, 'UNITS',        'counts'
-	oamb -> WriteVarAttr, counts1_180_vname, 'VALIDMIN',     0US
-	oamb -> WriteVarAttr, counts1_180_vname, 'VALIDMAX',     65534US
-	oamb -> WriteVarAttr, counts1_180_vname, 'VAR_TYPE',     'data'
+	;FLUX1_180
+	oamb -> WriteVarAttr, flux1_180_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj1_180'
+	oamb -> WriteVarAttr, flux1_180_vname, 'DEPEND_0',      t_180_vname
+	oamb -> WriteVarAttr, flux1_180_vname, 'DELTA_MINUS_VAR', flux1_180_delta_vname
+	oamb -> WriteVarAttr, flux1_180_vname, 'DELTA_PLUS_VAR',  flux1_180_delta_vname
+	oamb -> WriteVarAttr, flux1_180_vname, 'DISPLAY_TYPE', 'time_series'
+	oamb -> WriteVarAttr, flux1_180_vname, 'FIELDNAM',     '180 degree electron counts'
+	oamb -> WriteVarAttr, flux1_180_vname, 'FILLVAL',      -1e31
+	oamb -> WriteVarAttr, flux1_180_vname, 'FORMAT',       'E12.5'
+	oamb -> WriteVarAttr, flux1_180_vname, 'LABLAXIS',     'Flux'
+	oamb -> WriteVarAttr, flux1_180_vname, 'SCALETYP',     'log'
+	oamb -> WriteVarAttr, flux1_180_vname, 'UNITS',        'cm^-2 s^-1'
+	oamb -> WriteVarAttr, flux1_180_vname, 'VALIDMIN',     0.0
+	oamb -> WriteVarAttr, flux1_180_vname, 'VALIDMAX',     1e30
+	oamb -> WriteVarAttr, flux1_180_vname, 'VAR_TYPE',     'data'
 
-	;PA1_PA0
-	oamb -> WriteVarAttr, pa1_0_vname, 'CATDESC',         'Pitch angle of counts1_0 particles.'
-	oamb -> WriteVarAttr, pa1_0_vname, 'DEPEND_0',        t_0_vname
-	oamb -> WriteVarAttr, pa1_0_vname, 'DELTA_MINUS_VAR', pa1_0_delta_minus
-	oamb -> WriteVarAttr, pa1_0_vname, 'DELTA_PLUS_VAR',  pa1_0_delta_plus
-	oamb -> WriteVarAttr, pa1_0_vname, 'DISPLAY_TYPE',    'time_series'
-	oamb -> WriteVarAttr, pa1_0_vname, 'FIELDNAM',        'Pitch Angle'
-	oamb -> WriteVarAttr, pa1_0_vname, 'FILLVAL',         -1e31
-	oamb -> WriteVarAttr, pa1_0_vname, 'FORMAT',          'F7.2'
-	oamb -> WriteVarAttr, pa1_0_vname, 'LABLAXIS',        'PA'
-	oamb -> WriteVarAttr, pa1_0_vname, 'SCALETYP',        'linear'
-	oamb -> WriteVarAttr, pa1_0_vname, 'UNITS',           'degrees'
-	oamb -> WriteVarAttr, pa1_0_vname, 'VALIDMIN',        0
-	oamb -> WriteVarAttr, pa1_0_vname, 'VALIDMAX',        180.0
-	oamb -> WriteVarAttr, pa1_0_vname, 'VAR_TYPE',        'data'
+	;TRAJ1_GSE_0
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'CATDESC',         'Trajectory of flux1 0-degree pitch angle electrons in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'DEPEND_0',        t_0_vname
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'DELTA_MINUS_VAR', traj1_gse_0_delta_minus
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'DELTA_PLUS_VAR',  traj1_gse_0_delta_plus
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FIELDNAM',        'Electron trajectory'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FILLVAL',         -1e31
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FORMAT',          'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'SCALETYP',        'linear'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'UNITS',           'degrees'
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'VALIDMIN',        -180.0
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'VALIDMAX',        180.0
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'VAR_TYPE',        'data'
 
-	;PA1_180
-	oamb -> WriteVarAttr, pa1_180_vname, 'CATDESC',         'Pitch angle of counts1_180 particles.'
-	oamb -> WriteVarAttr, pa1_180_vname, 'DEPEND_0',        t_180_vname
-	oamb -> WriteVarAttr, pa1_180_vname, 'DELTA_MINUS_VAR', pa1_180_delta_minus
-	oamb -> WriteVarAttr, pa1_180_vname, 'DELTA_PLUS_VAR',  pa1_180_delta_plus
-	oamb -> WriteVarAttr, pa1_180_vname, 'DISPLAY_TYPE',    'time_series'
-	oamb -> WriteVarAttr, pa1_180_vname, 'FIELDNAM',        'Pitch Angle'
-	oamb -> WriteVarAttr, pa1_180_vname, 'FILLVAL',         -1e31
-	oamb -> WriteVarAttr, pa1_180_vname, 'FORMAT',          'F7.2'
-	oamb -> WriteVarAttr, pa1_180_vname, 'LABLAXIS',        'PA'
-	oamb -> WriteVarAttr, pa1_180_vname, 'SCALETYP',        'linear'
-	oamb -> WriteVarAttr, pa1_180_vname, 'UNITS',           'degrees'
-	oamb -> WriteVarAttr, pa1_180_vname, 'VALIDMIN',        0
-	oamb -> WriteVarAttr, pa1_180_vname, 'VALIDMAX',        180.0
-	oamb -> WriteVarAttr, pa1_180_vname, 'VAR_TYPE',        'data'
+	;TRAJ1_GSE_180
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'CATDESC',         'Trajectory of flux1 180-degree pitch angle electrons in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'DEPEND_0',        t_180_vname
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'DELTA_MINUS_VAR', traj1_gse_180_delta_minus
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'DELTA_PLUS_VAR',  traj1_gse_180_delta_plus
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FIELDNAM',        'Electron trajectory'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FILLVAL',         -1e31
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FORMAT',          'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'SCALETYP',        'linear'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'UNITS',           'degrees'
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'VALIDMIN',        -180.0
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'VALIDMAX',        180.0
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'VAR_TYPE',        'data'
 
-	;PA1_0_DELTA_MINUS
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'CATDESC',  'Lower bound for pa1_0.'
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'FIELDNAM', 'dPA'
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'FILLVAL',  -1e31
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'FORMAT',   'F7.2'
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'UNITS',    'degrees'
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'VALIDMIN', -180.0
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'VALIDMAX', 180.0
-	oamb -> WriteVarAttr, pa1_0_delta_minus, 'VAR_TYPE', 'support_data'
+	;TRAJ1_GSM_0
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'CATDESC',         'Trajectory of flux1 0-degree pitch angle electrons in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'DEPEND_0',        t_0_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'DELTA_MINUS_VAR', traj1_gsm_0_delta_minus
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'DELTA_PLUS_VAR',  traj1_gsm_0_delta_plus
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'FIELDNAM',        'Electron trajectory'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'FILLVAL',         -1e31
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'FORMAT',          'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'SCALETYP',        'linear'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'UNITS',           'degrees'
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'VALIDMIN',        -180.0
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'VALIDMAX',        180.0
+	oamb -> WriteVarAttr, traj1_gsm_0_vname, 'VAR_TYPE',        'data'
 
-	;PA1_0_DELTA_PLUS
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'CATDESC',  'Upper bound of pitch angle.'
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'FIELDNAM', 'dPA'
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'FILLVAL',  -1e31
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'FORMAT',   'F7.2'
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'UNITS',    'degrees'
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'VALIDMIN', -180.0
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'VALIDMAX', 180.0
-	oamb -> WriteVarAttr, pa1_0_delta_plus, 'VAR_TYPE', 'support_data'
+	;TRAJ1_GSM_180
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'CATDESC',         'Trajectory of flux1 180-degree pitch angle electrons in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'DEPEND_0',        t_180_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'DELTA_MINUS_VAR', traj1_gsm_180_delta_minus
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'DELTA_PLUS_VAR',  traj1_gsm_180_delta_plus
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'FIELDNAM',        'Electron trajectory'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'FILLVAL',         -1e31
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'FORMAT',          'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'SCALETYP',        'linear'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'UNITS',           'degrees'
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'VALIDMIN',        -20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'VALIDMAX',        20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_vname, 'VAR_TYPE',        'data'
 
-	;PA1_180_DELTA_MINUS
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'CATDESC',  'Lower bound of pa1_180.'
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'FIELDNAM', 'dPA'
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'FILLVAL',  -1e31
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'FORMAT',   'F7.2'
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'UNITS',    'degrees'
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'VALIDMIN', -180.0
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'VALIDMAX', 180.0
-	oamb -> WriteVarAttr, pa1_180_delta_minus, 'VAR_TYPE', 'support_data'
+	;TRAJ1_GSE_0_DELTA_MINUS
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'CATDESC',         'Lower-bound for flux1 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'DEPEND_0',        t_0_vname
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'FIELDNAM',        'Lower-bound trajectory error for 0PA electrons'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'FILLVAL',         -1e31
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'FORMAT',          'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'LABL_PTR_1',      traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'UNITS',           'deg'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'SI_CONVERSION',   '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'VALIDMIN',        -20.0
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'VALIDMAX',        20.0
+	oamb -> WriteVarAttr, traj1_gse_0_delta_minus, 'VAR_TYPE',        'support_data'
+	
+	;
+	; ERRORS: Channel 1
+	;
 
-	;PA1_180_DELTA_PLUS
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'CATDESC',  'Upper bound of pa1_180.'
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'FIELDNAM', 'dPA'
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'FILLVAL',  -1e31
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'FORMAT',   'F7.2'
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'UNITS',    'degrees'
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'VALIDMIN', -180.0
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'VALIDMAX', 180.0
-	oamb -> WriteVarAttr, pa1_180_delta_plus, 'VAR_TYPE', 'support_data'
+	;FLUX1_0_DELTA
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'CATDESC',       'Error for flux1 0-degree pitch angle electron flux.'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'DEPEND_0',      t_0_vname
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'FIELDNAM',      'Flux error for 0PA electrons'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'FORMAT',        'E12.5'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VALIDMIN',      0.0
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VALIDMAX',      1e30
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VAR_TYPE',      'support_data'
+
+	;FLUX1_180_DELTA
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'CATDESC',       'Error for flux1 180-degree pitch angle electron flux.'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'DEPEND_0',      t_180_vname
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'FIELDNAM',      'Flux error for 180PA electrons'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'FORMAT',        'E12.5'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VALIDMIN',      0.0
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VALIDMAX',      1e30
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VAR_TYPE',      'support_data'	
+	
+	;TRAJ1_GSE_0_DELTA_PLUS
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'CATDESC',       'Upper-bound for flux1 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'DEPEND_0',      t_0_vname
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'LABL_PTR_1',      traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'SI_CONVERSION',   '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gse_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+	;TRAJ1_GSE_180_DELTA_MINUS
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'CATDESC',       'Lower-bound for flux1 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'DEPEND_0',      t_180_vname
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gse_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+	;TRAJ1_GSE_180_DELTA_PLUS
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'CATDESC',        'Upper-bound for flux1 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'DEPEND_0',       t_180_vname
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'FIELDNAM',       'Upper-bound trajectory error for 180PA electrons'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'FILLVAL',        -1e31
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'FORMAT',         'F9.4'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'LABL_PTR_1',     traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'SI_CONVERSION',  '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'UNITS',          'deg'
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'VALIDMIN',       -20.0
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'VALIDMAX',       20.0
+	oamb -> WriteVarAttr, traj1_gse_180_delta_plus, 'VAR_TYPE',       'support_data'
+
+	;TRAJ1_GSM_0_DELTA_MINUS
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'CATDESC',       'Lower-bound for flux1 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'DEPEND_0',      t_0_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 0PA electrons'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_minus, 'VAR_TYPE',      'support_data'
+
+	;TRAJ1_GSM_0_DELTA_PLUS
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'CATDESC',       'Upper-bound for flux1 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'DEPEND_0',      t_0_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gsm_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+	;TRAJ1_GSM_180_DELTA_MINUS
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'CATDESC',       'Lower-bound for flux1 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'DEPEND_0',      t_180_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+	;TRAJ1_GSM_180_DELTA_PLUS
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'CATDESC',       'Upper-bound for flux1 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'DEPEND_0',      t_180_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 180PA electrons'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'FILLVAL',       -1e31
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'FORMAT',        'F9.4'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'UNITS',         'deg'
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'VALIDMIN',      -20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'VALIDMAX',      20.0
+	oamb -> WriteVarAttr, traj1_gsm_180_delta_plus, 'VAR_TYPE',      'support_data'
 
 	;BURST DATA
 	if mode eq 'brst' then begin
-		;COUNTS2_PA0
-		oamb -> WriteVarAttr, counts2_0_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa2_0'
-		oamb -> WriteVarAttr, counts2_0_vname, 'DEPEND_0',      t_0_vname
-		oamb -> WriteVarAttr, counts2_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts2_0_vname, 'FIELDNAM',     'Electron Counts PA0'
-		oamb -> WriteVarAttr, counts2_0_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts2_0_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts2_0_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts2_0_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts2_0_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts2_0_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts2_0_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts2_0_vname, 'VAR_TYPE',     'data'
+		;FLUX2_PA0
+		oamb -> WriteVarAttr, flux2_0_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj2_0'
+		oamb -> WriteVarAttr, flux2_0_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux2_0_vname, 'DELTA_MINUS_VAR', flux2_0_delta_vname
+		oamb -> WriteVarAttr, flux2_0_vname, 'DELTA_PLUS_VAR',  flux2_0_delta_vname
+		oamb -> WriteVarAttr, flux2_0_vname, 'DISPLAY_TYPE', 'time_series'
+		oamb -> WriteVarAttr, flux2_0_vname, 'FIELDNAM',     'Electron Flux PA0'
+		oamb -> WriteVarAttr, flux2_0_vname, 'FILLVAL',      -1e31
+		oamb -> WriteVarAttr, flux2_0_vname, 'FORMAT',       'E12.5'
+		oamb -> WriteVarAttr, flux2_0_vname, 'LABLAXIS',     'Flux'
+		oamb -> WriteVarAttr, flux2_0_vname, 'SCALETYP',     'log'
+		oamb -> WriteVarAttr, flux2_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_0_vname, 'UNITS',        'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_0_vname, 'VALIDMIN',     0.0
+		oamb -> WriteVarAttr, flux2_0_vname, 'VALIDMAX',     1e30
+		oamb -> WriteVarAttr, flux2_0_vname, 'VAR_TYPE',     'data'
 
-		;COUNTS3_PA0
-		oamb -> WriteVarAttr, counts3_0_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa3_0'
-		oamb -> WriteVarAttr, counts3_0_vname, 'DEPEND_0',      t_0_vname
-		oamb -> WriteVarAttr, counts3_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts3_0_vname, 'FIELDNAM',     'Electron Counts PA0'
-		oamb -> WriteVarAttr, counts3_0_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts3_0_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts3_0_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts3_0_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts3_0_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts3_0_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts3_0_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts3_0_vname, 'VAR_TYPE',     'data'
+		;FLUX3_PA0
+		oamb -> WriteVarAttr, flux3_0_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj3_0'
+		oamb -> WriteVarAttr, flux3_0_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux3_0_vname, 'DELTA_MINUS_VAR', flux3_0_delta_vname
+		oamb -> WriteVarAttr, flux3_0_vname, 'DELTA_PLUS_VAR',  flux3_0_delta_vname
+		oamb -> WriteVarAttr, flux3_0_vname, 'DISPLAY_TYPE', 'time_series'
+		oamb -> WriteVarAttr, flux3_0_vname, 'FIELDNAM',     'Electron Flux PA0'
+		oamb -> WriteVarAttr, flux3_0_vname, 'FILLVAL',      -1e31
+		oamb -> WriteVarAttr, flux3_0_vname, 'FORMAT',       'E12.5'
+		oamb -> WriteVarAttr, flux3_0_vname, 'LABLAXIS',     'Flux'
+		oamb -> WriteVarAttr, flux3_0_vname, 'SCALETYP',     'log'
+		oamb -> WriteVarAttr, flux3_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_0_vname, 'UNITS',        'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_0_vname, 'VALIDMIN',     0.0
+		oamb -> WriteVarAttr, flux3_0_vname, 'VALIDMAX',     1e30
+		oamb -> WriteVarAttr, flux3_0_vname, 'VAR_TYPE',     'data'
 
-		;COUNTS4_PA0
-		oamb -> WriteVarAttr, counts4_0_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa4_0'
-		oamb -> WriteVarAttr, counts4_0_vname, 'DEPEND_0',      t_0_vname
-		oamb -> WriteVarAttr, counts4_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts4_0_vname, 'FIELDNAM',     'Electron Counts PA0'
-		oamb -> WriteVarAttr, counts4_0_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts4_0_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts4_0_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts4_0_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts4_0_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts4_0_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts4_0_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts4_0_vname, 'VAR_TYPE',     'data'
+		;FLUX4_PA0
+		oamb -> WriteVarAttr, flux4_0_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj4_0'
+		oamb -> WriteVarAttr, flux4_0_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux4_0_vname, 'DELTA_MINUS_VAR', flux4_0_delta_vname
+		oamb -> WriteVarAttr, flux4_0_vname, 'DELTA_PLUS_VAR',  flux4_0_delta_vname
+		oamb -> WriteVarAttr, flux4_0_vname, 'DISPLAY_TYPE', 'time_series'
+		oamb -> WriteVarAttr, flux4_0_vname, 'FIELDNAM',     'Electron Flux PA0'
+		oamb -> WriteVarAttr, flux4_0_vname, 'FILLVAL',      -1e31
+		oamb -> WriteVarAttr, flux4_0_vname, 'FORMAT',       'E12.5'
+		oamb -> WriteVarAttr, flux4_0_vname, 'LABLAXIS',     'Flux'
+		oamb -> WriteVarAttr, flux4_0_vname, 'SCALETYP',     'log'
+		oamb -> WriteVarAttr, flux4_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_0_vname, 'UNITS',        'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_0_vname, 'VALIDMIN',     0.0
+		oamb -> WriteVarAttr, flux4_0_vname, 'VALIDMAX',     1e30
+		oamb -> WriteVarAttr, flux4_0_vname, 'VAR_TYPE',     'data'
 
-		;COUNTS2_PA180
-		oamb -> WriteVarAttr, counts2_180_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa2_180'
-		oamb -> WriteVarAttr, counts2_180_vname, 'DEPEND_0',      t_180_vname
-		oamb -> WriteVarAttr, counts2_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts2_180_vname, 'FIELDNAM',     'Electron Counts PA180'
-		oamb -> WriteVarAttr, counts2_180_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts2_180_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts2_180_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts2_180_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts2_180_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts2_180_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts2_180_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts2_180_vname, 'VAR_TYPE',     'data'
+		;FLUX2_PA180
+		oamb -> WriteVarAttr, flux2_180_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj2_180'
+		oamb -> WriteVarAttr, flux2_180_vname, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, flux2_180_vname, 'DELTA_MINUS_VAR', flux2_180_delta_vname
+		oamb -> WriteVarAttr, flux2_180_vname, 'DELTA_PLUS_VAR',  flux2_180_delta_vname
+		oamb -> WriteVarAttr, flux2_180_vname, 'DISPLAY_TYPE', 'time_series'
+		oamb -> WriteVarAttr, flux2_180_vname, 'FIELDNAM',     'Electron Flux PA180'
+		oamb -> WriteVarAttr, flux2_180_vname, 'FILLVAL',      -1e31
+		oamb -> WriteVarAttr, flux2_180_vname, 'FORMAT',       'E12.5'
+		oamb -> WriteVarAttr, flux2_180_vname, 'LABLAXIS',     'Flux'
+		oamb -> WriteVarAttr, flux2_180_vname, 'SCALETYP',     'log'
+		oamb -> WriteVarAttr, flux2_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_180_vname, 'UNITS',        'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_180_vname, 'VALIDMIN',     0.0
+		oamb -> WriteVarAttr, flux2_180_vname, 'VALIDMAX',     1e30
+		oamb -> WriteVarAttr, flux2_180_vname, 'VAR_TYPE',     'data'
 
-		;COUNTS3_PA180
-		oamb -> WriteVarAttr, counts3_180_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa3_180'
-		oamb -> WriteVarAttr, counts3_180_vname, 'DEPEND_0',      t_180_vname
-		oamb -> WriteVarAttr, counts3_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts3_180_vname, 'FIELDNAM',     'Electron Counts PA180'
-		oamb -> WriteVarAttr, counts3_180_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts3_180_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts3_180_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts3_180_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts3_180_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts3_180_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts3_180_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts3_180_vname, 'VAR_TYPE',     'data'
+		;FLUX3_PA180
+		oamb -> WriteVarAttr, flux3_180_vname, 'CATDESC',       'Flux for electrons with trajectories given by traj3_180'
+		oamb -> WriteVarAttr, flux3_180_vname, 'DEPEND_0',       t_180_vname
+		oamb -> WriteVarAttr, flux3_180_vname, 'DELTA_MINUS_VAR', flux3_180_delta_vname
+		oamb -> WriteVarAttr, flux3_180_vname, 'DELTA_PLUS_VAR',  flux3_180_delta_vname
+		oamb -> WriteVarAttr, flux3_180_vname, 'DISPLAY_TYPE',  'time_series'
+		oamb -> WriteVarAttr, flux3_180_vname, 'FIELDNAM',      'Electron Flux PA180'
+		oamb -> WriteVarAttr, flux3_180_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux3_180_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux3_180_vname, 'LABLAXIS',      'Flux'
+		oamb -> WriteVarAttr, flux3_180_vname, 'SCALETYP',      'log'
+		oamb -> WriteVarAttr, flux3_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_180_vname, 'UNITS',         'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_180_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux3_180_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux3_180_vname, 'VAR_TYPE',      'data'
 
-		;COUNTS4_PA180
-		oamb -> WriteVarAttr, counts4_180_vname, 'CATDESC',      'Counts for electrons with pitch angles given by pa4_180'
-		oamb -> WriteVarAttr, counts4_180_vname, 'DEPEND_0',      t_180_vname
-		oamb -> WriteVarAttr, counts4_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts4_180_vname, 'FIELDNAM',     'Electron Counts PA180'
-		oamb -> WriteVarAttr, counts4_180_vname, 'FILLVAL',      65535US
-		oamb -> WriteVarAttr, counts4_180_vname, 'FORMAT',       'I5'
-		oamb -> WriteVarAttr, counts4_180_vname, 'LABLAXIS',     'counts'
-		oamb -> WriteVarAttr, counts4_180_vname, 'SCALETYP',     'log'
-		oamb -> WriteVarAttr, counts4_180_vname, 'UNITS',        'counts'
-		oamb -> WriteVarAttr, counts4_180_vname, 'VALIDMIN',     0US
-		oamb -> WriteVarAttr, counts4_180_vname, 'VALIDMAX',     65534US
-		oamb -> WriteVarAttr, counts4_180_vname, 'VAR_TYPE',     'data'
+		;FLUX4_PA180
+		oamb -> WriteVarAttr, flux4_180_vname, 'CATDESC',      'Flux for electrons with trajectories given by traj4_180'
+		oamb -> WriteVarAttr, flux4_180_vname, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, flux4_180_vname, 'DELTA_MINUS_VAR', flux4_180_delta_vname
+		oamb -> WriteVarAttr, flux4_180_vname, 'DELTA_PLUS_VAR',  flux4_180_delta_vname
+		oamb -> WriteVarAttr, flux4_180_vname, 'DISPLAY_TYPE', 'time_series'
+		oamb -> WriteVarAttr, flux4_180_vname, 'FIELDNAM',     'Electron Flux PA180'
+		oamb -> WriteVarAttr, flux4_180_vname, 'FILLVAL',      -1e31
+		oamb -> WriteVarAttr, flux4_180_vname, 'FORMAT',       'E12.5'
+		oamb -> WriteVarAttr, flux4_180_vname, 'LABLAXIS',     'Flux'
+		oamb -> WriteVarAttr, flux4_180_vname, 'SCALETYP',     'log'
+		oamb -> WriteVarAttr, flux4_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_180_vname, 'UNITS',        'cm^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_180_vname, 'VALIDMIN',     0.0
+		oamb -> WriteVarAttr, flux4_180_vname, 'VALIDMAX',     1e30
+		oamb -> WriteVarAttr, flux4_180_vname, 'VAR_TYPE',     'data'
+		
+		;
+		; DELTA FLUX: Channels 2-4
+		;
+		
+		;FLUX2_0_DELTA
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'CATDESC',       'Error for flux2 0-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'FIELDNAM',      'Flux error for 0PA electrons'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VAR_TYPE',      'support_data'
 
-		;PA2_0
-		oamb -> WriteVarAttr, pa2_0_vname, 'CATDESC',         'Pitch angle of counts2_0 particles.'
-		oamb -> WriteVarAttr, pa2_0_vname, 'DEPEND_0',        t_0_vname
-		oamb -> WriteVarAttr, pa2_0_vname, 'DELTA_MINUS_VAR', pa2_0_delta_minus
-		oamb -> WriteVarAttr, pa2_0_vname, 'DELTA_PLUS_VAR',  pa2_0_delta_plus
-		oamb -> WriteVarAttr, pa2_0_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa2_0_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa2_0_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa2_0_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa2_0_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa2_0_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa2_0_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa2_0_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa2_0_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa2_0_vname, 'VAR_TYPE',        'data'
+		;FLUX2_180_DELTA
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'CATDESC',       'Error for flux2 180-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'FIELDNAM',      'Flux error for 180PA electrons'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VAR_TYPE',      'support_data'
 
-		;PA3_0
-		oamb -> WriteVarAttr, pa3_0_vname, 'CATDESC',         'Pitch angle of counts3_0 particles.'
-		oamb -> WriteVarAttr, pa3_0_vname, 'DEPEND_0',        t_0_vname
-		oamb -> WriteVarAttr, pa3_0_vname, 'DELTA_MINUS_VAR', pa3_0_delta_minus
-		oamb -> WriteVarAttr, pa3_0_vname, 'DELTA_PLUS_VAR',  pa3_0_delta_plus
-		oamb -> WriteVarAttr, pa3_0_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa3_0_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa3_0_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa3_0_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa3_0_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa3_0_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa3_0_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa3_0_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa3_0_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa3_0_vname, 'VAR_TYPE',        'data'
+		;FLUX3_0_DELTA
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'CATDESC',       'Error for flux3 0-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'FIELDNAM',      'Flux error for 0PA electrons'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VAR_TYPE',      'support_data'
 
-		;PA4_0
-		oamb -> WriteVarAttr, pa4_0_vname, 'CATDESC',         'Pitch angle of counts4_0 particles.'
-		oamb -> WriteVarAttr, pa4_0_vname, 'DEPEND_0',        t_180_vname
-		oamb -> WriteVarAttr, pa4_0_vname, 'DELTA_MINUS_VAR', pa4_0_delta_minus
-		oamb -> WriteVarAttr, pa4_0_vname, 'DELTA_PLUS_VAR',  pa4_0_delta_plus
-		oamb -> WriteVarAttr, pa4_0_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa4_0_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa4_0_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa4_0_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa4_0_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa4_0_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa4_0_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa4_0_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa4_0_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa4_0_vname, 'VAR_TYPE',        'data'
+		;FLUX3_180_DELTA
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'CATDESC',       'Error for flux3 180-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'FIELDNAM',      'Flux error for 180PA electrons'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VAR_TYPE',      'support_data'
 
-		;PA2_180
-		oamb -> WriteVarAttr, pa2_180_vname, 'CATDESC',         'Pitch angle of counts2_180 particles.'
-		oamb -> WriteVarAttr, pa2_180_vname, 'DEPEND_0',        t_180_vname
-		oamb -> WriteVarAttr, pa2_180_vname, 'DELTA_MINUS_VAR', pa2_180_delta_minus
-		oamb -> WriteVarAttr, pa2_180_vname, 'DELTA_PLUS_VAR',  pa2_180_delta_plus
-		oamb -> WriteVarAttr, pa2_180_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa2_180_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa2_180_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa2_180_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa2_180_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa2_180_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa2_180_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa2_180_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa2_180_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa2_180_vname, 'VAR_TYPE',        'data'
+		;FLUX4_0_DELTA
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'CATDESC',       'Error for flux4 0-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'FIELDNAM',      'Flux error for 0PA electrons'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VAR_TYPE',      'support_data'
 
-		;PA3_180
-		oamb -> WriteVarAttr, pa3_180_vname, 'CATDESC',         'Pitch angle of counts3_180 particles.'
-		oamb -> WriteVarAttr, pa3_180_vname, 'DEPEND_0',        t_180_vname
-		oamb -> WriteVarAttr, pa3_180_vname, 'DELTA_MINUS_VAR', pa3_180_delta_minus
-		oamb -> WriteVarAttr, pa3_180_vname, 'DELTA_PLUS_VAR',  pa3_180_delta_plus
-		oamb -> WriteVarAttr, pa3_180_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa3_180_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa3_180_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa3_180_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa3_180_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa3_180_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa3_180_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa3_180_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa3_180_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa3_180_vname, 'VAR_TYPE',        'data'
+		;FLUX4_180_DELTA
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'CATDESC',       'Error for flux4 180-degree pitch angle electron flux.'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'FIELDNAM',      'Flux error for 180PA electrons'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'FORMAT',        'E12.5'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VALIDMIN',      0.0
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VALIDMAX',      1e30
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VAR_TYPE',      'support_data'
+		
+		;
+		; DELTA TRAJECTORY: Channels 2-4
+		;
 
-		;PA4_180
-		oamb -> WriteVarAttr, pa4_180_vname, 'CATDESC',         'Pitch angle of counts4_180 particles.'
-		oamb -> WriteVarAttr, pa4_180_vname, 'DEPEND_0',        t_180_vname
-		oamb -> WriteVarAttr, pa4_180_vname, 'DELTA_MINUS_VAR', pa4_180_delta_minus
-		oamb -> WriteVarAttr, pa4_180_vname, 'DELTA_PLUS_VAR',  pa4_180_delta_plus
-		oamb -> WriteVarAttr, pa4_180_vname, 'DISPLAY_TYPE',    'time_series'
-		oamb -> WriteVarAttr, pa4_180_vname, 'FIELDNAM',        'Pitch Angle'
-		oamb -> WriteVarAttr, pa4_180_vname, 'FILLVAL',         -1e31
-		oamb -> WriteVarAttr, pa4_180_vname, 'FORMAT',          'F7.2'
-		oamb -> WriteVarAttr, pa4_180_vname, 'LABLAXIS',        'PA'
-		oamb -> WriteVarAttr, pa4_180_vname, 'SCALETYP',        'linear'
-		oamb -> WriteVarAttr, pa4_180_vname, 'UNITS',           'degrees'
-		oamb -> WriteVarAttr, pa4_180_vname, 'VALIDMIN',        0
-		oamb -> WriteVarAttr, pa4_180_vname, 'VALIDMAX',        180.0
-		oamb -> WriteVarAttr, pa4_180_vname, 'VAR_TYPE',        'data'
+		;TRAJ2_GSE_0
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'CATDESC',         'Trajectory of flux2 0-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'DELTA_MINUS_VAR', traj2_gse_0_delta_minus
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'DELTA_PLUS_VAR',  traj2_gse_0_delta_plus
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'VAR_TYPE',        'data'
 
-		;PA2_0_DELTA_MINUS
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'CATDESC',  'Lower bound of pa2_0.'
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa2_0_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ3_GSE_0
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'CATDESC',         'Trajectory of flux3 0-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'DELTA_MINUS_VAR', traj3_gse_0_delta_minus
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'DELTA_PLUS_VAR',  traj3_gse_0_delta_plus
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'VAR_TYPE',        'data'
 
-		;PA3_0_DELTA_MINUS
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'CATDESC',  'Lower bound of pa3_0.'
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa3_0_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ4_GSE_0
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'CATDESC',         'Trajectory of flux4 0-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'DELTA_MINUS_VAR', traj4_gse_0_delta_minus
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'DELTA_PLUS_VAR',  traj4_gse_0_delta_plus
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'VAR_TYPE',        'data'
 
-		;PA4_0_DELTA_MINUS
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'CATDESC',  'Lower bound of pa4_0.'
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa4_0_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ2_GSE_180
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'CATDESC',         'Trajectory of flux2 180-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'DELTA_MINUS_VAR', traj2_gse_180_delta_minus
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'DELTA_PLUS_VAR',  traj2_gse_180_delta_plus
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'VAR_TYPE',        'data'
 
-		;PA2_0_DELTA_PLUS
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'CATDESC',  'Upper bound of pa2_0.'
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa2_0_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ3_GSE_180
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'CATDESC',         'Trajectory of flux3 180-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'DELTA_MINUS_VAR', traj3_gse_180_delta_minus
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'DELTA_PLUS_VAR',  traj3_gse_180_delta_plus
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'VAR_TYPE',        'data'
 
-		;PA3_0_DELTA_PLUS
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'CATDESC',  'Upper bound of pa3_0.'
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa3_0_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ4_GSE_180
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'CATDESC',         'Trajectory of flux4 180-degree pitch angle electrons in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'DELTA_MINUS_VAR', traj4_gse_180_delta_minus
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'DELTA_PLUS_VAR',  traj4_gse_180_delta_plus
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'VAR_TYPE',        'data'
 
-		;PA4_0_DELTA_PLUS
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'CATDESC',  'Upper bound of pa4_0.'
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa4_0_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ2_GSM_0
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'CATDESC',         'Trajectory of flux2 0-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'DELTA_MINUS_VAR', traj2_gsm_0_delta_minus
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'DELTA_PLUS_VAR',  traj2_gsm_0_delta_plus
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj2_gsm_0_vname, 'VAR_TYPE',        'data'
 
-		;PA2_180_DELTA_MINUS
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'CATDESC',  'Lower bound of pa2_180.'
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa2_180_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ3_GSM_0
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'CATDESC',         'Trajectory of flux3 0-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'DELTA_MINUS_VAR', traj3_gsm_0_delta_minus
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'DELTA_PLUS_VAR',  traj3_gsm_0_delta_plus
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj3_gsm_0_vname, 'VAR_TYPE',        'data'
 
-		;PA3_180_DELTA_MINUS
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'CATDESC',  'Lower bound of pa3_180.'
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa3_180_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ4_GSM_0
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'CATDESC',         'Trajectory of flux4 0-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'DELTA_MINUS_VAR', traj4_gsm_0_delta_minus
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'DELTA_PLUS_VAR',  traj4_gsm_0_delta_plus
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj4_gsm_0_vname, 'VAR_TYPE',        'data'
 
-		;PA4_180_DELTA_MINUS
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'CATDESC',  'Lower bound of pa4_180.'
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa4_180_delta_minus, 'VAR_TYPE', 'support_data'
+		;TRAJ2_GSM_180
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'CATDESC',         'Trajectory of flux2 180-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'DELTA_MINUS_VAR', traj2_gsm_180_delta_minus
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'DELTA_PLUS_VAR',  traj2_gsm_180_delta_plus
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj2_gsm_180_vname, 'VAR_TYPE',        'data'
 
-		;PA2_180_DELTA_PLUS
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'CATDESC',  'Upper bound of pa2_180.'
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa2_180_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ3_GSM_180
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'CATDESC',         'Trajectory of flux3 180-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'DELTA_MINUS_VAR', traj3_gsm_180_delta_minus
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'DELTA_PLUS_VAR',  traj3_gsm_180_delta_plus
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj3_gsm_180_vname, 'VAR_TYPE',        'data'
 
-		;PA3_180_DELTA_PLUS
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'CATDESC',  'Upper bound of pa3_180.'
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa3_180_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ4_GSM_180
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'CATDESC',         'Trajectory of flux4 180-degree pitch angle electrons in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'DEPEND_0',        t_180_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'DELTA_MINUS_VAR', traj4_gsm_180_delta_minus
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'DELTA_PLUS_VAR',  traj4_gsm_180_delta_plus
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'DISPLAY_TYPE',    'time_series'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'FIELDNAM',        'Electron trajectory'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'SCALETYP',        'linear'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'UNITS',           'degrees'
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'VALIDMIN',        -180.0
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'VALIDMAX',        180.0
+		oamb -> WriteVarAttr, traj4_gsm_180_vname, 'VAR_TYPE',        'data'
 
-		;PA4_180_DELTA_PLUS
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'CATDESC',  'Upper bound of pa4_180.'
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'FIELDNAM', 'dPA'
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'FILLVAL',  -1e31
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'FORMAT',   'F7.2'
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'UNITS',    'degrees'
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'VALIDMIN', -180.0
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'VALIDMAX', 180.0
-		oamb -> WriteVarAttr, pa4_180_delta_plus, 'VAR_TYPE', 'support_data'
+		;TRAJ2_GSE_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'CATDESC',         'Lower-bound for flux2 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'FIELDNAM',        'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'UNITS',           'deg'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'VALIDMIN',        -20.0
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'VALIDMAX',        20.0
+		oamb -> WriteVarAttr, traj2_gse_0_delta_minus, 'VAR_TYPE',        'support_data'
+
+		;TRAJ3_GSE_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'CATDESC',         'Lower-bound for flux3 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'FIELDNAM',        'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'UNITS',           'deg'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'VALIDMIN',        -20.0
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'VALIDMAX',        20.0
+		oamb -> WriteVarAttr, traj3_gse_0_delta_minus, 'VAR_TYPE',        'support_data'
+
+		;TRAJ4_GSE_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'CATDESC',         'Lower-bound for flux4 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'DEPEND_0',        t_0_vname
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'FIELDNAM',        'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'FILLVAL',         -1e31
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'FORMAT',          'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'UNITS',           'deg'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'VALIDMIN',        -20.0
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'VALIDMAX',        20.0
+		oamb -> WriteVarAttr, traj4_gse_0_delta_minus, 'VAR_TYPE',        'support_data'
+
+		;TRAJ2_GSE_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'CATDESC',       'Upper-bound for flux2 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gse_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSE_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'CATDESC',       'Upper-bound for flux3 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gse_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSE_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'CATDESC',       'Upper-bound for flux4 0-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'LABL_PTR_1',      traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'SI_CONVERSION',   '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gse_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ2_GSE_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'CATDESC',       'Lower-bound for flux2 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gse_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSE_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'CATDESC',       'Lower-bound for flux3 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gse_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSE_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'CATDESC',       'Lower-bound for flux4 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gse_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ2_GSE_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'CATDESC',        'Upper-bound for flux2 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'DEPEND_0',       t_180_vname
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'FIELDNAM',       'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'FILLVAL',        -1e31
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'FORMAT',         'F9.4'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'LABL_PTR_1',     traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'SI_CONVERSION',  '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'UNITS',          'deg'
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'VALIDMIN',       -20.0
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'VALIDMAX',       20.0
+		oamb -> WriteVarAttr, traj2_gse_180_delta_plus, 'VAR_TYPE',       'support_data'
+
+		;TRAJ3_GSE_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'CATDESC',        'Upper-bound for flux3 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'DEPEND_0',       t_180_vname
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'FIELDNAM',       'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'FILLVAL',        -1e31
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'FORMAT',         'F9.4'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'LABL_PTR_1',     traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'SI_CONVERSION',  '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'UNITS',          'deg'
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'VALIDMIN',       -20.0
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'VALIDMAX',       20.0
+		oamb -> WriteVarAttr, traj3_gse_180_delta_plus, 'VAR_TYPE',       'support_data'
+
+		;TRAJ4_GSE_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'CATDESC',        'Upper-bound for flux4 180-degree pitch angle electron trajectory vectors in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'DEPEND_0',       t_180_vname
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'FIELDNAM',       'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'FILLVAL',        -1e31
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'FORMAT',         'F9.4'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'LABL_PTR_1',     traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'SI_CONVERSION',  '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'UNITS',          'deg'
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'VALIDMIN',       -20.0
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'VALIDMAX',       20.0
+		oamb -> WriteVarAttr, traj4_gse_180_delta_plus, 'VAR_TYPE',       'support_data'
+
+		;TRAJ2_GSM_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'CATDESC',       'Lower-bound for flux2 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSM_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'CATDESC',       'Lower-bound for flux3 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSM_0_DELTA_MINUS
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'CATDESC',       'Lower-bound for flux4 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ2_GSM_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'CATDESC',       'Upper-bound for flux2 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gsm_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSM_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'CATDESC',       'Upper-bound for flux3 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gsm_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSM_0_DELTA_PLUS
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'CATDESC',       'Upper-bound for flux4 0-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'DEPEND_0',      t_0_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 0PA electrons'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gsm_0_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ2_GSM_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'CATDESC',       'Lower-bound for flux2 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSM_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'CATDESC',       'Lower-bound for flux3 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSM_180_DELTA_MINUS
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'CATDESC',       'Lower-bound for flux4 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'FIELDNAM',      'Lower-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_minus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ2_GSM_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'CATDESC',       'Upper-bound for flux2 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj2_gsm_180_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ3_GSM_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'CATDESC',       'Upper-bound for flux3 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj3_gsm_180_delta_plus, 'VAR_TYPE',      'support_data'
+
+		;TRAJ4_GSM_180_DELTA_PLUS
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'CATDESC',       'Upper-bound for flux4 180-degree pitch angle electron trajectory vectors in GSM coordinates.'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'DEPEND_0',      t_180_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'FIELDNAM',      'Upper-bound trajectory error for 180PA electrons'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'FILLVAL',       -1e31
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'FORMAT',        'F9.4'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'LABL_PTR_1',    traj_delta_labl_vname
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'SI_CONVERSION', '57.2958>rad'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'UNITS',         'deg'
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'VALIDMIN',      -20.0
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'VALIDMAX',      20.0
+		oamb -> WriteVarAttr, traj4_gsm_180_delta_plus, 'VAR_TYPE',      'support_data'
 	endif
+	
+	;
+	; METADATA
+	;
+
+	;TRAJ_LABL
+	oamb -> WriteVarAttr, traj_labl_vname, 'CATDESC',         'Trajectory labels'
+	oamb -> WriteVarAttr, traj_labl_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj_labl_vname, 'FIELDNAM',        'Trajectory labels'
+	oamb -> WriteVarAttr, traj_labl_vname, 'FORMAT',          'A5'
+	oamb -> WriteVarAttr, traj_labl_vname, 'VAR_TYPE',        'metadata'
+
+	;TRAJ_DELTA_LABL
+	oamb -> WriteVarAttr, traj_delta_labl_vname, 'CATDESC',         'Trajectory error labels'
+	oamb -> WriteVarAttr, traj_delta_labl_vname, 'DISPLAY_TYPE',    'time_series'
+	oamb -> WriteVarAttr, traj_delta_labl_vname, 'FIELDNAM',        'Trajectory error labels'
+	oamb -> WriteVarAttr, traj_delta_labl_vname, 'FORMAT',          'A5'
+	oamb -> WriteVarAttr, traj_delta_labl_vname, 'VAR_TYPE',        'metadata'
 
 ;------------------------------------------------------
 ; Close the File                                      |

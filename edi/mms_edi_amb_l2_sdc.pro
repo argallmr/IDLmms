@@ -60,10 +60,13 @@
 ;       2016/01/29  -   Written by Matthew Argall
 ;-
 function mms_edi_amb_l2_sdc, sc, mode, tstart, $
-DATA_PATH_ROOT=data_path, $
-DROPTBOX_ROOT=dropbox, $
+DATA_PATH_ROOT=data_path_root, $
+DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
-LOG_PATH_ROOT=log_path
+LOG_PATH_ROOT=log_path_root, $
+UNH_PATH_ROOT=unh_path_root, $
+PACK_MODE=pacmo, $
+NO_LOG=no_log
 	compile_opt idl2
 	
 	;Error handler
@@ -91,7 +94,7 @@ LOG_PATH_ROOT=log_path
 
 	;Initialize
 	;   - Setup directory structure
-	unh_edi_amb_init
+	unh_edi_init
 
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -111,9 +114,11 @@ LOG_PATH_ROOT=log_path
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	if n_elements(data_path) eq 0 then data_path = !edi_amb_init.data_path_root
-	if n_elements(dropbox)   eq 0 then dropbox   = !edi_amb_init.dropbox_root
-	if n_elements(log_path)  eq 0 then log_path  = !edi_amb_init.log_path_root
+	tf_log = ~keyword_set(no_log)
+	if n_elements(pacmo) eq 0 then pacmo = 1
+	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
+	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
+	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -123,16 +128,20 @@ LOG_PATH_ROOT=log_path
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
 
-	;Constants for data to be processed
+	;Constants for source files
 	instr   = 'edi'
 	level   = 'l1a'
-	optdesc = 'amb'
-	status  = 0
+	case pacmo of
+		1: optdesc = 'amb'
+		2: optdesc = 'amb-pm2'
+		else: message, 'Unknown value for PACMO (' + strtrim(pacmo, 2) + ').'
+	endcase
 	
-	;Constants for output
+	;Constants for destination files
 	outmode    = mode
 	outlevel   = 'l2'
-	outoptdesc = 'amb'
+	outoptdesc = optdesc
+	status     = 0
 
 ;-----------------------------------------------------
 ; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -155,7 +164,7 @@ LOG_PATH_ROOT=log_path
 	if ~file_test(fDir, /DIRECTORY) then file_mkdir, fDir
 	
 	;Create the log file
-	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
+	if tf_log then !Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
 ;-----------------------------------------------------
 ; Find FAST/BRST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -199,7 +208,7 @@ LOG_PATH_ROOT=log_path
 
 	;Zero files found
 	if edi_files[0] eq '' then begin
-		status = 101
+		status = 103
 		message, 'No EDI files found.'
 	endif
 	
@@ -207,25 +216,41 @@ LOG_PATH_ROOT=log_path
 ; Find CAL Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;FGM survey data works for FAST and SLOW
-	cal_file = mms_edi_amb_cal_find(sc, tstart)
+	cal_file = mms_edi_amb_cal_find(sc)
 	
 	;No SLOW files found
 	if cal_file eq '' then begin
-		MrPrintF, 'LogText', string(sc, instr, 'cal', 'l2', optdesc, tstart, $
-		                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+		code = 103
+		message, string(sc, instr, 'cal', 'l2', optdesc, tstart, $
+		                FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
 	endif
 	
 ;-----------------------------------------------------
-; Find FGM Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Find SunPulse Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;FGM survey data works for FAST and SLOW
-	fgm_mode = mode eq 'brst' ? mode : 'srvy'
-	fgm_file = mms_latest_file(dropbox, sc, 'dfg', fgm_mode, 'l2pre', tstart, ROOT=data_path)
+	;There are no brst HK files, so we must trim the hour, minutes, and
+	;seconds off TSTART in order to find the file.
+	hk_time = mode eq 'brst' ? strmid(tstart, 0, 8) : tstart
+	dss_file = mms_latest_file(dropbox, sc, 'fields', 'hk', 'l1b', hk_time, $
+	                           OPTDESC='101', ROOT=data_path)
+
+	;No file found
+	if dss_file eq '' then begin
+		code = 103
+		message, 'No DSS file found.'
+	endif
 	
-	;No SLOW files found
-	if fgm_file eq '' then begin
-		MrPrintF, 'LogText', string(sc, 'dfg', fgm_mode, 'l2pre', optdesc, tstart, $
-		                            FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
+;-----------------------------------------------------
+; Find DEFATT Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	defatt_file = mms_anc_search(dropbox, sc, 'defatt', tstart, $
+	                             COUNT = count, $
+	                             ROOT  = data_path)
+	
+	;No file found
+	if count eq 0 then begin
+		code = 103
+		message, 'No DEFATT files found.'
 	endif
 
 ;-----------------------------------------------------
@@ -238,24 +263,28 @@ LOG_PATH_ROOT=log_path
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', edi_files
 	MrPrintF, 'LogText', cal_file
-	if fgm_file ne '' then MrPrintF, 'LogText', fgm_file
+	MrPrintF, 'LogText', dss_file
+	MrPrintF, 'LogText', defatt_file
 	MrPrintF, 'LogText', '---------------------------------'
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, FGM_FILEs=fgm_file, STATUS=status)
-	if status ne 0 then message, 'Error created L2 data.'
+	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, STATUS=status)
+	if status ge 100 then message, 'Error created L2 data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	parents = file_basename([edi_files, cal_file, dss_file, defatt_file])
+
 	;Create the file
-	file_out = mms_edi_amb_l2_write(sc, mode, tstart, temporary(edi_data), $
+	file_out = mms_edi_amb_l2_write(sc, mode, tstart, edi_data, $
 	                                DROPBOX_ROOT   = dropbox, $
 	                                DATA_PATH_ROOT = data_path, $
 	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = file_basename(edi_files))
-	if file_out eq '' then message, 'Error writing QL file.'
+	                                PARENTS        = parents, $
+	                                STATUS         = status)
+	if file_out eq '' then message, 'Error writing ' + instr + ' ' + outlevel + ' file.'
 
 	;Time elapsed
 	dt     = systime(1) - t0
