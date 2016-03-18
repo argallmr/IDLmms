@@ -189,11 +189,28 @@ VERSION=version
 ; Uniform Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	if tf_uniform then begin
-		if (nTStart eq 0) && $
-		   (min(mode ne 'brst') eq 1) && $
-		   (instr eq 'fpi' || instr eq 'edp') $
-		then begin
-			tstart = '%Y%M%d%H%m%S'
+		;No start time given
+		if nTStart eq 0 then begin
+			;BRST
+			;   - All files have: year month day hour minute second
+			if mode eq 'brst' then begin
+				tstart = '%Y%M%d%H%m%S'
+			
+			;SRVY
+			;   - Most files have year month day
+			;   - FPI also has hour minute second
+			;   - EDP also has hour minute second, but only versions below L2
+			endif else begin
+				case instr of
+					'fpi': tstart = '%Y%M%d%H%m%S'
+					'edp': begin
+						if optdesc eq 'dce' $
+							then tstart = (level eq 'l2') ? '%Y%M%d' : '%Y%M%d%H%m%S' $
+							else tstart = '%Y%M%d%H%m%S'
+					endcase
+					else: tstart = '%Y%M%d'
+				endcase
+			endelse
 			nTStart = 1
 		endif
 

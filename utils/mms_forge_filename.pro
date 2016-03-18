@@ -119,14 +119,24 @@ SDC_ROOT=sdc_root
 
 	;Default TSTART
 	;   - Default to using tokens
-	;   - FPI and EDP srvy files resemble brst files
 	if n_elements(tstart) eq 0 then begin
+		;BRST
+		;   - All files have: year month day hour minute second
 		if mode eq 'brst' then begin
 			tstart = '%Y%M%d%H%m%S'
+			
+		;SRVY
+		;   - Most files have year month day
+		;   - FPI also has hour minute second
+		;   - EPD also has hour minute second, but only versions below L2
 		endif else begin
 			case instr of
-				'edp': tstart = '%Y%M%d%H%m%S'
 				'fpi': tstart = '%Y%M%d%H%m%S'
+				'edp': begin
+					if optdesc eq 'dce' $
+						then tstart = (level eq 'l2') ? '%Y%M%d' : '%Y%M%d%H%m%S' $
+						else tstart = '%Y%M%d%H%m%S'
+				endcase
 				else:  tstart = '%Y%M%d'
 			endcase
 		endelse
