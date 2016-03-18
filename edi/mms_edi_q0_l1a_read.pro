@@ -172,6 +172,17 @@ STATUS=status
 			message, 'Optics state has bad time tags.'
 		endif
 	endif
+	
+	;Version v0.1.0 brst files had the optics state as cdf_uint2
+	;instead of a cdf_uint1 value.
+	tf_fix_optics_datatype = 0B
+	if mode eq 'brst' then begin
+		ibad = where( (vx eq 0) and (vy le 1), nbad )
+		if nbad gt 0 then begin
+			MrPrintF, 'LogWarn', 'Fixing optics datatype to byte.'
+			tf_fix_optics_datatype = 1B
+		endif
+	endif
 
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -233,7 +244,7 @@ STATUS=status
 	endfor
 
 ;-----------------------------------------------------
-; Notes on time tags:
+; Version Corrections \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	
 	;
@@ -244,6 +255,9 @@ STATUS=status
 	; with those in EPOCH_TIMETAG and EPOCH_GD[12,21].
 	;
 	tf_timetag = n_elements(energy) eq n_elements(epoch_timetag)
+	
+	;Fix optics state?
+	if tf_fix_optics_datatype then optics = byte(optics)
 
 ;-----------------------------------------------------
 ; Find Quality 0 Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

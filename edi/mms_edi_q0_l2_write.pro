@@ -94,7 +94,8 @@ STATUS=status
 	         'v1.0.0 - Update variable names.', $ 
 	         'v1.1.0 - Added optics state.', $ 
 	         'v2.0.0 - Added electron trajectories.', $ 
-	         'v2.1.0 - Deltas on trajectory vectors are now deltas.' ]
+	         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
+	         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -152,6 +153,16 @@ STATUS=status
 	MrPrintF, 'LogText', 'Creating EDI Q0 file at "' + q0_file + '".'
 
 ;------------------------------------;
+; Errors                             ;
+;------------------------------------;
+	
+	;Delta +/- for time
+	t_delta = long64(1.0D/1024.0D/2.0D * 1d9)
+	
+	;Trajectory error
+	traj_delta = 13.0
+
+;------------------------------------;
 ; Check Data & Create File           ;
 ;------------------------------------;
 	;
@@ -160,7 +171,7 @@ STATUS=status
 	if ~isa(q0_data.tt2000_gdu1,      'LONG64') then message, 'q0_data.tt2000_gdu1 must be LONG64.'
 	if ~isa(q0_data.tt2000_gdu2,      'LONG64') then message, 'q0_data.tt2000_gdu2 must be LONG64.'
 	if ~isa(q0_data.tt2000_timetag,   'LONG64') then message, 'q0_data.tt2000_timetag must be LONG64.'
-	if ~isa(q0_data.optics,           'UINT')   then message, 'q0_data.optics must be UINT.'
+	if ~isa(q0_data.optics,           'BYTE')   then message, 'q0_data.optics must be BYTE.'
 	if ~isa(q0_data.energy_gdu1,      'UINT')   then message, 'q0_data.energy_gdu1 must be UINT.'
 	if ~isa(q0_data.energy_gdu2,      'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
 	if ~isa(q0_data.counts_gdu1,      'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
@@ -214,7 +225,7 @@ STATUS=status
 	oq0 -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Level 2 EDI Quality 0 Counts'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	oq0 -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
-	oq0 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
+	oq0 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Roy Torbert, Hans Vaith'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	oq0 -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI Q0 data. The instrument paper ' + $
@@ -255,18 +266,8 @@ STATUS=status
 	traj_gdu1_gsm_vname    = prefix + 'traj_gsm_gdu1'             + suffix
 	traj_gdu2_gsm_vname    = prefix + 'traj_gsm_gdu2'             + suffix
 	
-	traj_gdu1_gse_lo_vname = prefix + 'traj_gse_gdu1_delta_minus' + suffix
-	traj_gdu1_gse_hi_vname = prefix + 'traj_gse_gdu1_delta_plus'  + suffix
-	traj_gdu2_gse_lo_vname = prefix + 'traj_gse_gdu2_delta_minus' + suffix
-	traj_gdu2_gse_hi_vname = prefix + 'traj_gse_gdu2_delta_plus'  + suffix
-	traj_gdu1_gsm_lo_vname = prefix + 'traj_gsm_gdu1_delta_minus' + suffix
-	traj_gdu1_gsm_hi_vname = prefix + 'traj_gsm_gdu1_delta_plus'  + suffix
-	traj_gdu2_gsm_lo_vname = prefix + 'traj_gsm_gdu2_delta_minus' + suffix
-	traj_gdu2_gsm_hi_vname = prefix + 'traj_gsm_gdu2_delta_plus'  + suffix
-	
-	;Support data
+	;Metadata
 	traj_labl_vname        = prefix + 'traj_labl'
-	traj_delta_labl_vname  = prefix + 'traj_delta_labl'
 
 	;Write variable data to file
 	;   - All are detector quantities, so GD12 --> GDU2 and GD21 --> GDU2
@@ -286,27 +287,17 @@ STATUS=status
 	oq0 -> WriteVar, /CREATE, traj_gdu1_gsm_vname,  q0_data.traj_gdu1_gsm,  COMPRESSION='GZIP', GZIP_LEVEL=6
 	oq0 -> WriteVar, /CREATE, traj_gdu2_gsm_vname,  q0_data.traj_gdu2_gsm,  COMPRESSION='GZIP', GZIP_LEVEL=6
 	
-	;Deltas
-	oq0 -> WriteVar, /CREATE, traj_gdu1_gse_lo_vname,  q0_data.traj_gdu1_gse_lo,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu1_gse_hi_vname,  q0_data.traj_gdu1_gse_hi,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu2_gse_lo_vname,  q0_data.traj_gdu2_gse_lo,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu2_gse_hi_vname,  q0_data.traj_gdu2_gse_hi,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu1_gsm_lo_vname,  q0_data.traj_gdu1_gsm_lo,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu1_gsm_hi_vname,  q0_data.traj_gdu1_gsm_hi,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu2_gsm_lo_vname,  q0_data.traj_gdu2_gsm_lo,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	oq0 -> WriteVar, /CREATE, traj_gdu2_gsm_hi_vname,  q0_data.traj_gdu2_gsm_hi,  COMPRESSION='GZIP', GZIP_LEVEL=6
-	
 	;Support Data
 	;   - They do not like being compressed
 	oq0 -> WriteVar, /CREATE, traj_labl_vname,       ['Phi', 'Theta'],   /REC_NOVARY
-	oq0 -> WriteVar, /CREATE, traj_delta_labl_vname, ['dPhi', 'dTheta'], /REC_NOVARY
+
 ;------------------------------------------------------
 ; Variable Attributes                                 |
 ;------------------------------------------------------
 	;Create the variable attributes
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'CATDESC'
-	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DELTA_PLUS_VAR'
-	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DELTA_MINUS_VAR'
+	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DELTA_PLUS'
+	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DELTA_MINUS'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DEPEND_0'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'DISPLAY_TYPE'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'FIELDNAM'
@@ -321,6 +312,7 @@ STATUS=status
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMIN'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VALIDMAX'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
+	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VAR_NOTES'
 	
 	;Epoch
 	oq0 -> WriteVarAttr, epoch_vname, 'CATDESC',       'A place holder.'
@@ -337,6 +329,8 @@ STATUS=status
 	
 	;TT2000_GDU1
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'CATDESC',       'TT2000 time tags for quality 0 EDI GDU1 counts.'
+	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'DELTA_PLUS',    t_delta
+	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'DELTA_MINUS',   t_delta
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'FIELDNAM',      'Time'
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'FORMAT',        'I16'
@@ -350,6 +344,8 @@ STATUS=status
 	
 	;TT2000_GDU2
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'CATDESC',       'TT2000 time tags for quality 0 EDI GDU2 counts.'
+	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'DELTA_PLUS',    t_delta
+	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'DELTA_MINUS',   t_delta
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'FIELDNAM',      'Time'
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'FILLVAL',       MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'FORMAT',        'I16'
@@ -378,11 +374,11 @@ STATUS=status
 	oq0 -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
 	oq0 -> WriteVarAttr, optics_vname, 'DEPEND_0',       epoch_timetag_vname
 	oq0 -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
-	oq0 -> WriteVarAttr, optics_vname, 'FILLVAL',        65535US
+	oq0 -> WriteVarAttr, optics_vname, 'FILLVAL',        255B
 	oq0 -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
 	oq0 -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
-	oq0 -> WriteVarAttr, optics_vname, 'VALIDMIN',      0US
-	oq0 -> WriteVarAttr, optics_vname, 'VALIDMAX',      1000US
+	oq0 -> WriteVarAttr, optics_vname, 'VALIDMIN',      0B
+	oq0 -> WriteVarAttr, optics_vname, 'VALIDMAX',      254B
 	oq0 -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
@@ -424,6 +420,10 @@ STATUS=status
 	oq0 -> WriteVarAttr, q0_gdu1_vname, 'VALIDMIN',     0US
 	oq0 -> WriteVarAttr, q0_gdu1_vname, 'VALIDMAX',     65534US
 	oq0 -> WriteVarAttr, q0_gdu1_vname, 'VAR_TYPE',     'data'
+	oq0 -> WriteVarAttr, q0_gdu1_vname, 'VAR_NOTES',    'Q0 data consists of raw electron counts. The error at any one time ' + $
+	                                                    'is the square-root of the counts. Note that there may be contamination ' + $
+	                                                    'from the EDI electron beams. See the data products guide or contact an ' + $
+	                                                    'EDI team member to learn about beam contamination.'
 
 	;Q0_GDU2
 	oq0 -> WriteVarAttr, q0_gdu2_vname, 'CATDESC',      'GDU2 quality 0 counts.'
@@ -438,6 +438,10 @@ STATUS=status
 	oq0 -> WriteVarAttr, q0_gdu2_vname, 'VALIDMIN',     0US
 	oq0 -> WriteVarAttr, q0_gdu2_vname, 'VALIDMAX',     65534US
 	oq0 -> WriteVarAttr, q0_gdu2_vname, 'VAR_TYPE',     'data'
+	oq0 -> WriteVarAttr, q0_gdu1_vname, 'VAR_NOTES',    'Q0 data consists of raw electron counts. The error at any one time ' + $
+	                                                    'is the square-root of the counts. Note that there may be contamination ' + $
+	                                                    'from the EDI electron beams. See the data products guide or contact an ' + $
+	                                                    'EDI team member to learn about beam contamination.'
 	
 	;
 	; TRAJECTORIES
@@ -447,13 +451,13 @@ STATUS=status
 
 	;TRAJ_GSE_GDU1
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'CATDESC',         'GDU1 electron incident trajectory vectors in spherical GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DELTA_MINUS_VAR',  traj_gdu1_gse_lo_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DELTA_PLUS_VAR',   traj_gdu1_gse_hi_vname
+	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DELTA_PLUS',       traj_delta
+	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DELTA_MINUS',      traj_delta
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DEPEND_0',         epoch_gdu1_vname
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'DISPLAY_TYPE',    'time_series'
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'FIELDNAM',        'Electron trajectory vectors'
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'FORMAT',          'F9.6'
+	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'FORMAT',          'F9.4'
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'LABL_PTR_1',      traj_labl_vname
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'SCALETYP',        'linear'
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'UNITS',           'deg'
@@ -461,16 +465,22 @@ STATUS=status
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'VALIDMIN',        -180.0
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'VALIDMAX',        180.0
 	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'VAR_TYPE',        'data'
+	oq0 -> WriteVarAttr, traj_gdu1_gse_vname, 'VAR_NOTES',       'Trajectories are given as unit vectors in spherical coordinates, with phi ' + $
+	                                                             '(theta) representing the azimuthal (polar) directions, in the ' + $
+	                                                             'indicated coordinate system. They are opposite to the nominal look-direction ' + $
+	                                                             "of the instrument. Errors represent an omni-directional error. For more " + $
+	                                                             'details about errors, contact the EDI instrument team.'
+
 
 	;TRAJ_GSE_GDU2
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'CATDESC',         'GDU2 Electron incident trajectory vectors in spherical GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DELTA_MINUS_VAR',  traj_gdu2_gse_lo_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DELTA_PLUS_VAR',   traj_gdu2_gse_hi_vname
+	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DELTA_PLUS',       traj_delta
+	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DELTA_MINUS',      traj_delta
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DEPEND_0',         epoch_gdu2_vname
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'DISPLAY_TYPE',    'time_series'
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'FIELDNAM',        'Electron trajectory vectors'
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'FORMAT',          'F9.6'
+	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'FORMAT',          'F9.4'
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'LABL_PTR_1',      traj_labl_vname
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'SCALETYP',        'linear'
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'UNITS',           'rad'
@@ -478,16 +488,21 @@ STATUS=status
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'VALIDMIN',        -180.0
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'VALIDMAX',        180.0
 	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'VAR_TYPE',        'data'
+	oq0 -> WriteVarAttr, traj_gdu2_gse_vname, 'VAR_NOTES',       'Trajectories are given as unit vectors in spherical coordinates, with phi ' + $
+	                                                             '(theta) representing the azimuthal (polar) directions, in the ' + $
+	                                                             'indicated coordinate system. They are opposite to the nominal look-direction ' + $
+	                                                             "of the instrument. Errors represent an omni-directional error. For more " + $
+	                                                             'details about errors, contact the EDI instrument team.'
 
 	;TRAJ_GSM_GDU1
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'CATDESC',         'GDU1 electron incident trajectory vectors in spherical GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DELTA_MINUS_VAR',  traj_gdu1_gsm_lo_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DELTA_PLUS_VAR',   traj_gdu1_gsm_hi_vname
+	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DELTA_PLUS',       traj_delta
+	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DELTA_MINUS',      traj_delta
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DEPEND_0',         epoch_gdu1_vname
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'DISPLAY_TYPE',    'time_series'
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'FIELDNAM',        'Electron trajectory vectors'
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'FORMAT',          'F9.6'
+	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'FORMAT',          'F9.4'
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'LABL_PTR_1',      traj_labl_vname
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'SCALETYP',        'linear'
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'UNITS',           'deg'
@@ -495,16 +510,21 @@ STATUS=status
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'VALIDMIN',        -180.0
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'VALIDMAX',        180.0
 	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'VAR_TYPE',        'data'
+	oq0 -> WriteVarAttr, traj_gdu1_gsm_vname, 'VAR_NOTES',       'Trajectories are given as unit vectors in spherical coordinates, with phi ' + $
+	                                                             '(theta) representing the azimuthal (polar) directions, in the ' + $
+	                                                             'indicated coordinate system. They are opposite to the nominal look-direction ' + $
+	                                                             "of the instrument. Errors represent an omni-directional error. For more " + $
+	                                                             'details about errors, contact the EDI instrument team.'
 
 	;TRAJ_GSM_GDU2
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'CATDESC',         'GDU2 Electron incident trajectory vectors in spherical GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DELTA_MINUS_VAR',  traj_gdu2_gsm_lo_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DELTA_PLUS_VAR',   traj_gdu2_gsm_hi_vname
+	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DELTA_PLUS',       traj_delta
+	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DELTA_MINUS',      traj_delta
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DEPEND_0',         epoch_gdu2_vname
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'DISPLAY_TYPE',    'time_series'
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'FIELDNAM',        'Electron trajectory vectors'
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'FORMAT',          'F9.6'
+	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'FORMAT',          'F9.4'
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'LABL_PTR_1',      traj_labl_vname
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'SCALETYP',        'linear'
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'UNITS',           'rad'
@@ -512,130 +532,11 @@ STATUS=status
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'VALIDMIN',        -180.0
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'VALIDMAX',        180.0
 	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'VAR_TYPE',        'data'
-	
-	;
-	; DELTAS
-	;
-
-	;TRAJ_GSE_LO_GDU1
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'CATDESC',         'Lower-bound error on GDU1 indicent trajectories in GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'DEPEND_0',         epoch_gdu1_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'FIELDNAM',        'Lower-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gse_lo_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSE_LO_GDU2
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'CATDESC',         'Lower-bound error on GDU2 indicent trajectories in GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'DEPEND_0',         epoch_gdu2_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'FIELDNAM',        'Lower-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gse_lo_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSE_HI_GDU1
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'CATDESC',         'Upper-bound error on GDU1 indicent trajectories in GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'DEPEND_0',         epoch_gdu1_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'FIELDNAM',        'Upper-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gse_hi_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSE_HI_GDU2
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'CATDESC',         'Upper-bound error on GDU2 indicent trajectories in GSE coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'DEPEND_0',         epoch_gdu2_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'FIELDNAM',        'Upper-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gse_hi_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSM_LO_GDU1
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'CATDESC',         'Lower-bound error on GDU1 indicent trajectories in GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'DEPEND_0',         epoch_gdu1_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'FIELDNAM',        'Lower-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_lo_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSM_LO_GDU2
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'CATDESC',         'Lower-bound error on GDU2 indicent trajectories in GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'DEPEND_0',         epoch_gdu2_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'FIELDNAM',        'Lower-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_lo_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSM_HI_GDU1
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'CATDESC',         'Upper-bound error on GDU1 indicent trajectories in GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'DEPEND_0',         epoch_gdu1_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'FIELDNAM',        'Upper-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu1_gsm_hi_vname, 'VAR_TYPE',        'support_data'
-
-	;TRAJ_GSM_HI_GDU2
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'CATDESC',         'Upper-bound error on GDU2 indicent trajectories in GSM coordinates.'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'DEPEND_0',         epoch_gdu2_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'FIELDNAM',        'Upper-bound incident trajectory error'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'FILLVAL',         -1e31
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'FORMAT',          'F9.6'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'LABL_PTR_1',      traj_delta_labl_vname
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'SCALETYP',        'linear'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'UNITS',           'deg'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'SI_CONVERSION',   '57.2958>rad'
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'VALIDMIN',        -20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'VALIDMAX',        20.0
-	oq0 -> WriteVarAttr, traj_gdu2_gsm_hi_vname, 'VAR_TYPE',        'support_data'
+	oq0 -> WriteVarAttr, traj_gdu2_gsm_vname, 'VAR_NOTES',       'Trajectories are given as unit vectors in spherical coordinates, with phi ' + $
+	                                                             '(theta) representing the azimuthal (polar) directions, in the ' + $
+	                                                             'indicated coordinate system. They are opposite to the nominal look-direction ' + $
+	                                                             "of the instrument. Errors represent an omni-directional error. For more " + $
+	                                                             'details about errors, contact the EDI instrument team.'
 	
 	;
 	; METADATA
@@ -647,13 +548,6 @@ STATUS=status
 	oq0 -> WriteVarAttr, traj_labl_vname, 'FIELDNAM',        'Trajectory labels'
 	oq0 -> WriteVarAttr, traj_labl_vname, 'FORMAT',          'A5'
 	oq0 -> WriteVarAttr, traj_labl_vname, 'VAR_TYPE',        'metadata'
-
-	;TRAJ_DELTA_LABL
-	oq0 -> WriteVarAttr, traj_delta_labl_vname, 'CATDESC',         'Trajectory error labels'
-	oq0 -> WriteVarAttr, traj_delta_labl_vname, 'DISPLAY_TYPE',    'time_series'
-	oq0 -> WriteVarAttr, traj_delta_labl_vname, 'FIELDNAM',        'Trajectory labels'
-	oq0 -> WriteVarAttr, traj_delta_labl_vname, 'FORMAT',          'A5'
-	oq0 -> WriteVarAttr, traj_delta_labl_vname, 'VAR_TYPE',        'metadata'
 
 ;------------------------------------------------------
 ; Close the File                                      |

@@ -92,7 +92,8 @@ STATUS=status
 	         'v0.0.1 - Filled energy variables.', $
 	         'v0.0.2 - Energy written properly.', $ 
 	         'v1.0.0 - Update variable names.', $ 
-	         'v1.1.0 - Added optics state.' ]
+	         'v1.1.0 - Added optics state.', $ 
+	         'v1.2.0 - Update PI_Name.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -200,7 +201,7 @@ STATUS=status
 	oq0 -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Level 2 EDI Quality 0 Counts'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	oq0 -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
-	oq0 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
+	oq0 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Roy Torbert, Hans Vaith'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oq0 -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	oq0 -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI Q0 data. The instrument paper ' + $

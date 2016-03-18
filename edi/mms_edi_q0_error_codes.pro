@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    unh_edi_init
+;    mms_edi_q0_error_codes
 ;
 ; PURPOSE:
 ;+
