@@ -77,7 +77,8 @@ PARENTS=parents
 ; Version History                    ;
 ;------------------------------------;
 	;Mods to data processing
-	mods = [ 'v0.0.0 - First version.' ]
+	mods = [ 'v0.0.0 - First version.', $
+	         'v0.1.0 - Update PI_name.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -184,7 +185,7 @@ PARENTS=parents
 	od29 -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Level 2 EDI data29 Counts'
 	od29 -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	od29 -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
-	od29 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
+	od29 -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Roy Torbert, Hans Vaith'
 	od29 -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	od29 -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	od29 -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI data29. The instrument paper ' + $
