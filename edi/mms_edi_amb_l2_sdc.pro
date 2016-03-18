@@ -220,7 +220,7 @@ NO_LOG=no_log
 	
 	;No SLOW files found
 	if cal_file eq '' then begin
-		code = 103
+		status = 103
 		message, string(sc, instr, 'cal', 'l2', optdesc, tstart, $
 		                FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
 	endif
@@ -236,7 +236,7 @@ NO_LOG=no_log
 
 	;No file found
 	if dss_file eq '' then begin
-		code = 103
+		status = 103
 		message, 'No DSS file found.'
 	endif
 	
@@ -249,7 +249,7 @@ NO_LOG=no_log
 	
 	;No file found
 	if count eq 0 then begin
-		code = 103
+		status = 103
 		message, 'No DEFATT files found.'
 	endif
 
@@ -269,8 +269,14 @@ NO_LOG=no_log
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, STATUS=status)
-	if status ge 100 then message, 'Error created L2 data.'
+	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, STATUS=status_temp)
+	if status_temp ge 100 then begin
+		status = status_temp
+		message, 'Error created L2 data.'
+	endif
+	
+	;Pick the biggest status
+	status >= status_temp
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -279,12 +285,23 @@ NO_LOG=no_log
 
 	;Create the file
 	file_out = mms_edi_amb_l2_write(sc, mode, tstart, edi_data, $
+	                                BRST           = (mode eq 'brst'), $
 	                                DROPBOX_ROOT   = dropbox, $
 	                                DATA_PATH_ROOT = data_path, $
 	                                OPTDESC        = outoptdesc, $
 	                                PARENTS        = parents, $
-	                                STATUS         = status)
-	if file_out eq '' then message, 'Error writing ' + instr + ' ' + outlevel + ' file.'
+	                                STATUS         = status_temp)
+	if file_out eq '' then begin
+		status = status_temp
+		message, 'Error writing ' + instr + ' ' + outlevel + ' file.'
+	endif
+	
+	;Pick the biggest status
+	status >= status
+
+;-----------------------------------------------------
+; Finish Up \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Time elapsed
 	dt     = systime(1) - t0

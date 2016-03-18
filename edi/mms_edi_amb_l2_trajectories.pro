@@ -1154,9 +1154,11 @@ function mms_edi_amb_l2_trajectories, edi, dss_file, defatt_file
 	;SRVY
 	endif else begin
 		;PACK_MODE 0 and 1 are identical
-		nPacMo     = n_elements(edi.pack_mode)
-		tf_pacmo01 = MrIsMember([0B,1B], edi.pack_mode, COUNT=nPacMo01)
-		if nPacMo ne nPacMo01 then message, 'Packing mode is changing.'
+		if ~array_equal(edi.pack_mode, edi.pack_mode[0]) then begin
+			nPacMo     = n_elements(edi.pack_mode)
+			tf_pacmo01 = MrIsMember([0B,1B], edi.pack_mode, COUNT=nPacMo01)
+			if nPacMo ne nPacMo01 then message, 'Packing mode is changing.'
+		endif
 	endelse
 
 	;BRST data

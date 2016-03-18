@@ -215,7 +215,7 @@ STATUS=status
 	counts_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
 	                          DEPEND_0 = epoch_gdu1, $
 	                          NRECS    = nRecs_gdu1, $
-	                          STATUS   = status, $
+	                          STATUS   = status_gdu1, $
 	                          TSTART   = tstart, $
 	                          TEND     = tend)
 
@@ -223,9 +223,10 @@ STATUS=status
 	counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
 	                          DEPEND_0 = epoch_gdu2, $
 	                          NRECS    = nRecs_gdu2, $
+	                          STATUS   = status_gdu2, $
 	                          TSTART   = tstart, $
 	                          TEND     = tend)
-	
+
 	;No records in file
 	;   - It is possible for only one of the detectors to be operating.
 	if nRecs_gdu1 + nRecs_gdu2 eq 0 then begin
@@ -233,34 +234,38 @@ STATUS=status
 		message, 'No records in file.'
 	endif
 
+	;Other file-related problem
+	if status_gdu1 ne 0 || status_gdu2 ne 0 then begin
+		if status_gdu1 eq 2 || status_gdu2 eq 2 then begin
+			status = 1
+		endif else begin
+			status = 101
+			message, /REISSUE_LAST
+		endelse
+	endif
+
 	;Read the rest of the variables?
-	if status eq 0 then begin
-		energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
-		pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,   TSTART=tstart, TEND=tend)
-		energy_gdu2  = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
-		pitch_gdu2   = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
-		
-		;Read other data
-		optics     = MrCDF_nRead(cdfIDs, optics_name, TSTART=tstart, TEND=tend)
-		phi        = MrCDF_nRead(cdfIDs, phi_name,    TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
-		theta      = MrCDF_nRead(cdfIDs, theta_name,  TSTART=tstart, TEND=tend)
-		pitch_mode = MrCDF_nRead(cdfIDs, pitch_name,  TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
-		pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name,  TSTART=tstart, TEND=tend)
-		
-		;Burst data?
-		if mode eq 'brst' then begin
-			counts2_gdu1 = MrCDF_nRead(cdfIDs, counts2_gdu1_name,  TSTART=tstart, TEND=tend)
-			counts3_gdu1 = MrCDF_nRead(cdfIDs, counts3_gdu1_name,  TSTART=tstart, TEND=tend)
-			counts4_gdu1 = MrCDF_nRead(cdfIDs, counts4_gdu1_name,  TSTART=tstart, TEND=tend)
-			counts2_gdu2 = MrCDF_nRead(cdfIDs, counts2_gdu2_name,  TSTART=tstart, TEND=tend)
-			counts3_gdu2 = MrCDF_nRead(cdfIDs, counts3_gdu2_name,  TSTART=tstart, TEND=tend)
-			counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
-		endif
-			
-	endif else begin
-		status = 101
-		message, /REISSUE_LAST
-	endelse
+	energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
+	pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,   TSTART=tstart, TEND=tend)
+	energy_gdu2 = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
+	pitch_gdu2  = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
+	
+	;Read other data
+	optics     = MrCDF_nRead(cdfIDs, optics_name, TSTART=tstart, TEND=tend)
+	phi        = MrCDF_nRead(cdfIDs, phi_name,    TSTART=tstart, TEND=tend, DEPEND_0=epoch_angle)
+	theta      = MrCDF_nRead(cdfIDs, theta_name,  TSTART=tstart, TEND=tend)
+	pitch_mode = MrCDF_nRead(cdfIDs, pitch_name,  TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
+	pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name,  TSTART=tstart, TEND=tend)
+	
+	;Burst data?
+	if mode eq 'brst' then begin
+		counts2_gdu1 = MrCDF_nRead(cdfIDs, counts2_gdu1_name,  TSTART=tstart, TEND=tend)
+		counts3_gdu1 = MrCDF_nRead(cdfIDs, counts3_gdu1_name,  TSTART=tstart, TEND=tend)
+		counts4_gdu1 = MrCDF_nRead(cdfIDs, counts4_gdu1_name,  TSTART=tstart, TEND=tend)
+		counts2_gdu2 = MrCDF_nRead(cdfIDs, counts2_gdu2_name,  TSTART=tstart, TEND=tend)
+		counts3_gdu2 = MrCDF_nRead(cdfIDs, counts3_gdu2_name,  TSTART=tstart, TEND=tend)
+		counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
+	endif
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
