@@ -11,7 +11,9 @@
 ; :Params:
 ;       COUNTS:     in, required, type=lonarr
 ;                   EDI ambient raw counts.
-;       RELCAL:     in, required, type=129x32xN float
+;       PACK_MODE:  in, required, type=byte
+;                   Packing mode of the data.
+;       RELCAL:     in, required, type=fltarr
 ;                   Relative calibration parameter.
 ;       ABSCAL:     in, required, type=float
 ;                   Absolute calibration parameter.
@@ -25,7 +27,7 @@
 ; :Returns:
 ;       CNTS:       Corrected, calibrated counts.
 ;-
-function mms_edi_amb_cal_apply, counts, relcal, abscal, $
+function mms_edi_amb_cal_apply, counts, pack_mode, relcal, abscal, $
 BRST=brst, $
 DELTA=err_tot
 	compile_opt idl2
@@ -46,6 +48,22 @@ DELTA=err_tot
 	;   Burst: 1/1024 sec (0.9765625 ms)
 	;   Survey: 16/1024 sec (15.625 ms)
 	;
+	; The accumulation time for survey counts is 16/1024 seconds (and 1/1024 
+	; for burst). For the cal factor adjustment for survey another factor of
+	; two comes from the fact that we are summing up two adjacent anodes.
+	; [this comes into play when applying the absolute calibration].
+	; 
+	; These are the right settings for "amb" survey:
+	; 
+	;    accumulation time = 16./1024
+	;    abscal_counts     = relcal_counts * (abscal_factor / 32)
+	; 
+	; And for "amb-pm2" survey uses a single pad instead of two, so there we 
+	; would use:
+	; 
+	;    accumulation time = 16./1024
+	;    abscal_counts     = relcal_counts * (abscal_factor / 16)
+	;
 	;
 	; Dead-time correction formula:
 	;   Ct = Cm / ( 1 -  Cm * dt / Ta)
@@ -56,9 +74,12 @@ DELTA=err_tot
 	;
 	; Dead-time error formula:
 	;   dCm = sqrt(Cm)                          (Laplacian counting error)
-	;   dCt = Ct * [ 1/Cm + 1/(Ta/dt - Cm) ]    (derivative of Ct with respect to dt)
+	;   dCt = Ct * [ 1/Cm + 1/(Ta/dt + Cm) ]    (derivative of Ct with respect to dt)
 	;   dCt = Error in true counts
 	;   dCm = Error in measured counts
+	;
+	; Error Propagation:
+	;
 	;
 	; Assuming the fluxes are expressed as
 	; 
@@ -70,11 +91,9 @@ DELTA=err_tot
 	;         R = relative calibration factor (flat fielding, angle-dependent)
 	;         A = absolute calibration factor
 	; 
-	; 
 	; Then
 	; 
 	;         errF = sqrt[ (R*A)^2 * errC^2  +  (R*C)^2 * errA^2 ]
-	; 
 	; 
 	; where
 	; 
@@ -121,12 +140,19 @@ DELTA=err_tot
 	
 	;Absolute calibrations
 	if tf_abscal then begin
-		;Apply
-		;   - Srvy accumulation time is 16 times longer (see Ta above)
-		;   - Plus, we are using two pads instead of one, so an additional factor of 2
-		if tf_brst $
-			then cnts_abs = cnts_rel * abscal $
-			else cnts_abs = cnts_rel * (abscal / 32)
+		;BRST
+		if tf_brst then begin
+			cnts_abs = cnts_rel * abscal
+		
+		;SRVY
+		endif else begin
+			case pack_mode of
+				0: cnts_abs = cnts_rel * (abscal / 32.0)
+				1: cnts_abs = cnts_rel * (abscal / 32.0)
+				2: cnts_abs = cnts_rel * (abscal / 16.0)
+				else: message, 'PACK_MODE (' + string(pack_mode, FORMAT='(i0)') + ') not recognized.'
+			endcase
+		endelse
 	
 	;Do not apply calibrations
 	endif else begin
