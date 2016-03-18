@@ -106,7 +106,8 @@ STATUS=status
 	mods = [ 'v0.0.0 - Original version.', $
 	         'v0.1.0 - Added PACK_MODE variable.', $
 	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.', $
-	         'v2.0.0 - Added optics state.' ]
+	         'v2.0.0 - Added optics state.', $
+	         'v2.1.0 - Update PI_name.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -237,7 +238,7 @@ STATUS=status
 	oamb -> WriteGlobalAttr, /CREATE, 'Logical_source_description', 'Quick-look EDI Ambient Counts'
 	oamb -> WriteGlobalAttr, /CREATE, 'Mission_group',              'MMS'
 	oamb -> WriteGlobalAttr, /CREATE, 'PI_affiliation',             'UNH'
-	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Hans Vaith'
+	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Roy Torbert, Hans Vaith'
 	oamb -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oamb -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
 	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. The instrument paper ' + $
