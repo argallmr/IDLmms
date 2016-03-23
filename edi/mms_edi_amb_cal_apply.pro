@@ -154,9 +154,10 @@ DELTA=err_tot
 			endcase
 		endelse
 	
-	;Do not apply calibrations
+	;Do not apply absolute calibrations
+	;   - Fix to integer ULong
 	endif else begin
-		cnts_rel  = fix(round(cnts_rel),  TYPE=12)
+		cnts_rel  = fix(round(cnts_rel), TYPE=13)
 	endelse
 	
 ;-----------------------------------------------------
@@ -167,7 +168,7 @@ DELTA=err_tot
 	;
 
 	;Raw counts error
-	err_Raw = sqrt(counts)
+	err_raw = sqrt(counts)
 
 	;Error from dead-time correction formula
 	;   - Careful of C = R = 0 case. Should be 1.
@@ -177,7 +178,7 @@ DELTA=err_tot
 	if nZero gt 0 then dC_dR[iZero] = 1.0
 	
 	;Error in dead-time corrected counts
-	err_DT = temporary(err_Raw) * temporary(dC_dR)
+	err_DT = err_raw * temporary(dC_dR)
 	
 	;ABSCAL Error
 	if tf_abscal then begin
@@ -191,10 +192,11 @@ DELTA=err_tot
 	;RELCAL Error
 	endif else begin
 		;Total Error
-		err_tot  = temporary(err_Raw) * temporary(err_DT)
+		err_tot  = temporary(err_raw) * temporary(err_DT)
 		
 		;Integer count error
-		err_tot = fix(round(err_tot), TYPE=12)
+		;   - Fix to integer ULong
+		err_tot = fix(round(err_tot), TYPE=13)
 	endelse
 	
 ;-----------------------------------------------------

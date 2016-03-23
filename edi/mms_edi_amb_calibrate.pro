@@ -177,18 +177,23 @@ ABSCAL=abscal
 ;------------------------------------------------------
 ; Calibrate                                           |
 ;------------------------------------------------------
+	if tf_abscal then begin
+		abscal_gdu1 = cals.abscal_gdu1[iabs_gdu1]
+		abscal_gdu2 = cals.abscal_gdu2[iabs_gdu2]
+	endif
+
 	;Counts1 GDU1
 	c1_gdu1 = mms_edi_amb_cal_apply( edi.counts1_gdu1, $
 	                                 edi.pack_mode[0], $
 	                                 cals.relcal_gdu1[itheta, iphi1, irel_gdu1], $
-	                                 cals.abscal_gdu1[iabs_gdu1], $
+	                                 abscal_gdu1, $
 	                                 BRST=brst, DELTA=delta1_gdu1 )
 	
 	;Counts1 GDU2
 	c1_gdu2 = mms_edi_amb_cal_apply( edi.counts1_gdu2, $
 	                                 edi.pack_mode[0], $
 	                                 cals.relcal_gdu2[itheta, iphi1, irel_gdu2], $
-	                                 cals.abscal_gdu2[iabs_gdu2], $
+	                                 abscal_gdu2, $
 	                                 BRST=brst, DELTA=delta1_gdu2 )
 	
 	;Burst
@@ -201,21 +206,21 @@ ABSCAL=abscal
 		c2_gdu1 = mms_edi_amb_cal_apply( edi.counts2_gdu1, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu1[itheta, iphi2, irel_gdu1], $
-		                                 cals.abscal_gdu1[iabs_gdu1], $
+		                                 abscal_gdu1, $
 		                                 /BRST, DELTA=delta2_gdu1 )
 		
 		;COUNTS3
 		c3_gdu1 = mms_edi_amb_cal_apply( edi.counts3_gdu1, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu1[itheta, iphi3, irel_gdu1], $
-		                                 cals.abscal_gdu1[iabs_gdu1], $
+		                                 abscal_gdu11, $
 		                                 /BRST, DELTA=delta3_gdu1 )
 		
 		;COUNTS3
 		c4_gdu1 = mms_edi_amb_cal_apply( edi.counts4_gdu1, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu1[itheta, iphi4, irel_gdu1], $
-		                                 cals.abscal_gdu1[iabs_gdu1], $
+		                                 abscal_gdu1, $
 		                                 /BRST, DELTA=delta4_gdu1)
 		
 		;
@@ -226,21 +231,21 @@ ABSCAL=abscal
 		c2_gdu2 = mms_edi_amb_cal_apply( edi.counts2_gdu2, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu2[itheta, iphi2, irel_gdu2], $
-		                                 cals.abscal_gdu2[iabs_gdu2], $
+		                                 abscal_gdu2, $
 		                                 /BRST, DELTA=delta2_gdu2 )
 		
 		;COUNTS3
 		c3_gdu2 = mms_edi_amb_cal_apply( edi.counts3_gdu2, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu2[itheta, iphi3, irel_gdu2], $
-		                                 cals.abscal_gdu2[iabs_gdu2], $
+		                                 abscal_gdu2, $
 		                                 /BRST, DELTA=delta3_gdu2 )
 		
 		;COUNTS4
 		c4_gdu2 = mms_edi_amb_cal_apply( edi.counts4_gdu2, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu2[itheta, iphi4, irel_gdu2], $
-		                                 cals.abscal_gdu2[iabs_gdu2], $
+		                                 abscal_gdu2, $
 		                                 /BRST, DELTA=delta4_gdu2 )
 	endif
 	
@@ -249,7 +254,7 @@ ABSCAL=abscal
 ;------------------------------------------------------
 	
 	;Which fill value?
-	fillval = tf_abscal ? -1e31 : 65535US
+	fillval = tf_abscal ? -1e31 : 4294967295UL
 	
 	;Counts1 GDU1
 	if nfill_gdu1 gt 0 then begin

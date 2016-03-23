@@ -82,6 +82,8 @@
 ; :History:
 ;   Modification History::
 ;       2015/01/14  -   Written by Matthew Argall
+;       2015/03/23  -   If `INSTR`='cal', do not create /YYYY/MM[/DD] directories. DCE
+;                           files no longer have hhmmss in their file names, as of L2. - MRA
 ;-
 ;*****************************************************************************************
 function mms_forge_path, root, sc, instr, mode, level, tstart, $
@@ -101,7 +103,12 @@ MKDIR=mkdir
 			tstart = '%Y%M%d%H%m%S'
 		endif else begin
 			case instr of
-				'edp': tstart = '%Y%M%d%H%m%S'
+				'cal': tstart = ''
+				'edp': begin
+					if optdesc eq 'dce' $
+						then tstart = (level eq 'l2') ? '%Y%M%d' : '%Y%M%d%H%m%S' $
+						else tstart = '%Y%M%d%H%m%S'
+				endcase
 				'fpi': tstart = '%Y%M%d%H%m%S'
 				else:  tstart = '%Y%M%d'
 			endcase

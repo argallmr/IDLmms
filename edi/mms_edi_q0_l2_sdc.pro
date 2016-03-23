@@ -35,10 +35,17 @@
 ;                               environment variable.
 ;       FILE_OUT:           out, optional, type=string
 ;                           Named variable to receive the name of the output file.
+;       HK_ROOT:            in, optional, type=string, default=!mms_init.hk_root
+;                           Root of the SDC-like directory structure where housekeeping
+;                               files are stored. If not present, the default is taken
+;                               from the HK_ROOT environment variable.
 ;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
 ;                           Root directory into which log files are saved. If not
 ;                               present, the default is taken from the LOG_PATH_ROOT
 ;                               environment variable.
+;       NO_LOG:             in, optional, type=string, default=0
+;                           If set, no log file will be created and messages will be
+;                               output to the command window.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -63,9 +70,8 @@ function mms_edi_q0_l2_sdc, sc, mode, tstart, $
 DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
+HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
-UNH_PATH_ROOT=unh_path_root, $
-PACMO=pacmo, $
 NO_LOG=no_log
 	compile_opt idl2
 	
@@ -94,7 +100,7 @@ NO_LOG=no_log
 
 	;Initialize
 	;   - Setup directory structure
-	unh_edi_amb_init
+	unh_edi_init
 	status = 0
 
 ;-----------------------------------------------------
@@ -112,11 +118,11 @@ NO_LOG=no_log
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	tf_log = ~keyword_set(no_log)
-	if n_elements(pacmo)          eq 0 then pacmo     = 1
-	data_path = n_elements(data_path_root) eq 0 ? !edi_amb_init.data_path_root : data_path_root
-	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_amb_init.dropbox_root   : dropbox_root
-	log_path  = n_elements(log_path_root)  eq 0 ? !edi_amb_init.log_path_root  : log_path_root
+	tf_log    = ~keyword_set(no_log)
+	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
+	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
+	hk_path   = n_elements(hk_root)        eq 0 ? !edi_init.hk_root        : hk_root
+	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -125,6 +131,8 @@ NO_LOG=no_log
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
+	if ~file_test(hk_path, /DIRECTORY, /READ) $
+		then message, 'HK_ROOT directory must exist and be readable.'
 
 	;Constants for source files
 	instr   = 'edi'
@@ -210,7 +218,7 @@ NO_LOG=no_log
 ;-----------------------------------------------------
 	hk_tstart = mode eq 'brst' ? strmid(tstart, 0, 8) : tstart
 	dss_file = mms_latest_file(dropbox, sc, 'fields', 'hk', 'l1b', hk_tstart, $
-	                           OPTDESC='101', ROOT=data_path)
+	                           OPTDESC='101', ROOT=hk_path)
 	
 	;No file found
 	if dss_file eq '' then begin
@@ -247,21 +255,45 @@ NO_LOG=no_log
 
 	;Process data
 	edi_q0 = mms_edi_q0_l2_create(edi_files, dss_file, defatt_file, STATUS=status)
-	if status ne 0 then message, 'Unable to create L2 Q0 data.'
+	if status ne 0 && status ne 102 then message, 'Unable to create L2 Q0 data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	parents = file_basename([edi_files, dss_file, defatt_file])
 
+	;If the parent was empty, so to is the output
+	empty_file = 0B
+	if status eq 102 then begin
+		status     = 1B
+		empty_file = 1B
+	endif
+
 	;Create the file
-	file_out = mms_edi_q0_l2_write(sc, mode, tstart, edi_q0, $
-	                               DROPBOX_ROOT   = dropbox, $
-	                               DATA_PATH_ROOT = data_path, $
-	                               OPTDESC        = outoptdesc, $
-	                               PARENTS        = parents, $
-	                               STATUS         = status)
-	if file_out eq '' then message, 'Error writing Q0 L2 file.'
+	file_out = mms_edi_q0_l2_mkfile(sc, mode, tstart, $
+	                                DROPBOX_ROOT   = dropbox, $
+	                                DATA_PATH_ROOT = data_path, $
+	                                EMPTY_FILE     = empty_file, $
+	                                OPTDESC        = outoptdesc, $
+	                                PARENTS        = parents, $
+	                                STATUS         = status)
+	if file_out eq '' then message, 'Error creating L2 file.'
+	
+	;Write the data
+	if ~empty_file then status = mms_edi_q0_l2_write(file_out, temporary(edi_q0))
+	
+	;Delete empty file if error occurs
+	if status ge 100 then begin
+		if file_test(file_out) then begin
+			file_delete, file_out
+			file_out = ''
+		endif
+		message, 'Error writing to L2 file.'
+	endif
+
+;-----------------------------------------------------
+; Status Report \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Time elapsed
 	dt     = systime(1) - t0

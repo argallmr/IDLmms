@@ -192,9 +192,13 @@ function mms_edi_amb_brst_sort_cnts, edi
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Make sure times are the same
+	if ~array_equal(t_0, t_180) then $
+		message, 'T_0 and T_180 time tags are different.'
 	
-	edi_out = { tt2000_0:    temporary(t_0),         $
-	            tt2000_180:  temporary(t_180),       $
+	
+	;Create output structure
+	edi_out = { tt2000:      temporary(t_0),         $
 	            counts1_0:   temporary(counts1_0),   $
 	            counts2_0:   temporary(counts2_0),   $
 	            counts3_0:   temporary(counts3_0),   $

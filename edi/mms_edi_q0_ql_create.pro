@@ -106,12 +106,12 @@ STATUS=status
 	           tt2000_gdu2:    q0_data.tt2000_gd12, $
 	           tt2000_timetag: q0_data.tt2000_timetag, $
 	           optics:         q0_data.optics, $
-	           energy_gdu1:    q0_data.energy_gd21
+	           energy_gdu1:    q0_data.energy_gd21, $
 	           energy_gdu2:    q0_data.energy_gd21, $
 	           counts_gdu1:    q0_data.word15_gd21, $
 	           counts_gdu2:    q0_data.word15_gd12 $
 	         }
 	
 	;Done
-	return, q0_data
+	return, q0_out
 end

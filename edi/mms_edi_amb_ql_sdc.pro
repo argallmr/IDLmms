@@ -25,12 +25,18 @@
 ;                               be processed.
 ;
 ; :Keywords:
-;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path
+;       CAL_PATH_ROOT:      in, optional, type=string, default=!mms_init.cal_path_root
+;                           Root of the SDC-like directory structure where calibration
+;                               files are stored. Note, the cal path does not include
+;                               the year, month, or day subdirectories. If not present,
+;                               the default is taken from the CAL_PATH_ROOT environment
+;                               variable.
+;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path_root
 ;                           Root of the SDC-like directory structure where data files
 ;                               find their final resting place. If not present, the
 ;                               default is taken from the DATA_PATH_ROOT environment
 ;                               variable.
-;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox
+;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox_root
 ;                           Directory into which data files are initially saved. If
 ;                               not present, the default is taken from the DROPBOX_ROOT
 ;                               environment variable.
@@ -69,8 +75,10 @@
 ;                           SC, MODE, TSTART. - MRA
 ;       2016/02/02  -   Added the PACMO keyword. - MRA
 ;       2016/02/09  -   Find calibration file. - MRA
+;       2016/03/23  -   Added the CAL_PATH_ROOT keyword. Update location of cal files. - MRA
 ;-
 function mms_edi_amb_ql_sdc, sc, mode, tstart, $
+CAL_PATH_ROOT=cal_path_root, $
 DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
@@ -126,6 +134,7 @@ NO_LOG=no_log
 	;Defaults
 	tf_log = ~keyword_set(no_log)
 	if n_elements(pacmo) eq 0 then pacmo = 1
+	cal_path  = n_elements(cal_path_root)  eq 0 ? !edi_init.cal_path_root  : cal_path_root
 	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
 	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
 	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
@@ -134,6 +143,8 @@ NO_LOG=no_log
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
 		then message, 'LOG_PATH_ROOT must exist and be writeable.'
+	if ~file_test(cal_path, /DIRECTORY, /READ) $
+		then message, 'CAL_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(data_path, /DIRECTORY, /READ) $
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
@@ -228,13 +239,13 @@ NO_LOG=no_log
 ;-----------------------------------------------------
 ; Find CAL Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;FGM survey data works for FAST and SLOW
+	;Calibration file
 	cal_file = mms_edi_amb_cal_find(sc)
 	
 	;No SLOW files found
 	if cal_file eq '' then begin
 		code = 103
-		message, string(sc, instr, 'cal', 'l2', optdesc, tstart, $
+		message, string(sc, instr, 'cal', 'l2', 'amb', tstart, $
 		                FORMAT='(%"No %s %s %s %s %s files found for start time %s.")')
 	endif
 
@@ -252,7 +263,7 @@ NO_LOG=no_log
 
 	;Process data
 	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
-	if status ge 100 then message, 'Error creating AMB QL data.'
+	if status ge 100 && status ne 102 then message, 'Error creating AMB QL data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -260,19 +271,35 @@ NO_LOG=no_log
 	if cal_file eq '' $
 		then parents = file_basename(edi_files) $
 		else parents = file_basename([edi_files, cal_file])
+
+	;If the parent was empty, so to is the output
+	empty_file = 0B
+	if status eq 102 then begin
+		status     = 1B
+		empty_file = 2B
+	endif
 	
 	;We are processing burst mode locally
 	;   - Look in UNH_PATH for latest z-version
 	out_path = mode eq 'brst' ? unh_path : data_path
 
 	;Create the file
-	file_out = mms_edi_amb_ql_write(sc, mode, tstart, temporary(edi_ql), $
-	                                DROPBOX_ROOT   = dropbox, $
-	                                DATA_PATH_ROOT = out_path, $
-	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = parents, $
-	                                STATUS         = status)
+	file_out = mms_edi_amb_ql_mkfile(sc, mode, tstart, $
+	                                 DROPBOX_ROOT   = dropbox, $
+	                                 DATA_PATH_ROOT = out_path, $
+	                                 EMPTY_FILE     = empty_file, $
+	                                 OPTDESC        = outoptdesc, $
+	                                 PARENTS        = parents, $
+	                                 STATUS         = status)
 	if status ge 100 then message, 'Error writing QL file.'
+	
+	;Write the data
+	if ~empty_file then status = mms_edi_amb_ql_write(file_out, temporary(edi_ql))
+	if status ne 0 then message, 'Error writing to L2 file.'
+
+;-----------------------------------------------------
+; Status Report \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Time elapsed
 	dt     = systime(1) - t0

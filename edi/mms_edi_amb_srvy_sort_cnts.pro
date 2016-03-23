@@ -18,8 +18,7 @@
 ;
 ; :Returns:
 ;      EDI_OUT:     A structure with the following tags::
-;                       TT2000_0    - Time tags for 0 degree pitch angle counts
-;                       TT2000_180  - Time tags for 180 degree pitch angle counts
+;                       TT2000      - Time tags for counts
 ;                       COUNTS1_0   - counts1_gdu[12] sorted by pitch angle 0.
 ;                       COUNTS1_180 - counts1_gdu[12] sorted by pitch angle 180.
 ;                       GDU_0       - Flag to sort PA 0 counts by GDU.
@@ -135,9 +134,12 @@ function mms_edi_amb_srvy_sort_cnts, edi
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	;Make sure that TT2000 time are the same
+	if ~array_equal(t_0, t_180) then $
+		message, 'Sorted TT2000 times are different.'
 	
-	edi_out = { tt2000_0:    temporary(t_0),         $
-	            tt2000_180:  temporary(t_180),       $
+	;Create output structure
+	edi_out = { tt2000:      temporary(t_0),    $
 	            counts1_0:   temporary(counts1_0),   $
 	            counts1_180: temporary(counts1_180), $
 	            delta1_0:    temporary(delta1_0),    $

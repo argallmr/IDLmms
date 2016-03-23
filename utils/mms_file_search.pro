@@ -41,8 +41,7 @@
 ;                           structure. If a scalar string, then `DIR` is treated
 ;                           normally and ROOT is the root of an SDC-like directory
 ;                           structure. In the latter case, files are searched for in
-;                           both DIR and `ROOT`/[...]/. If `MODE`='hk', then ROOT
-;                           becomes ROOT/HK.
+;                           both DIR and `ROOT`/[...]/.
 ;
 ; :Returns:
 ;       FILES:          File name(s) matching the input conditions. If no files are
@@ -64,6 +63,8 @@
 ; :History:
 ;    Modification History::
 ;       2015/01/13  -   Written by Matthew Argall
+;       2015/03/23  -   Housekeeping files have their own system variable, so HK is
+;                           no longer appended to the root directory if `MODE`='hk'. - MRA
 ;-
 function mms_file_search, dir, sc, instr, mode, level, tstart, version, $
 COUNT=count, $
@@ -105,9 +106,6 @@ ROOT=root
 		
 	;Search in ROOT
 	if tf_root then begin
-		;Housekeeping files are found in DATA_PATH/HK
-		if mode eq 'hk' then data_path = filepath('', ROOT_DIR=data_path, SUBDIRECTORY='hk')
-
 		;Create the SDC directory chain
 		data_path = mms_forge_path(data_path, sc, instr, mode, level, tstart, OPTDESC=optdesc)
 		

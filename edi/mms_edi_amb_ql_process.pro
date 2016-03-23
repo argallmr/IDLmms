@@ -334,7 +334,7 @@ PACK_MODE=pacmo
 			;Save results
 			if status_out eq 0 $
 				then files[count] = file_out $
-				else files[count] = strjoin([sc[k], instr, outmode[j], outlevel, optdesc, fstart], '_')
+				else files[count] = strjoin([sc[k], instr, mode[j], outlevel, optdesc, fstart], '_')
 			status[count]   = status_out
 			telapsed[count] = f_end - f_begin
 			count++

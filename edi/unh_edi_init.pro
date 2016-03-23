@@ -77,6 +77,7 @@ RESET=reset
 	             data_path_root: '/nfs', $
 	             log_path_root:  '/nfs/edi/logs', $
 	             cal_path_root:  '/nfs/edi/cals', $
+	             hk_root:        '/nfs/hk', $
 	             unh_data_root:  '/nfs/edi', $
 	             status:    0B $
 	           }
@@ -105,6 +106,9 @@ RESET=reset
 	
 	cal_path = getenv('CAL_PATH_ROOT')
 	if cal_path ne '' then !edi_init.cal_path_root = cal_path
+	
+	hk_path = getenv('HK_ROOT')
+	if hk_path ne '' then !edi_init.hk_root = hk_path
 	
 	unh_path = getenv('UNH_DATA_ROOT')
 	if unh_path ne '' then !edi_init.unh_data_root = unh_path

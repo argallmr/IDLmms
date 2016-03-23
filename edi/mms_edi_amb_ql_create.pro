@@ -133,7 +133,7 @@ STATUS=status
 	tf_brst =stregex(amb_files[0], 'brst', /BOOLEAN)
 
 ;-----------------------------------------------------
-; Sort into 0 and 180 Degree PA \\\\\\\\\\\\\\\\\\\\\\
+; Read EDI Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Read Data
 	;   - Automatically combines slow and fast survey data
@@ -158,14 +158,21 @@ STATUS=status
 	; Read all of the calibration data, then prune
 	; down within cal_apply
 	;
-	if tf_cal then begin
-		;Calibrate data
-		cals     = mms_edi_amb_cal_read(cal_file)
-		cal_data = mms_edi_amb_calibrate(edi, cals, BRST=tf_brst)
-		
-		;Replace values in EDI structure
-		edi = MrStruct_ReplaceValue(edi, temporary(cal_data))
-	endif
+	cals     = mms_edi_amb_cal_read(cal_file)
+	cal_cnts = mms_edi_amb_calibrate(edi, temporary(cals), BRST=tf_brst)
+
+	;Remove uncalibrated data
+	if tf_brst then begin
+		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2', $
+		                                'COUNTS2_GDU1', 'COUNTS2_GDU2', $
+		                                'COUNTS3_GDU1', 'COUNTS3_GDU2', $
+		                                'COUNTS4_GDU1', 'COUNTS4_GDU2'])
+	endif else begin
+		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2'])
+	endelse
+
+	;Append calibrated data
+	edi = create_struct(edi, temporary(cal_cnts))
 
 ;-----------------------------------------------------
 ; Sort by 0 and 180 Pitch Angle \\\\\\\\\\\\\\\\\\\\\\

@@ -47,6 +47,7 @@
 ;    Modification History::
 ;       2015/01/30  -   Written by Matthew Argall
 ;       2015/02/25  -   Remove TSTART parameter because there is only one cal file. - MRA
+;       2016/03/23  -   Full SDC directory tree used. - MRA
 ;-
 function mms_edi_amb_cal_find, sc, $
 CAL_PATH_ROOT=cal_path_root
@@ -77,7 +78,8 @@ CAL_PATH_ROOT=cal_path_root
 	endif
 	
 	;Callibrations are stored in CAL_PATH_ROOT/SC/EDI
-	cal_path = filepath('', ROOT_DIR=cal_path_root, SUBDIRECTORY=[sc, 'edi'])
+	cal_path = filepath('', ROOT_DIR=cal_path_root, $
+	                    SUBDIRECTORY=[sc, 'edi', 'cal', 'l2', 'amb'])
 	
 ;------------------------------------------------------
 ; Search for Files                                    |

@@ -25,6 +25,10 @@
 ;                               be processed.
 ;
 ; :Keywords:
+;       CAL_PATH_ROOT:      in, optional, type=string, default=!mms_init.cal_path_root
+;                           Root of the SDC-like directory structure where calibration
+;                               files are stored. If not present, the default is taken
+;                               from the CAL_PATH_ROOT environment variable.
 ;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path
 ;                           Root of the SDC-like directory structure where data files
 ;                               find their final resting place.
@@ -32,8 +36,21 @@
 ;                           Directory into which data files are initially saved.
 ;       FILE_OUT:           out, optional, type=string
 ;                           Named variable to receive the name of the output file.
+;       HK_ROOT:            in, optional, type=string, default=!mms_init.hk_root
+;                           Root of the SDC-like directory structure where housekeeping
+;                               files are stored. If not present, the default is taken
+;                               from the HK_ROOT environment variable.
 ;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
 ;                           Root directory into which log files are saved.
+;       UNH_PATH_ROOT:      in, optional, type=string, default=!mms_init.unh_data_path
+;                           Local root of the SDC-like directory structure where burst
+;                               files find their final resting place. If not present, the
+;                               default is taken from the UNH_DATA_ROOT environment variable.
+;       PACK_MODE:          in, optional, type=integer, default=1
+;                           Packing mode of the data to be processed.
+;       NO_LOG:             in, optional, type=boolean, default=0
+;                           If set, no log file is created and all output is directed to
+;                               the terminal window.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -58,11 +75,15 @@
 ; :History:
 ;    Modification History::
 ;       2016/01/29  -   Written by Matthew Argall
+;       2016/03/23  -   Added CAL_PATH_ROOT and HK_ROOT. Updated location of calibration
+;                           and house-keeping files. - MRA
 ;-
 function mms_edi_amb_l2_sdc, sc, mode, tstart, $
+CAL_PATH_ROOT=cal_path_root, $
 DATA_PATH_ROOT=data_path_root, $
-DROPTBOX_ROOT=dropbox_root, $
+DROPBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
+HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
 UNH_PATH_ROOT=unh_path_root, $
 PACK_MODE=pacmo, $
@@ -116,17 +137,23 @@ NO_LOG=no_log
 	;Defaults
 	tf_log = ~keyword_set(no_log)
 	if n_elements(pacmo) eq 0 then pacmo = 1
+	cal_path  = n_elements(cal_path_root)  eq 0 ? !edi_init.cal_path_root  : cal_path_root
 	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
 	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
+	hk_path   = n_elements(hk_root)        eq 0 ? !edi_init.hk_root        : hk_root
 	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
 		then message, 'LOG_PATH_ROOT must exist and be writeable.'
+	if ~file_test(cal_path, /DIRECTORY, /READ) $
+		then message, 'CAL_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(data_path, /DIRECTORY, /READ) $
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
+	if ~file_test(hk_path, /DIRECTORY, /READ) $
+		then message, 'HK_ROOT directory must exist and be readable.'
 
 	;Constants for source files
 	instr   = 'edi'
@@ -215,7 +242,6 @@ NO_LOG=no_log
 ;-----------------------------------------------------
 ; Find CAL Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;FGM survey data works for FAST and SLOW
 	cal_file = mms_edi_amb_cal_find(sc)
 	
 	;No SLOW files found
@@ -232,7 +258,7 @@ NO_LOG=no_log
 	;seconds off TSTART in order to find the file.
 	hk_time = mode eq 'brst' ? strmid(tstart, 0, 8) : tstart
 	dss_file = mms_latest_file(dropbox, sc, 'fields', 'hk', 'l1b', hk_time, $
-	                           OPTDESC='101', ROOT=data_path)
+	                           OPTDESC='101', ROOT=hk_path)
 
 	;No file found
 	if dss_file eq '' then begin
@@ -270,7 +296,7 @@ NO_LOG=no_log
 
 	;Process data
 	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, STATUS=status_temp)
-	if status_temp ge 100 then begin
+	if status_temp ge 100 && status_temp ne 102 then begin
 		status = status_temp
 		message, 'Error created L2 data.'
 	endif
@@ -283,21 +309,33 @@ NO_LOG=no_log
 ;-----------------------------------------------------
 	parents = file_basename([edi_files, cal_file, dss_file, defatt_file])
 
+	;If the parent was empty, so to is the output
+	empty_file = 0B
+	if status_temp eq 102 then begin
+		status     = 1B
+		empty_file = 2B
+	endif
+
 	;Create the file
-	file_out = mms_edi_amb_l2_write(sc, mode, tstart, edi_data, $
-	                                BRST           = (mode eq 'brst'), $
-	                                DROPBOX_ROOT   = dropbox, $
-	                                DATA_PATH_ROOT = data_path, $
-	                                OPTDESC        = outoptdesc, $
-	                                PARENTS        = parents, $
-	                                STATUS         = status_temp)
+	file_out = mms_edi_amb_l2_mkfile(sc, mode, tstart, $
+	                                 BRST           = (mode eq 'brst'), $
+	                                 DROPBOX_ROOT   = dropbox, $
+	                                 DATA_PATH_ROOT = data_path, $
+	                                 EMPTY_FILE     = empty_file, $
+	                                 OPTDESC        = outoptdesc, $
+	                                 PARENTS        = parents, $
+	                                 STATUS         = status_temp)
 	if file_out eq '' then begin
 		status = status_temp
 		message, 'Error writing ' + instr + ' ' + outlevel + ' file.'
 	endif
 	
 	;Pick the biggest status
-	status >= status
+	status >= status_temp
+	
+	;Write the data
+	if ~empty_file then status = mms_edi_amb_l2_write(file_out, temporary(edi_data))
+	if status ne 0 then message, 'Error writing to L2 file.'
 
 ;-----------------------------------------------------
 ; Finish Up \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

@@ -39,6 +39,9 @@
 ;                           Root directory into which log files are saved. If not
 ;                               present, the default is taken from the LOG_PATH_ROOT
 ;                               environment variable.
+;       NO_LOG:             in, optional, type=string, default=0
+;                           If set, no log file will be created and messages will be
+;                               output to the command window.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -64,8 +67,7 @@ DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
 LOG_PATH_ROOT=log_path_root, $
-UNH_PATH_ROOT=unh_path_root, $
-PACMO=pacmo
+NO_LOG=no_log
 	compile_opt idl2
 	
 	;Error handler
@@ -93,7 +95,7 @@ PACMO=pacmo
 
 	;Initialize
 	;   - Setup directory structure
-	unh_edi_amb_init
+	unh_edi_init
 	status = 0
 
 ;-----------------------------------------------------
@@ -111,10 +113,10 @@ PACMO=pacmo
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	if n_elements(pacmo)          eq 0 then pacmo     = 1
-	data_path = n_elements(data_path_root) eq 0 ? !edi_amb_init.data_path_root : data_path_root
-	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_amb_init.dropbox_root   : dropbox_root
-	log_path  = n_elements(log_path_root)  eq 0 ? !edi_amb_init.log_path_root  : log_path_root
+	tf_log    = ~keyword_set(no_log)
+	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
+	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
+	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -156,7 +158,7 @@ PACMO=pacmo
 	if ~file_test(fDir, /DIRECTORY) then file_mkdir, fDir
 	
 	;Create the log file
-	!Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
+	if tf_log then !Null = MrStdLog(filepath(fLog, ROOT_DIR=fDir))
 
 ;-----------------------------------------------------
 ; Find FAST/BRST file \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -218,20 +220,45 @@ PACMO=pacmo
 
 	;Process data
 	edi_q0 = mms_edi_q0_ql_create(edi_files, STATUS=status)
-	if status ne 0 then message, 'Unable to create QL Q0 data.'
+	if status ne 0 && status ne 102 then message, 'Unable to create QL Q0 data.'
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	parents = file_basename([edi_files, dss_file, defatt_file])
+	parents = file_basename(edi_files)
+
+	;If the parent was empty, so to is the output
+	empty_file = 0B
+	if status eq 102 then begin
+		status     = 1B
+		empty_file = 1B
+	endif
 
 	;Create the file
-	file_out = mms_edi_q0_ql_write(sc, mode, tstart, edi_q0, $
-	                               DROPBOX_ROOT   = dropbox, $
-	                               DATA_PATH_ROOT = data_path, $
-	                               OPTDESC        = outoptdesc, $
-	                               PARENTS        = parents)
-	if file_out eq '' then message, 'Error writing QL file.'
+	file_out = mms_edi_q0_ql_mkfile(sc, mode, tstart, $
+	                                DROPBOX_ROOT   = dropbox, $
+	                                DATA_PATH_ROOT = data_path, $
+	                                EMPTY_FILE     = empty_file, $
+	                                OPTDESC        = outoptdesc, $
+	                                PARENTS        = parents, $
+	                                STATUS         = status)
+	if file_out eq '' then message, 'Error creating QL file.'
+	
+	;Write the data
+	if ~empty_file then status = mms_edi_q0_ql_write(file_out, temporary(edi_q0))
+	
+	;Delete empty file if error occurs
+	if status ge 100 then begin
+		if file_test(file_out) then begin
+			file_delete, file_out
+			file_out = ''
+		endif
+		message, 'Error writing to QL file.'
+	endif
+
+;-----------------------------------------------------
+; Wrap Up \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
 
 	;Time elapsed
 	dt     = systime(1) - t0
