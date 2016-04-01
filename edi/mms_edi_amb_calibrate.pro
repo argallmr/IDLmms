@@ -213,7 +213,7 @@ ABSCAL=abscal
 		c3_gdu1 = mms_edi_amb_cal_apply( edi.counts3_gdu1, $
 		                                 edi.pack_mode[0], $
 		                                 cals.relcal_gdu1[itheta, iphi3, irel_gdu1], $
-		                                 abscal_gdu11, $
+		                                 abscal_gdu1, $
 		                                 /BRST, DELTA=delta3_gdu1 )
 		
 		;COUNTS3
@@ -248,7 +248,7 @@ ABSCAL=abscal
 		                                 abscal_gdu2, $
 		                                 /BRST, DELTA=delta4_gdu2 )
 	endif
-	
+
 ;------------------------------------------------------
 ; Replace Fillvals                                    |
 ;------------------------------------------------------

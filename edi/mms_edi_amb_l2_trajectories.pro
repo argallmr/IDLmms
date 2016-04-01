@@ -1145,7 +1145,7 @@ function mms_edi_amb_l2_trajectories, edi, dss_file, defatt_file
 	
 	;Burst modes?
 	tf_brst = MrStruct_HasTag(edi, 'COUNTS4_GDU1')
-	
+
 	;Check packing mode
 	if tf_brst then begin
 		if ~array_equal(edi.pack_mode, edi.pack_mode[0]) then $

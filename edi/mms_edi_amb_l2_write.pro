@@ -61,6 +61,7 @@
 ;                           Change inputs to make program more versatile. - MRA
 ;       2015/02/27  -   Added the STATUS keyword. - MRA
 ;       2015/03/03  -   Separated version histories by mode and packing mode. - MRA
+;       2015/03/30  -   Check for preliminary datasets without absolute calibrations. - MRA
 ;-
 function mms_edi_amb_l2_write, amb_file, amb_data
 	compile_opt idl2
@@ -85,8 +86,12 @@ function mms_edi_amb_l2_write, amb_file, amb_data
 	status = 0
 	
 	;Parse the file name
-	mms_dissect_filename, amb_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level
+	mms_dissect_filename, amb_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level, OPTDESC=optdesc
 	
+	;Preliminary dataset?
+	tf_abscal = ~stregex(optdesc, 'noabs', /BOOLEAN)
+	datatype  = tf_abscal ? 'FLOAT' : 'ULONG'
+
 ;------------------------------------;
 ; Check Data and Open File           ;
 ;------------------------------------;
@@ -100,15 +105,27 @@ function mms_edi_amb_l2_write, amb_file, amb_data
 	if ~isa(amb_data.energy_gdu2,    'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,          'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
 	if ~isa(amb_data.gdu_180,        'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
-	if ~isa(amb_data.counts1_0,      'FLOAT')  then message, 'amb_data.counts1_0 must be FLOAT.'
-	if ~isa(amb_data.counts1_180,    'FLOAT')  then message, 'amb_data.counts1_180 must be FLOAT.'
+	if ~isa(amb_data.counts1_0,      datatype) then message, 'amb_data.counts1_0 must be '   + datatype + '.'
+	if ~isa(amb_data.counts1_180,    datatype) then message, 'amb_data.counts1_180 must be ' + datatype + '.'
+	if ~isa(amb_data.delta1_0,       datatype) then message, 'amb_data.delta1_0 must be '    + datatype + '.'
+	if ~isa(amb_data.delta1_180,     datatype) then message, 'amb_data.delta1_180 must be '  + datatype + '.'
+	if ~isa(amb_data.traj_0_gse,    'FLOAT')  then message, 'amb_data.traj1_0_gse must be FLOAT.'
+	if ~isa(amb_data.traj_180_gse,  'FLOAT')  then message, 'amb_data.traj1_180_gse must be FLOAT.'
+	if ~isa(amb_data.traj_0_gsm,    'FLOAT')  then message, 'amb_data.traj1_0_gsm must be FLOAT.'
+	if ~isa(amb_data.traj_180_gsm,  'FLOAT')  then message, 'amb_data.traj1_180_gsm must be FLOAT.'
 	if mode eq 'brst' then begin
-		if ~isa(amb_data.counts2_0,    'FLOAT') then message, 'amb_data.counts2_0 must be FLOAT.'
-		if ~isa(amb_data.counts3_0,    'FLOAT') then message, 'amb_data.counts3_0 must be FLOAT.'
-		if ~isa(amb_data.counts4_0,    'FLOAT') then message, 'amb_data.counts4_0 must be FLOAT.'
-		if ~isa(amb_data.counts2_180,  'FLOAT') then message, 'amb_data.counts2_180 must be FLOAT.'
-		if ~isa(amb_data.counts3_180,  'FLOAT') then message, 'amb_data.counts3_180 must be FLOAT.'
-		if ~isa(amb_data.counts4_180,  'FLOAT') then message, 'amb_data.counts4_180 must be FLOAT.'
+		if ~isa(amb_data.counts2_0,   datatype) then message, 'amb_data.counts2_0 must be '   + datatype + '.'
+		if ~isa(amb_data.counts3_0,   datatype) then message, 'amb_data.counts3_0 must be '   + datatype + '.'
+		if ~isa(amb_data.counts4_0,   datatype) then message, 'amb_data.counts4_0 must be '   + datatype + '.'
+		if ~isa(amb_data.counts2_180, datatype) then message, 'amb_data.counts2_180 must be ' + datatype + '.'
+		if ~isa(amb_data.counts3_180, datatype) then message, 'amb_data.counts3_180 must be ' + datatype + '.'
+		if ~isa(amb_data.counts4_180, datatype) then message, 'amb_data.counts4_180 must be ' + datatype + '.'
+		if ~isa(amb_data.delta2_0,    datatype) then message, 'amb_data.delta2_0 must be '    + datatype + '.'
+		if ~isa(amb_data.delta3_0,    datatype) then message, 'amb_data.delta3_0 must be '    + datatype + '.'
+		if ~isa(amb_data.delta4_0,    datatype) then message, 'amb_data.delta4_0 must be '    + datatype + '.'
+		if ~isa(amb_data.delta2_180,  datatype) then message, 'amb_data.delta2_180 must be '  + datatype + '.'
+		if ~isa(amb_data.delta3_180,  datatype) then message, 'amb_data.delta3_180 must be '  + datatype + '.'
+		if ~isa(amb_data.delta4_180,  datatype) then message, 'amb_data.delta4_180 must be '  + datatype + '.'
 	endif
 
 	;Open the CDF file

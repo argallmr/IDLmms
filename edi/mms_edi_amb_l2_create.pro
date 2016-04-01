@@ -24,6 +24,7 @@
 ;       2015/10/27  -   Written by Matthew Argall
 ;       2015/11/04  -   Calculate pitch angle for ambient data. - MRA
 ;       2016/01/29  -   Split the QL and L2 processes into separate programs. - MRA
+;       2016/03/30  -   Added the ABSCAL keyword. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -39,23 +40,25 @@
 ;       fname = mms_edi_ql_amb_create( ..., tstart, thend )
 ;
 ; :Params:
-;       SC:         in, required, type=string/strarr
-;                   Either the spacecraft identifier ('mms1', 'mms2', 'mms3', 'mms4')
-;                       of the spacecraft for which to process data or the EDI data
-;                       file(s) to be processed. If files, they may be 'fast' and/or 'slow'
-;                       mode data files.
-;       MODE:       in, required, type=string/strarr
-;                   Either the mode ('srvy', 'brst') of data to process or FGM
-;                       data file names used to calculate pitch angle if 'brst' files
-;                       are given for `SC`. 
-;       TSTART:     in, optional, types=string
-;                   An ISO-8601 string indicating the start time of the interval to process.
-;       TEND:       in, optional, types=string
-;                   An ISO-8601 string indicating the end time of the interval to process.
+;       AMB_FILE:       in, required, type=string
+;                       The EDI L1A ambient mode file to be turned into L2 data.
+;       CAL_FILE:       in, required, type=string
+;                       The ambient mode calibration file containing relative and absolute
+;                           calibration parameters.
+;       DSS_FILE:       in, required, type=string
+;                       File name of the digital sun sensor HK101 sunpulse file. Used to
+;                           despin data.
+;       DEFATT_FILE:    in, required, type=string
+;                       File name of the FDOA definitive attitude file. Used to transform
+;                           trajectory vectors into GSE and GSM.
+;       TSTART:         in, optional, types=string
+;                       An ISO-8601 string indicating the start time of the interval to process.
+;       TEND:           in, optional, types=string
+;                       An ISO-8601 string indicating the end time of the interval to process.
 ;
 ; :Keywords:
-;       OUTDIR:     in, optional, type=string, default='/nfs/edi/amb/'
-;                   Directory in which to save data.
+;       ABSCAL:     in, optional, type=boolean, default=1
+;                   If set to zero, absolute calibrations will not be applied to the data.
 ;       STATUS:     out, required, type=byte
 ;                   An error code. Values are:::
 ;                       OK      = 0
@@ -88,12 +91,8 @@
 ;                       PA4_0       - Pitch angle associated with COUNTS4_0 (L2 only)
 ;                       PA4_180     - Pitch angle associated with COUNTS4_180 (L2 only)
 ;-
-;*****************************************************************************************
-;+
-;
-;-
 function mms_edi_amb_l2_create, amb_files, cal_file, dss_file, defatt_file, tstart, tend, $
-FGM_FILES=fgm_files, $
+ABSCAL=abscal, $
 STATUS=status
 	compile_opt idl2
 	
@@ -128,7 +127,8 @@ STATUS=status
 		then message, 'EDI files must exist and be readable.'
 	
 	;Burst mode flag
-	tf_brst =stregex(amb_files[0], 'brst', /BOOLEAN)
+	tf_brst   = stregex(amb_files[0], 'brst', /BOOLEAN)
+	tf_abscal = n_elements(abscal) eq 0 ? 1 : keyword_set(abscal)
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -148,7 +148,7 @@ STATUS=status
 ;-----------------------------------------------------
 
 	;Read Calibration File
-	cal_cnts = mms_edi_amb_calibrate(edi, cals, /ABSCAL, BRST=tf_brst)
+	cal_cnts = mms_edi_amb_calibrate(edi, cals, ABSCAL=tf_abscal, BRST=tf_brst)
 
 	;Remove uncalibrated data
 	if tf_brst then begin

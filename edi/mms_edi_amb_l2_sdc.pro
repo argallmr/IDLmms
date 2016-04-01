@@ -42,15 +42,15 @@
 ;                               from the HK_ROOT environment variable.
 ;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
 ;                           Root directory into which log files are saved.
-;       UNH_PATH_ROOT:      in, optional, type=string, default=!mms_init.unh_data_path
-;                           Local root of the SDC-like directory structure where burst
-;                               files find their final resting place. If not present, the
-;                               default is taken from the UNH_DATA_ROOT environment variable.
-;       PACK_MODE:          in, optional, type=integer, default=1
-;                           Packing mode of the data to be processed.
 ;       NO_LOG:             in, optional, type=boolean, default=0
 ;                           If set, no log file is created and all output is directed to
 ;                               the terminal window.
+;       PACK_MODE:          in, optional, type=integer, default=1
+;                           Packing mode of the data to be processed.
+;       PRELIMINARY:        in, optional, type=integer, default=0
+;                           Make a preliminary dataset that does not have absolute
+;                               calibrations applied. "-noabs" is appended to the
+;                               optional descriptor.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -77,6 +77,7 @@
 ;       2016/01/29  -   Written by Matthew Argall
 ;       2016/03/23  -   Added CAL_PATH_ROOT and HK_ROOT. Updated location of calibration
 ;                           and house-keeping files. - MRA
+;       2016/03/30  -   Added PRELIMINARY keyword. - MRA
 ;-
 function mms_edi_amb_l2_sdc, sc, mode, tstart, $
 CAL_PATH_ROOT=cal_path_root, $
@@ -85,9 +86,9 @@ DROPBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
 HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
-UNH_PATH_ROOT=unh_path_root, $
+NO_LOG=no_log, $
 PACK_MODE=pacmo, $
-NO_LOG=no_log
+PRELIMINARY=preliminary
 	compile_opt idl2
 	
 	;Error handler
@@ -135,13 +136,14 @@ NO_LOG=no_log
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	tf_log = ~keyword_set(no_log)
-	if n_elements(pacmo) eq 0 then pacmo = 1
+	tf_prelim = keyword_set(preliminary)
+	tf_log    = ~keyword_set(no_log)
 	cal_path  = n_elements(cal_path_root)  eq 0 ? !edi_init.cal_path_root  : cal_path_root
 	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
 	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
 	hk_path   = n_elements(hk_root)        eq 0 ? !edi_init.hk_root        : hk_root
 	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
+	if n_elements(pacmo) eq 0 then pacmo = 1
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -169,6 +171,9 @@ NO_LOG=no_log
 	outlevel   = 'l2'
 	outoptdesc = optdesc
 	status     = 0
+	
+	;Preliminary file?
+	if tf_prelim then outoptdesc += '-noabs'
 
 ;-----------------------------------------------------
 ; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -295,26 +300,31 @@ NO_LOG=no_log
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, STATUS=status_temp)
-	if status_temp ge 100 && status_temp ne 102 then begin
-		status = status_temp
-		message, 'Error created L2 data.'
-	endif
+	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, $
+	                                 STATUS = status_temp, $
+	                                 ABSCAL = ~tf_prelim)
 	
-	;Pick the biggest status
-	status >= status_temp
+	;Empty file?
+	if status eq 102 then begin
+		status     = 2B
+		empty_file = 1B
+		
+	;Read ok
+	endif else if status lt 100 then begin
+		;Pick the biggest status
+		status    >= status_temp
+		empty_file = 0B
+	
+	;Error
+	endif else begin
+		message, 'Error created L2 data.'
+	endelse
+	
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	parents = file_basename([edi_files, cal_file, dss_file, defatt_file])
-
-	;If the parent was empty, so to is the output
-	empty_file = 0B
-	if status_temp eq 102 then begin
-		status     = 1B
-		empty_file = 2B
-	endif
 
 	;Create the file
 	file_out = mms_edi_amb_l2_mkfile(sc, mode, tstart, $

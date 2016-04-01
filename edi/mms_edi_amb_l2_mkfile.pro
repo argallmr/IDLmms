@@ -93,8 +93,24 @@ STATUS=status
 ;------------------------------------;
 ; Version History                    ;
 ;------------------------------------;
+	
+	;AMB-PM2
+	if stregex(optdesc, '^amb-pm2', /BOOLEAN) then begin
+		;BRST
+		if tf_brst then begin
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v1.1.0 - Correct fill value for fluxes.', $
+			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.' ]
+		
+		;SRVY
+		endif else begin
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v1.1.0 - Correct fill value for fluxes.', $
+			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.' ]
+		endelse
+	
 	;AMB
-	if optdesc eq 'amb' then begin
+	endif else if stregex(optdesc, '^amb', /BOOLEAN) then begin
 		;Mods to data processing
 		if tf_brst then begin
 			mods = [ 'v0.0.0 - Original version.', $
@@ -120,21 +136,6 @@ STATUS=status
 			         'v2.0.0 - Reduced file size with scalar errors. Update metadata.', $
 			         'v2.1.0 - Correct fill value for fluxes.', $
 			         'v3.0.0 - Omni-directional error for trajectories. Correct time deltas. Y-Version linked to cal file. Single epoch for counts.' ]
-		endelse
-	
-	;AMB-PM2
-	endif else if optdesc eq 'amb-pm2' then begin
-		;BRST
-		if tf_brst then begin
-			mods = [ 'v1.0.0 - Original version.', $
-			         'v1.1.0 - Correct fill value for fluxes.', $
-			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.' ]
-		
-		;SRVY
-		endif else begin
-			mods = [ 'v1.0.0 - Original version.', $
-			         'v1.1.0 - Correct fill value for fluxes.', $
-			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.' ]
 		endelse
 	
 	;UNKNOWN
@@ -201,7 +202,7 @@ STATUS=status
 	;Output file
 	version = vx + '.' + vy + '.' + vz
 	amb_file = mms_forge_filename(sc, instr, mode, level, tstart, version, OPTDESC=optdesc)
-	
+
 	;Find the latest z-version
 	;   - Look in both DROPBOX and DATA_PATH
 	vz = mms_latest_zversion(dropbox, amb_file, ROOT=data_path)
@@ -457,7 +458,7 @@ STATUS=status
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VAR_NOTES'
 	oamb -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
 	
-	;TT2000_0
+	;TT2000
 	oamb -> WriteVarAttr, t_vname, 'CATDESC',       'TT2000 time tags for EDI electron flux and trajectories.'
 	oamb -> WriteVarAttr, t_vname, 'DELTA_MINUS',    t_delta
 	oamb -> WriteVarAttr, t_vname, 'DELTA_PLUS',     t_delta
@@ -467,7 +468,7 @@ STATUS=status
 	oamb -> WriteVarAttr, t_vname, 'LABLAXIS',      'UT'
 	oamb -> WriteVarAttr, t_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_vname, 'TIME_BASE',     'J2000'
-	oamb -> WriteVarAttr, t_vname, 'UNITS',         'UT'
+	oamb -> WriteVarAttr, t_vname, 'UNITS',         'ns'
 	oamb -> WriteVarAttr, t_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_vname, 'VAR_TYPE',      'support_data'
@@ -480,7 +481,7 @@ STATUS=status
 	oamb -> WriteVarAttr, t_tt_vname, 'LABLAXIS',      'UT'
 	oamb -> WriteVarAttr, t_tt_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_tt_vname, 'TIME_BASE',     'J2000'
-	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'UT'
+	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'ns'
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
@@ -675,8 +676,8 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'FORMAT',        'E12.5'
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'LABLAXIS',      'dFlux'
-	oamb -> WriteVarAttr, flux1_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
-	oamb -> WriteVarAttr, flux1_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
+	oamb -> WriteVarAttr, flux1_0_delta_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VALIDMIN',      0.0
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VALIDMAX',      1e20
 	oamb -> WriteVarAttr, flux1_0_delta_vname, 'VAR_TYPE',      'support_data'
@@ -688,8 +689,8 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'FORMAT',        'E12.5'
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'LABLAXIS',      'dFlux'
-	oamb -> WriteVarAttr, flux1_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-2'
-	oamb -> WriteVarAttr, flux1_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
+	oamb -> WriteVarAttr, flux1_180_delta_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VALIDMIN',      0.0
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VALIDMAX',      1e20
 	oamb -> WriteVarAttr, flux1_180_delta_vname, 'VAR_TYPE',      'support_data'
@@ -809,8 +810,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux2_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux2_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_0_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux2_0_delta_vname, 'VAR_TYPE',      'support_data'
@@ -822,8 +823,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux2_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux2_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux2_180_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux2_180_delta_vname, 'VAR_TYPE',      'support_data'
@@ -835,8 +836,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux3_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux3_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_0_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux3_0_delta_vname, 'VAR_TYPE',      'support_data'
@@ -848,8 +849,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux3_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux3_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux3_180_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux3_180_delta_vname, 'VAR_TYPE',      'support_data'
@@ -861,8 +862,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux4_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux4_0_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_0_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux4_0_delta_vname, 'VAR_TYPE',      'support_data'
@@ -874,8 +875,8 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'FORMAT',        'E12.5'
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'LABLAXIS',      'dFlux'
-		oamb -> WriteVarAttr, flux4_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-2'
-		oamb -> WriteVarAttr, flux4_180_delta_vname, 'UNITS',         'cm^-2 s^-2'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
+		oamb -> WriteVarAttr, flux4_180_delta_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VALIDMIN',      0.0
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VALIDMAX',      1e30
 		oamb -> WriteVarAttr, flux4_180_delta_vname, 'VAR_TYPE',      'support_data'
