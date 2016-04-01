@@ -263,7 +263,20 @@ NO_LOG=no_log
 
 	;Process data
 	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
-	if status ge 100 && status ne 102 then message, 'Error creating AMB QL data.'
+	
+	;Empty file?
+	if status eq 102 then begin
+		status     = 2B
+		empty_file = 1B
+	
+	;Read ok
+	endif else if status le 100 then begin
+		empty_file = 0B
+	
+	;Read error
+	endif else begin
+		message, 'Error creating AMB QL data.'
+	endelse
 
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -271,13 +284,6 @@ NO_LOG=no_log
 	if cal_file eq '' $
 		then parents = file_basename(edi_files) $
 		else parents = file_basename([edi_files, cal_file])
-
-	;If the parent was empty, so to is the output
-	empty_file = 0B
-	if status eq 102 then begin
-		status     = 1B
-		empty_file = 2B
-	endif
 	
 	;We are processing burst mode locally
 	;   - Look in UNH_PATH for latest z-version

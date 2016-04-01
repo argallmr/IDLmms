@@ -328,7 +328,7 @@ STATUS=status
 	oamb -> WriteVarAttr, epoch_vname, 'LABLAXIS',      'UT'
 	oamb -> WriteVarAttr, epoch_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, epoch_vname, 'TIME_BASE',     'J2000'
-	oamb -> WriteVarAttr, epoch_vname, 'UNITS',         'UT'
+	oamb -> WriteVarAttr, epoch_vname, 'UNITS',         'ns'
 	oamb -> WriteVarAttr, epoch_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oamb -> WriteVarAttr, epoch_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, epoch_vname, 'VAR_TYPE',      'support_data'
@@ -341,7 +341,7 @@ STATUS=status
 	oamb -> WriteVarAttr, t_tt_vname, 'LABLAXIS',      'UT'
 	oamb -> WriteVarAttr, t_tt_vname, 'SI_CONVERSION', '1e-9>s'
 	oamb -> WriteVarAttr, t_tt_vname, 'TIME_BASE',     'J2000'
-	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'UT'
+	oamb -> WriteVarAttr, t_tt_vname, 'UNITS',         'ns'
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_tt_vname, 'VAR_TYPE',      'support_data'
