@@ -284,7 +284,7 @@ STATUS=status
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'LABLAXIS',      'UT'
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'SI_CONVERSION', '1e-9>s'
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'TIME_BASE',     'J2000'
-	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'UNITS',         'UT'
+	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'UNITS',         'ns'
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'VAR_TYPE',      'support_data'
@@ -297,7 +297,7 @@ STATUS=status
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'LABLAXIS',      'UT'
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'SI_CONVERSION', '1e-9>s'
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'TIME_BASE',     'J2000'
-	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'UNITS',         'UT'
+	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'UNITS',         'ns'
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VAR_TYPE',      'support_data'
@@ -310,7 +310,7 @@ STATUS=status
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'LABLAXIS',      'UT'
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'SI_CONVERSION', '1e-9>s'
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'TIME_BASE',     'J2000'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'UNITS',         'UT'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'UNITS',         'ns'
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VAR_TYPE',      'support_data'
