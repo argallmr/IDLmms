@@ -9,7 +9,7 @@
 ;   Find MMS data files.
 ;
 ; :Categories:
-;    Bill Daughton, Simulation
+;    MMS
 ;
 ; :Params:
 ;       SC:             in, required, type=string

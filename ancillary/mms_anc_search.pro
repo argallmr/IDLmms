@@ -83,7 +83,7 @@ ROOT=root
 		endelse
 	endif
 
-	;Day before and day after
+	;Convert TSTART to day-of-year
 	mms_parse_time, tstart, year, month, day, /INTEGER
 	doy  = julday(month, day, year) - julday(1, 1, year) + 1
 

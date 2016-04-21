@@ -2,7 +2,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;   mms_file_vnewest
+;   mms_latest_zversion
 ;
 ; PURPOSE:
 ;+
