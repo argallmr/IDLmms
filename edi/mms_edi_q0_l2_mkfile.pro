@@ -94,29 +94,6 @@ STATUS=status
 	status = 0
 
 ;------------------------------------;
-; Version History                    ;
-;------------------------------------;
-	;Mods to data processing
-	mods = [ 'v0.0.0 - First version.', $.
-	         'v0.0.1 - Filled energy variables.', $
-	         'v0.0.2 - Energy written properly.', $ 
-	         'v1.0.0 - Update variable names.', $ 
-	         'v1.1.0 - Added optics state.', $ 
-	         'v2.0.0 - Added electron trajectories.', $ 
-	         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
-	         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.' ]
-	
-	;Get the version
-	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
-	vx      = strtrim(version[1], 2)
-	vy      = strtrim(version[2], 2)
-	vz      = strtrim(version[3], 2)
-	
-	;Constants for destination file
-	instr   = 'edi'
-	level   = 'l2'
-
-;------------------------------------;
 ; Check Inputs                       ;
 ;------------------------------------;
 	
@@ -142,6 +119,41 @@ STATUS=status
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
 	endelse
+
+;------------------------------------;
+; Version History                    ;
+;------------------------------------;
+	;Mods to data processing
+	if mode eq 'srvy' then begin
+		mods = [ 'v0.0.0 - First version.', $.
+		         'v0.0.1 - Filled energy variables.', $
+		         'v0.0.2 - Energy written properly.', $ 
+		         'v1.0.0 - Update variable names.', $ 
+		         'v1.1.0 - Added optics state.', $ 
+		         'v2.0.0 - Added electron trajectories.', $ 
+		         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
+		         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.' ]
+	endif else if mode eq 'brst' then begin
+		mods = [ 'v0.0.0 - First version.', $.
+		         'v0.0.1 - Filled energy variables.', $
+		         'v0.0.2 - Energy written properly.', $ 
+		         'v1.0.0 - Update variable names.', $ 
+		         'v1.1.0 - Added optics state.', $ 
+		         'v2.0.0 - Added electron trajectories.', $ 
+		         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
+		         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.', $
+		         'v3.1.0 - Fixed optics datatype.' ]
+	endif
+	
+	;Get the version
+	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+	vx      = strtrim(version[1], 2)
+	vy      = strtrim(version[2], 2)
+	vz      = strtrim(version[3], 2)
+	
+	;Constants for destination file
+	instr   = 'edi'
+	level   = 'l2'
 
 ;------------------------------------;
 ; Create Output File Name            ;

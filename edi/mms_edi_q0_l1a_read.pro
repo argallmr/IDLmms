@@ -173,11 +173,11 @@ STATUS=status
 		endif
 	endif
 	
-	;Version v0.1.0 brst files had the optics state as cdf_uint2
+	;Version v0.1.0, v0.2.0 brst files had the optics state as cdf_uint2
 	;instead of a cdf_uint1 value.
 	tf_fix_optics_datatype = 0B
 	if mode eq 'brst' then begin
-		ibad = where( (vx eq 0) and (vy le 1), nbad )
+		ibad = where( vx eq 0, nbad )
 		if nbad gt 0 then begin
 			MrPrintF, 'LogWarn', 'Fixing optics datatype to byte.'
 			tf_fix_optics_datatype = 1B

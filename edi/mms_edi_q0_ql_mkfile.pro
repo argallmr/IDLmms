@@ -89,31 +89,6 @@ STATUS=status
 	
 	;Everything starts out ok
 	status = 0
-
-;------------------------------------;
-; Version History                    ;
-;------------------------------------;
-	;Mods to data processing
-	mods = [ 'v0.0.0 - First version.', $.
-	         'v0.0.1 - Filled energy variables.', $
-	         'v0.0.2 - Energy written properly.', $ 
-	         'v1.0.0 - Update variable names.', $ 
-	         'v1.1.0 - Added optics state.', $ 
-	         'v1.2.0 - Update PI_Name.' ]
-	
-	;Get the version
-	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
-	vx      = strtrim(version[1], 2)
-	vy      = strtrim(version[2], 2)
-	vz      = strtrim(version[3], 2)
-	
-	;Constants for destination file
-	instr   = 'edi'
-	level   = 'l2'
-
-;------------------------------------;
-; Check Inputs                       ;
-;------------------------------------;
 	
 	;Defaults
 	tf_empty = keyword_set(empty_file)
@@ -137,6 +112,32 @@ STATUS=status
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
 	endelse
+
+;------------------------------------;
+; Version History                    ;
+;------------------------------------;
+	;Mods to data processing
+	mods = [ 'v0.0.0 - First version.', $.
+	         'v0.0.1 - Filled energy variables.', $
+	         'v0.0.2 - Energy written properly.', $ 
+	         'v1.0.0 - Update variable names.', $ 
+	         'v1.1.0 - Added optics state.', $ 
+	         'v1.2.0 - Update PI_Name.', $ 
+	         'v1.3.0 - Fixed optics datatype.' ]
+	
+	;Get the version
+	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+	vx      = strtrim(version[1], 2)
+	vy      = strtrim(version[2], 2)
+	vz      = strtrim(version[3], 2)
+	
+	;Constants for destination file
+	instr   = 'edi'
+	level   = 'l2'
+
+;------------------------------------;
+; Check Inputs                       ;
+;------------------------------------;
 
 ;------------------------------------;
 ; Create Output File Name            ;
