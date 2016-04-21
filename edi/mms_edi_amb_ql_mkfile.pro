@@ -101,26 +101,6 @@ STATUS=status
 	endif
 
 ;------------------------------------;
-; Version History                    ;
-;------------------------------------;
-	;Mods to data processing
-	mods = [ 'v0.0.0 - Original version.', $
-	         'v0.1.0 - Added PACK_MODE variable.', $
-	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.', $
-	         'v2.0.0 - Added optics state.', $
-	         'v3.0.0 - Update PI_name. Counts are CDF_UINT4. Single time tag for counts.' ]
-	
-	;Get the version
-	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
-	vx      = strtrim(version[1], 2)
-	vy      = strtrim(version[2], 2)
-	vz      = strtrim(version[3], 2)
-	
-	;Constants for output file
-	instr   = 'edi'
-	level   = 'ql'
-
-;------------------------------------;
 ; Check Inputs                       ;
 ;------------------------------------;
 	
@@ -146,6 +126,27 @@ STATUS=status
 		if n_elements(dropbox)   eq 0 then cd, CURRENT=dropbox
 		if n_elements(data_path) eq 0 then cd, CURRENT=data_path
 	endelse
+
+;------------------------------------;
+; Version History                    ;
+;------------------------------------;
+	;Mods to data processing
+	mods = [ 'v0.0.0 - Original version.', $
+	         'v0.1.0 - Added PACK_MODE variable.', $
+	         'v1.0.0 - Removed PACK_MODE. Add relative calibrations.', $
+	         'v2.0.0 - Added optics state.', $
+	         'v3.0.0 - Update PI_name. Counts are CDF_UINT4. Single time tag for counts.', $
+	         'v3.1.0 - Update metadata.' ]
+
+	;Get the version
+	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
+	vx      = strtrim(version[1], 2)
+	vy      = strtrim(version[2], 2)
+	vz      = strtrim(version[3], 2)
+	
+	;Constants for output file
+	instr   = 'edi'
+	level   = 'ql'
 
 ;------------------------------------;
 ; Get Y-Version From Cal File        ;
@@ -225,7 +226,7 @@ STATUS=status
 	oamb -> WriteGlobalAttr, /CREATE, 'PI_name',                    'Roy Torbert, Hans Vaith'
 	oamb -> WriteGlobalAttr, /CREATE, 'Project',                    'STP>Solar Terrestrial Physics'
 	oamb -> WriteGlobalAttr, /CREATE, 'Source_name',                source_name
-	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. The EDI instrument paper and data products guides' + $
+	oamb -> WriteGlobalAttr, /CREATE, 'TEXT',                       'EDI ambient data. The EDI instrument paper and data products guide ' + $
 	                                                                'can be found at the following two links: ' + $
 	                                                                'http://link.springer.com/article/10.1007%2Fs11214-015-0182-7, ' + $
 	                                                                'https://lasp.colorado.edu/mms/sdc/public/datasets/fields/'
@@ -409,7 +410,7 @@ STATUS=status
 	                                                       'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_0_vname, 'DEPEND_0',      epoch_vname
 	oamb -> WriteVarAttr, counts1_0_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     '0 degree electron counts'
+	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     'Electron Counts PA0'
 	oamb -> WriteVarAttr, counts1_0_vname, 'FILLVAL',      4294967295UL
 	oamb -> WriteVarAttr, counts1_0_vname, 'FORMAT',       'I5'
 	oamb -> WriteVarAttr, counts1_0_vname, 'LABLAXIS',     'counts'
@@ -425,7 +426,7 @@ STATUS=status
 	                                                         'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_180_vname, 'DEPEND_0',      epoch_vname
 	oamb -> WriteVarAttr, counts1_180_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     '180 degree electron counts'
+	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     'Electron Counts PA180'
 	oamb -> WriteVarAttr, counts1_180_vname, 'FILLVAL',      4294967295UL
 	oamb -> WriteVarAttr, counts1_180_vname, 'FORMAT',       'I5'
 	oamb -> WriteVarAttr, counts1_180_vname, 'LABLAXIS',     'counts'
@@ -518,9 +519,9 @@ STATUS=status
 		oamb -> WriteVarAttr, counts3_180_vname, 'VAR_TYPE',     'data'
 
 		;COUNTS4_PA180
-		oamb -> WriteVarAttr, counts4_180_vname, 'CATDESC',      'Anti-field-aligned electrons from the counts1 anode. Actual ' + $
+		oamb -> WriteVarAttr, counts4_180_vname, 'CATDESC',      'Anti-field-aligned electrons from the counts4 anode. Actual ' + $
 		                                                         'pitch-angle depends on the packing mode. See the EDI ' + $
-		                                                         'data guide for more details.'
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts4_180_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts4_180_vname, 'DISPLAY_TYPE', 'time_series'
 		oamb -> WriteVarAttr, counts4_180_vname, 'FIELDNAM',     'Electron Counts PA180'
