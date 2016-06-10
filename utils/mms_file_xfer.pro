@@ -5,7 +5,7 @@
 ;
 ; PURPOSE:
 ;+
-;   Transfer files from DROPBOX_ROOT to DATA_PATH_ROOT.
+;   Copy files from DROPBOX_ROOT to DATA_PATH_ROOT.
 ;
 ; :Categories:
 ;    MMS
@@ -26,6 +26,8 @@
 ;       DELETE:             in, optional, type=boolean, default=0
 ;                           If set, files in `DATA_PATH_ROOT` with the same file names,
 ;                               but different version numbers will be deleted.
+;       MOVE:               in, optional, type=boolean, default=0
+;                           If set, files will be moved instead of copied.
 ;       VERBOSE:            in, optional, type=boolean, default=0
 ;                           If set, print information regarding the transfer.
 ;
@@ -42,6 +44,7 @@
 ;       2016/01/28  -   Written by Matthew Argall
 ;       2016/02/19  -   Filter was weeding out files, but not updating filter
 ;                           conditions. Fixed. - MRA
+;       2016/02/24  -   Added the MOVE keyword. - MRA
 ;-
 pro mms_file_xfer, $
 SC=sc, $
@@ -54,11 +57,13 @@ VERBOSE=verbose, $
 VERSION=version, $
 DELETE=delete, $
 DATA_PATH_ROOT=data_path, $
-DROPTBOX_ROOT=dropbox
+DROPTBOX_ROOT=dropbox, $
+MOVE=move
 	compile_opt idl2
 	on_error, 2
 	
 	;Defaults
+	tf_move    = keyword_set(move)
 	tf_delete  = keyword_set(delete)
 	tf_verbose = keyword_set(verbose)
 	if n_elements(sc)             eq 0 then sc             = ''
@@ -187,6 +192,8 @@ DROPTBOX_ROOT=dropbox
 		endelse
 
 		;Transfer the file
-		file_move, files[i], xfr_file
+		if tf_move $
+			then file_move, files[i], xfr_file $
+			else file_copy, files[i], xfr_file
 	endfor
 end
