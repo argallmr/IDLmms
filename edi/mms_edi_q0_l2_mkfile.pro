@@ -132,7 +132,8 @@ STATUS=status
 		         'v1.1.0 - Added optics state.', $ 
 		         'v2.0.0 - Added electron trajectories.', $ 
 		         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
-		         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.' ]
+		         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.', $ 
+		         'v4.0.0 - Removed unused Epoch variable.' ]
 	endif else if mode eq 'brst' then begin
 		mods = [ 'v0.0.0 - First version.', $.
 		         'v0.0.1 - Filled energy variables.', $
@@ -142,7 +143,8 @@ STATUS=status
 		         'v2.0.0 - Added electron trajectories.', $ 
 		         'v2.1.0 - Deltas on trajectory vectors are now deltas.', $ 
 		         'v3.0.0 - Reduced file size with scalar errors. Add VAR_NOTES.', $
-		         'v3.1.0 - Fixed optics datatype.' ]
+		         'v3.1.0 - Fixed optics datatype.', $ 
+		         'v4.0.0 - Removed unused Epoch variable.' ]
 	endif
 	
 	;Get the version
@@ -251,10 +253,9 @@ STATUS=status
 	prefix  = strjoin([sc, instr], '_') + '_'
 	suffix  = '_' + strjoin([mode, level], '_')
 	
-	epoch_vname            = 'Epoch'
+	epoch_timetag_vname    = 'epoch_timetag'
 	epoch_gdu1_vname       = 'epoch_gdu1'
 	epoch_gdu2_vname       = 'epoch_gdu2'
-	epoch_timetag_vname    = 'epoch_timetag'
 	optics_vname           = prefix + 'optics_state'              + suffix
 	e_gdu1_vname           = prefix + 'energy_gdu1'               + suffix
 	e_gdu2_vname           = prefix + 'energy_gdu2'               + suffix
@@ -271,10 +272,9 @@ STATUS=status
 
 	;Write variable data to file
 	;   - All are detector quantities, so GD12 --> GDU2 and GD21 --> GDU2
-	oq0 -> CreateVar, epoch_vname, 'CDF_TIME_TT2000', /ZVARIABLE
+	oq0 -> CreateVar, epoch_timetag_vname, 'CDF_TIME_TT2000'
 	oq0 -> CreateVar, epoch_gdu1_vname,    'CDF_TIME_TT2000'
 	oq0 -> CreateVar, epoch_gdu2_vname,    'CDF_TIME_TT2000'
-	oq0 -> CreateVar, epoch_timetag_vname, 'CDF_TIME_TT2000'
 	oq0 -> CreateVar, optics_vname,        'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oq0 -> CreateVar, e_gdu1_vname,        'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oq0 -> CreateVar, e_gdu2_vname,        'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
@@ -328,18 +328,18 @@ STATUS=status
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VAR_TYPE'
 	oq0 -> CreateAttr, /VARIABLE_SCOPE, 'VAR_NOTES'
 	
-	;Epoch
-	oq0 -> WriteVarAttr, epoch_vname, 'CATDESC',       'A place holder.'
-	oq0 -> WriteVarAttr, epoch_vname, 'FIELDNAM',      'Time'
-	oq0 -> WriteVarAttr, epoch_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_vname, 'FORMAT',        'I16'
-	oq0 -> WriteVarAttr, epoch_vname, 'LABLAXIS',      'UT'
-	oq0 -> WriteVarAttr, epoch_vname, 'SI_CONVERSION', '1e-9>s'
-	oq0 -> WriteVarAttr, epoch_vname, 'TIME_BASE',     'J2000'
-	oq0 -> WriteVarAttr, epoch_vname, 'UNITS',         'ns'
-	oq0 -> WriteVarAttr, epoch_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_vname, 'VAR_TYPE',      'support_data'
+	;TT2000_TIMETAGS
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'CATDESC',       'Packet time tags'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FIELDNAM',      'Time'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FILLVAL',       MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FORMAT',        'I16'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'LABLAXIS',      'UT'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'SI_CONVERSION', '1e-9>s'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'TIME_BASE',     'J2000'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'UNITS',         'UT'
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
+	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VAR_TYPE',      'support_data'
 	
 	;TT2000_GDU1
 	oq0 -> WriteVarAttr, epoch_gdu1_vname, 'CATDESC',       'TT2000 time tags for quality 0 EDI GDU1 counts.'
@@ -370,19 +370,6 @@ STATUS=status
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
 	oq0 -> WriteVarAttr, epoch_gdu2_vname, 'VAR_TYPE',      'support_data'
-	
-	;TT2000_TIMETAGS
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'CATDESC',       'Packet time tags'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FIELDNAM',      'Time'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FILLVAL',       MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'FORMAT',        'I16'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'LABLAXIS',      'UT'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'SI_CONVERSION', '1e-9>s'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'TIME_BASE',     'J2000'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'UNITS',         'UT'
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2075, 12, 31), /CDF_EPOCH
-	oq0 -> WriteVarAttr, epoch_timetag_vname, 'VAR_TYPE',      'support_data'
 
 	;OPTICS_STATE
 	oq0 -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
