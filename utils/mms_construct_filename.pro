@@ -203,6 +203,11 @@ VERSION=version
 			endif else begin
 				case instr of
 					'fpi': tstart = '%Y%M%d%H%m%S'
+					'fsm': begin
+						if stregex(optdesc, '^cal-(afg|dfg|scm)$', /FOLD_CASE, /BOOLEAN) $
+							then tstart = '%Y%M%d%H%m%S' $
+							else tstart = (mode eq 'brst') ? '%Y%M%d%H%m%S' : '%Y%M%d'
+					endcase
 					'edp': begin
 						if optdesc eq 'dce' $
 							then tstart = (level eq 'l2') ? '%Y%M%d' : '%Y%M%d%H%m%S' $

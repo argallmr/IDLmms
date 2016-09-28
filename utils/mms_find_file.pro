@@ -111,7 +111,7 @@ UNIFORM=uniform
 		                      TIMEORDER = torder, $
 		                      TSTART    = tstart, $
 		                      TEND      = tend)
-		
+
 		;Search in the dropbox as well?
 		if dropbox ne '' then begin
 			;Reform the file name
@@ -119,7 +119,7 @@ UNIFORM=uniform
 			fpattern_new = filepath(fbase, ROOT_DIR=dropbox)
 			
 			;Search for the file
-			files_box = MrFile_Search(fpattern[i], $
+			files_box = MrFile_Search(fpattern_new, $
 			                          /CLOSEST, $
 			                          COUNT     = nDropbox, $
 			                          TIMEORDER = torder, $
@@ -128,8 +128,8 @@ UNIFORM=uniform
 			
 			;Append files
 			if nDropbox gt 0 then begin
-				files = [files, files_box]
-				
+				files = count eq 0 ? files_box : [files, files_box]
+				count = count + nDropbox
 			endif
 		endif
 
