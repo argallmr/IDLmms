@@ -11,8 +11,11 @@
 ; :Params:
 ;       COUNTS:     in, required, type=lonarr
 ;                   EDI ambient raw counts.
-;       PACK_MODE:  in, required, type=byte
-;                   Packing mode of the data.
+;       ONE_SIDED:  in, required, type=byte
+;                   A flag indicating that the pads are aligned one-sided (1) or
+;                       centered (0). When centered, an additional factor of 2 is
+;                       needed during calibration to account for averaging over
+;                       two anodes.
 ;       RELCAL:     in, required, type=fltarr
 ;                   Relative calibration parameter.
 ;       ABSCAL:     in, required, type=float
@@ -27,7 +30,7 @@
 ; :Returns:
 ;       CNTS:       Corrected, calibrated counts.
 ;-
-function mms_edi_amb_cal_apply, counts, pack_mode, relcal, abscal, $
+function mms_edi_amb_cal_apply, counts, one_sided, relcal, abscal, $
 BRST=brst, $
 DELTA=err_tot
 	compile_opt idl2
@@ -146,12 +149,10 @@ DELTA=err_tot
 		
 		;SRVY
 		endif else begin
-			case pack_mode of
-				0: cnts_abs = cnts_rel * (abscal / 32.0)
-				1: cnts_abs = cnts_rel * (abscal / 32.0)
-				2: cnts_abs = cnts_rel * (abscal / 16.0)
-				else: message, 'PACK_MODE (' + string(pack_mode, FORMAT='(i0)') + ') not recognized.'
-			endcase
+			iOneSided = where(one_sided, nOneSided, COMPLEMENT=iCentered, NCOMPLEMENT=nCentered)
+			cnts_abs  = fltarr(nOnesided + nCentered)
+			if nOneSided gt 0 then cnts_abs[iOneSided] = cnts_rel[iOneSided] * (abscal / 16.0)
+			if nCentered gt 0 then cnts_abs[iCentered] = cnts_rel[iCentered] * (abscal / 32.0)
 		endelse
 	
 	;Do not apply absolute calibrations

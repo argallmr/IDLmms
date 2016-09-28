@@ -118,7 +118,6 @@ STATUS=status
 	;Total number of files given
 	nEDI = n_elements(amb_files)
 	nCal = n_elements(cal_file)
-	nFGM = n_elements(fgm_files)
 	
 	;Check if files exist and are readable
 	if nEDI eq 0 then message, 'No EDI files given'
@@ -144,54 +143,53 @@ STATUS=status
 	cals = mms_edi_amb_cal_read(cal_file)
 
 ;-----------------------------------------------------
+; Operations Bitmask \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	;Create an operations bitmask
+	bitmask = mms_edi_amb_ops_bitmask(edi)
+
+	;Update the EDI structure
+	edi = MrStruct_RemoveTags(edi, ['PITCH_MODE', 'PACK_MODE', $
+	                                'PERP_ONESIDE', 'PERP_BIDIR'])
+
+;-----------------------------------------------------
 ; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 
+	;Annode assocated with each channel
+	anodes = mms_edi_amb_anodes(edi.azimuth, bitmask, edi.pitch_gdu1, edi.pitch_gdu2, BRST=tf_brst)
+
 	;Read Calibration File
-	cal_cnts = mms_edi_amb_calibrate(edi, cals, ABSCAL=tf_abscal, BRST=tf_brst)
+	cal_cnts = mms_edi_amb_calibrate( edi, cals, temporary(anodes), bitmask, $
+	                                  ABSCAL = tf_abscal )
 
 	;Remove uncalibrated data
-	if tf_brst then begin
-		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2', $
-		                                'COUNTS2_GDU1', 'COUNTS2_GDU2', $
-		                                'COUNTS3_GDU1', 'COUNTS3_GDU2', $
-		                                'COUNTS4_GDU1', 'COUNTS4_GDU2'])
-	endif else begin
-		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2'])
-	endelse
+	edi = MrStruct_RemoveTags(edi, ['COUNTS_GDU1', 'COUNTS_GDU2'])
 
 	;Append calibrated data
 	edi = create_struct(edi, temporary(cal_cnts))
 
 ;-----------------------------------------------------
-; Sort by 0 and 180 Pitch Angle \\\\\\\\\\\\\\\\\\\\\\
+; Particle Trajectories \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if tf_brst $
-		then counts_0_180 = mms_edi_amb_brst_sort_cnts(edi) $
-		else counts_0_180 = mms_edi_amb_srvy_sort_cnts(edi)
+	;Azimuth look direction associated with each channel
+	phi = mms_edi_amb_anodes_phi(edi.azimuth, bitmask, edi.pitch_gdu1, edi.pitch_gdu2, BRST=tf_brst)
+
+	;Incident trajectories
+	traj = mms_edi_amb_traj( temporary(phi), reform(edi.polar) )
+
+	;Incident trajectories
+	;   - GDU1 and GDU2 have identical time tags
+	traj = mms_edi_amb_traj_rotate( edi.epoch_gdu1, temporary(traj), dss_file, defatt_file )
+
+	;Combine data
+	edi = create_struct(edi, temporary(traj))
 
 ;-----------------------------------------------------
-; Calculate Pitch Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Sort Results by Mode and Pitch Angle \\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	results = mms_edi_amb_sort( temporary(edi), temporary(bitmask) )
 
-	;Compute trajectories
-	;   - Requires: azimuth, polar, epoch, pitch, pack
-	traj = mms_edi_amb_l2_trajectories(edi, dss_file, defatt_file)
-
-;-----------------------------------------------------
-; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-
-	;Create the output structure
-	edi_out = { tt2000_timetag: reform(edi.epoch_timetag), $
-	            optics:         reform(edi.optics), $
-	            energy_gdu1:    reform(edi.energy_gdu1), $
-	            energy_gdu2:    reform(edi.energy_gdu2) $
-	          }
-	edi = !Null
-
-	;Burst mode counts
-	edi_out = create_struct(edi_out, temporary(counts_0_180), temporary(traj))
-
-	return, edi_out
+	return, results
 end

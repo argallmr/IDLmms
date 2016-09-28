@@ -134,7 +134,7 @@ STATUS=status
 	
 	;Constants for destination file
 	instr   = 'edi'
-	level   = 'l2'
+	level   = 'ql'
 
 ;------------------------------------;
 ; Check Inputs                       ;

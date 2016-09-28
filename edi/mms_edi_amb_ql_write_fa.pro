@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    mms_edi_amb_ql_write
+;    mms_edi_amb_ql_write_fa
 ;
 ; PURPOSE:
 ;+
@@ -54,7 +54,7 @@
 ;       2015/02/27  -   Added the STATUS keyword. - MRA
 ;       2016/03/23  -   Separated file creating from file writing. - MRA
 ;-
-function mms_edi_amb_ql_write, amb_file, amb_data
+function mms_edi_amb_ql_write_fa, amb_file, amb_data
 	compile_opt idl2
 	
 	catch, the_error
@@ -82,23 +82,15 @@ function mms_edi_amb_ql_write, amb_file, amb_data
 	;
 	; Check sizes
 	;
-	if ~isa(amb_data.tt2000,       'LONG64') then message, 'amb_data.tt2000 must be LONG64.'
-	if ~isa(amb_data.tt2000_tt,    'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
-	if ~isa(amb_data.optics,       'BYTE')   then message, 'amb_data.optics must be BYTE.'
-	if ~isa(amb_data.energy_gdu1,  'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
-	if ~isa(amb_data.energy_gdu2,  'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
-	if ~isa(amb_data.gdu_0,        'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
-	if ~isa(amb_data.gdu_180,      'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
-	if ~isa(amb_data.counts1_0,    'ULONG')  then message, 'amb_data.counts1_0 must be ULONG.'
-	if ~isa(amb_data.counts1_180,  'ULONG')  then message, 'amb_data.counts1_180 must be ULONG.'
-	if mode eq 'brst' then begin
-		if ~isa(amb_data.counts2_0,    'ULONG') then message, 'amb_data.counts2_0 must be ULONG.'
-		if ~isa(amb_data.counts3_0,    'ULONG') then message, 'amb_data.counts3_0 must be ULONG.'
-		if ~isa(amb_data.counts4_0,    'ULONG') then message, 'amb_data.counts4_0 must be ULONG.'
-		if ~isa(amb_data.counts2_180,  'ULONG') then message, 'amb_data.counts2_180 must be ULONG.'
-		if ~isa(amb_data.counts3_180,  'ULONG') then message, 'amb_data.counts3_180 must be ULONG.'
-		if ~isa(amb_data.counts4_180,  'ULONG') then message, 'amb_data.counts4_180 must be ULONG.'
-	endif
+	if ~isa(amb_data.epoch_fa,      'LONG64') then message, 'amb_data.epoch_fa must be LONG64.'
+	if ~isa(amb_data.epoch_timetag, 'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
+	if ~isa(amb_data.optics,        'BYTE')   then message, 'amb_data.optics must be BYTE.'
+	if ~isa(amb_data.energy_gdu1,   'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
+	if ~isa(amb_data.energy_gdu2,   'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
+	if ~isa(amb_data.gdu_0,         'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
+	if ~isa(amb_data.gdu_180,       'BYTE')   then message, 'amb_data.gdu_180 must be BYTE.'
+	if ~isa(amb_data.counts_0,      'ULONG')  then message, 'amb_data.counts_0 must be ULONG.'
+	if ~isa(amb_data.counts_180,    'ULONG')  then message, 'amb_data.counts_180 must be ULONG.'
 
 	;Open the CDF file
 	oamb = MrCDF_File(amb_file, /MODIFY)
@@ -131,8 +123,8 @@ function mms_edi_amb_ql_write, amb_file, amb_data
 ;------------------------------------------------------
 
 	;Write variable data to file
-	oamb -> WriteVar, epoch_vname,   amb_data.tt2000
-	oamb -> WriteVar, t_tt_vname,    amb_data.tt2000_tt
+	oamb -> WriteVar, epoch_vname,   amb_data.epoch_fa
+	oamb -> WriteVar, t_tt_vname,    amb_data.epoch_timetag
 	oamb -> WriteVar, optics_vname,  amb_data.optics
 	oamb -> WriteVar, e_gdu1_vname,  amb_data.energy_gdu1
 	oamb -> WriteVar, e_gdu2_vname,  amb_data.energy_gdu2
@@ -141,17 +133,17 @@ function mms_edi_amb_ql_write, amb_file, amb_data
 
 	;Put group variables by pitch angle.
 	if mode eq 'brst' then begin
-		oamb -> WriteVar, counts1_0_vname,   amb_data.counts1_0
-		oamb -> WriteVar, counts2_0_vname,   amb_data.counts2_0
-		oamb -> WriteVar, counts3_0_vname,   amb_data.counts3_0
-		oamb -> WriteVar, counts4_0_vname,   amb_data.counts4_0
-		oamb -> WriteVar, counts1_180_vname, amb_data.counts1_180
-		oamb -> WriteVar, counts2_180_vname, amb_data.counts2_180
-		oamb -> WriteVar, counts3_180_vname, amb_data.counts3_180
-		oamb -> WriteVar, counts4_180_vname, amb_data.counts4_180
+		oamb -> WriteVar, counts1_0_vname,   amb_data.counts_0[*,0]
+		oamb -> WriteVar, counts2_0_vname,   amb_data.counts_0[*,1]
+		oamb -> WriteVar, counts3_0_vname,   amb_data.counts_0[*,2]
+		oamb -> WriteVar, counts4_0_vname,   amb_data.counts_0[*,3]
+		oamb -> WriteVar, counts1_180_vname, amb_data.counts_180[*,0]
+		oamb -> WriteVar, counts2_180_vname, amb_data.counts_180[*,1]
+		oamb -> WriteVar, counts3_180_vname, amb_data.counts_180[*,2]
+		oamb -> WriteVar, counts4_180_vname, amb_data.counts_180[*,3]
 	endif else begin
-		oamb -> WriteVar, counts1_0_vname,    amb_data.counts1_0
-		oamb -> WriteVar, counts1_180_vname,  amb_data.counts1_180
+		oamb -> WriteVar, counts1_0_vname,    amb_data.counts_0
+		oamb -> WriteVar, counts1_180_vname,  amb_data.counts_180
 	endelse
 
 ;------------------------------------------------------

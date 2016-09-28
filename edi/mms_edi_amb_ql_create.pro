@@ -8,49 +8,16 @@
 ;   Process EDI AMB L1A data, sorting counts by pitch angle instead of GDU and,
 ;   for burst data, calculate the pitch angle of each anode.
 ;
+;   Calling Sequences:
+;       fname = mms_edi_ql_amb_create( amb_files )
+;       fname = mms_edi_ql_amb_create( ..., tstart, tend )
+;
 ; :Categories:
 ;    MMS, EDI
 ;
-; :Author:
-;    Matthew Argall::
-;        University of New Hampshire
-;        Morse Hall Room 348
-;        8 College Road
-;        Durham, NH 03824
-;        matthew.argall@unh.edu
-;
-; :History:
-;    Modification History::
-;       2015/10/27  -   Written by Matthew Argall
-;       2015/11/04  -   Calculate pitch angle for ambient data. - MRA
-;       2016/01/29  -   Split the QL and L2 processes into separate programs. Removed
-;                           helper functions to separate files. - MRA
-;       2016/02/01  -   Split the QL and L2 processes into separate programs. Removed
-;                           helper functions to separate files. - MRA
-;-
-;*****************************************************************************************
-;+
-;   Process EDI AMB L1A data, sorting counts by pitch angle instead of GDU and,
-;   for burst data, calculate the pitch angle of each anode.
-;
-;   Calling Sequences:
-;       fname = mms_edi_ql_amb_create( fast_file )
-;       fname = mms_edi_ql_amb_create( slow_file )
-;       fname = mms_edi_ql_amb_create( brst_file )
-;       fname = mms_edi_ql_amb_create( ..., tstart, tend )
-;       fname = mms_edi_ql_amb_create( fast_file, slow_file )
-;       fname = mms_edi_ql_amb_create( ..., tstart, thend )
-;
 ; :Params:
-;       SC:         in, required, type=string/strarr
-;                   Either the spacecraft identifier ('mms1', 'mms2', 'mms3', 'mms4')
-;                       of the spacecraft for which to process data or the EDI data
-;                       file(s) to be processed. If files, they may be 'fast' and/or 'slow'
-;                       mode data files.
-;       MODE:       in, required, type=string/strarr
-;                   Either the mode ('srvy', 'brst') of data to process or FGM
-;                       data file names used to calculate pitch angle if 'brst' files
-;                       are given for `SC`. 
+;       AMB_FILES:  in, required, type=string/strarr
+;                   Names of the EDI L1A AMB data files to be processd.
 ;       TSTART:     in, optional, types=string
 ;                   An ISO-8601 string indicating the start time of the interval to process.
 ;       TEND:       in, optional, types=string
@@ -90,6 +57,24 @@
 ;                       PA3_180     - Pitch angle associated with COUNTS3_180 (L2 only)
 ;                       PA4_0       - Pitch angle associated with COUNTS4_0 (L2 only)
 ;                       PA4_180     - Pitch angle associated with COUNTS4_180 (L2 only)
+;
+; :Author:
+;    Matthew Argall::
+;        University of New Hampshire
+;        Morse Hall Room 348
+;        8 College Road
+;        Durham, NH 03824
+;        matthew.argall@unh.edu
+;
+; :History:
+;    Modification History::
+;       2015/10/27  -   Written by Matthew Argall
+;       2015/11/04  -   Calculate pitch angle for ambient data. - MRA
+;       2016/01/29  -   Split the QL and L2 processes into separate programs. Removed
+;                           helper functions to separate files. - MRA
+;       2016/02/01  -   Split the QL and L2 processes into separate programs. Removed
+;                           helper functions to separate files. - MRA
+;       2016/09/18  -   Restructured to accommodate new data products. - MRA
 ;-
 function mms_edi_amb_ql_create, amb_files, tstart, tend, $
 CAL_FILE=cal_file, $
@@ -107,30 +92,25 @@ STATUS=status
 		return, !Null
 	endif
 	
+	;Everything is ok
+	status = 0
+	
 ;-----------------------------------------------------
 ; Check Inputs \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 
 	;Total number of files given
 	nEDI = n_elements(amb_files)
+	nCal = n_elements(cal_file)
 	
 	;Check if files exist and are readable
 	if nEDI eq 0 then message, 'No EDI files given'
+	if nCal eq 0 then message, 'No EDI calibration file given.'
 	if min(file_test(amb_files, /READ, /REGULAR)) eq 0 $
 		then message, 'EDI files must exist and be readable.'
 	
-	;Check the calibration file
-	tf_cal = 1
-	if n_elements(cal_file) eq 0 || cal_file eq '' then begin
-		MrPrintF, 'LogWarn', 'No calibration file given. Skipping cal process.'
-		tf_cal = 0
-	endif else if ~file_test(cal_file, /READ, /REGULAR) then begin
-		MrPrintF, 'LogErr', 'Calibration file is not readable: "' + cal_file + '".'
-		tf_cal = 0
-	endif
-	
 	;Burst mode flag
-	tf_brst =stregex(amb_files[0], 'brst', /BOOLEAN)
+	tf_brst = stregex(amb_files[0], 'brst', /BOOLEAN)
 
 ;-----------------------------------------------------
 ; Read EDI Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -138,8 +118,12 @@ STATUS=status
 	;Read Data
 	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
+	;   - Expand AZIMUTH and POLAR angles to COUNTS time resolution
 	edi = mms_edi_amb_l1a_read(amb_files, tstart, tend, /EXPAND_ANGLES, STATUS=status)
 	if status ge 100 then message, 'Error reading file.'
+
+	;Read calibration file
+	cals = mms_edi_amb_cal_read(cal_file)
 	
 	;Number of elements.
 	ncts = n_elements(edi.epoch_gdu1)
@@ -152,51 +136,37 @@ STATUS=status
 	if nbad gt 0 then MrPrintF, 'LogWarn', nbad, nbad/float(ntt)*100.0, FORMAT='(%"energy_gdu2 has %i (%0.2f\%) bad values")'
 
 ;-----------------------------------------------------
+; Operations Bitmask \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	;Create an operations bitmask
+	bitmask = mms_edi_amb_ops_bitmask(edi)
+
+	;Update the EDI structure
+	edi = MrStruct_RemoveTags(edi, ['PITCH_MODE',   'PACK_MODE', $
+	                                'PERP_ONESIDE', 'PERP_BIDIR'])
+
+;-----------------------------------------------------
 ; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	;
-	; Read all of the calibration data, then prune
-	; down within cal_apply
-	;
-	cals     = mms_edi_amb_cal_read(cal_file)
-	cal_cnts = mms_edi_amb_calibrate(edi, temporary(cals), BRST=tf_brst)
+
+	;Annode assocated with each channel
+	anodes = mms_edi_amb_anodes(edi.azimuth, bitmask, edi.pitch_gdu1, edi.pitch_gdu2, BRST=tf_brst)
+
+	;Read Calibration File
+	cal_cnts = mms_edi_amb_calibrate( edi, cals, temporary(anodes), bitmask, $
+	                                  ABSCAL = tf_abscal )
 
 	;Remove uncalibrated data
-	if tf_brst then begin
-		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2', $
-		                                'COUNTS2_GDU1', 'COUNTS2_GDU2', $
-		                                'COUNTS3_GDU1', 'COUNTS3_GDU2', $
-		                                'COUNTS4_GDU1', 'COUNTS4_GDU2'])
-	endif else begin
-		edi = MrStruct_RemoveTags(edi, ['COUNTS1_GDU1', 'COUNTS1_GDU2'])
-	endelse
+	edi = MrStruct_RemoveTags(edi, ['COUNTS_GDU1', 'COUNTS_GDU2'])
 
 	;Append calibrated data
 	edi = create_struct(edi, temporary(cal_cnts))
 
 ;-----------------------------------------------------
-; Sort by 0 and 180 Pitch Angle \\\\\\\\\\\\\\\\\\\\\\
+; Sort Results by Mode and Pitch Angle \\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if tf_brst $
-		then counts_0_180 = mms_edi_amb_brst_sort_cnts(edi) $
-		else counts_0_180 = mms_edi_amb_srvy_sort_cnts(edi)
+	results = mms_edi_amb_sort( temporary(edi), temporary(bitmask) )
 
-;-----------------------------------------------------
-; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-;-----------------------------------------------------
-
-	;Create the output structure
-	edi_out = { tt2000_tt:   reform(edi.epoch_timetag), $
-	            optics:      reform(edi.optics), $
-	            energy_gdu1: reform(edi.energy_gdu1), $
-	            energy_gdu2: reform(edi.energy_gdu2) $
-	          }
-	edi = !Null
-
-	;Burst mode counts
-	edi_out = create_struct(edi_out, temporary(counts_0_180))
-
-	;Return
-	if n_elements(status) eq 0 then status = 0
-	return, edi_out
+	return, results
 end

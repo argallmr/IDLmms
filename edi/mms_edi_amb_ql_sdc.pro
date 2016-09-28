@@ -83,7 +83,6 @@ DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
 FILE_OUT=file_out, $
 LOG_PATH_ROOT=log_path_root, $
-PACK_MODE=pacmo, $
 NO_LOG=no_log
 	compile_opt idl2
 	
@@ -155,16 +154,11 @@ NO_LOG=no_log
 	;Constants for source files
 	instr   = 'edi'
 	level   = 'l1a'
-	case pacmo of
-		1: optdesc = 'amb'
-		2: optdesc = 'amb-pm2'
-		else: message, 'Unknown value for PACMO (' + strtrim(pacmo, 2) + ').'
-	endcase
+	optdesc = 'amb'
 	
 	;Constants for destination files
 	outmode    = mode
 	outlevel   = 'ql'
-	outoptdesc = optdesc
 	status     = 0
 
 ;-----------------------------------------------------
@@ -262,7 +256,9 @@ NO_LOG=no_log
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_ql = mms_edi_amb_ql_create(edi_files, CAL_FILE=cal_file, STATUS=status)
+	edi_ql = mms_edi_amb_ql_create( edi_files, $
+	                                CAL_FILE  = cal_file, $
+	                                STATUS    = status)
 	
 	;Empty file?
 	if status eq 102 then begin
@@ -279,29 +275,88 @@ NO_LOG=no_log
 	endelse
 
 ;-----------------------------------------------------
-; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Data Products \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	if cal_file eq '' $
-		then parents = file_basename(edi_files) $
-		else parents = file_basename([edi_files, cal_file])
+	
+	;Parent files
+	parents = file_basename([edi_files, cal_file])
 	
 	;We are processing burst mode locally
 	;   - Look in UNH_PATH for latest z-version
 	out_path = mode eq 'brst' ? unh_path : data_path
 
-	;Create the file
-	file_out = mms_edi_amb_ql_mkfile(sc, mode, tstart, $
-	                                 DROPBOX_ROOT   = dropbox, $
-	                                 DATA_PATH_ROOT = out_path, $
-	                                 EMPTY_FILE     = empty_file, $
-	                                 OPTDESC        = outoptdesc, $
-	                                 PARENTS        = parents, $
-	                                 STATUS         = status)
-	if status ge 100 then message, 'Error writing QL file.'
+	;Data products to be written
+	outoptdesc = tag_names(edi_ql)
+	nOptDesc   = n_elements(outoptdesc)
+	files      = strarr(nOptDesc)
 	
-	;Write the data
-	if ~empty_file then status = mms_edi_amb_ql_write(file_out, temporary(edi_ql))
-	if status ne 0 then message, 'Error writing to L2 file.'
+	;Loop over data sets
+	for i = 0, nOptDesc - 1  do begin
+		;Convert underscores to hyphens
+		outdesc = strlowcase(strjoin(strsplit(outoptdesc[i], '_', /EXTRACT), '-'))
+
+	;-----------------------------------------------------
+	; Make Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;ALTERNATING
+		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
+			;Create the file
+			files[i] = mms_edi_amb_ql_mkfile_alt(sc, mode, outdesc, tstart, $
+			                                     DROPBOX_ROOT   = dropbox, $
+			                                     DATA_PATH_ROOT = out_path, $
+			                                     EMPTY_FILE     = empty_file, $
+			                                     PARENTS        = parents, $
+			                                     STATUS         = stemp)
+			                                     
+		;FIELD-ALIGNED
+		endif else if stregex(outdesc, '(amb|amb-pm2)', /BOOLEAN) then begin
+			;Create the file
+			files[i] = mms_edi_amb_ql_mkfile_fa(sc, mode, outdesc, tstart, $
+			                                    DROPBOX_ROOT   = dropbox, $
+			                                    DATA_PATH_ROOT = out_path, $
+			                                    EMPTY_FILE     = empty_file, $
+			                                    PARENTS        = parents, $
+			                                    STATUS         = stemp)
+		;????
+		endif else begin
+			message, 'Unknown data product: "' + outoptdesc + '".'
+		endelse
+
+		;Check status
+		status >= stemp
+		if files[i] eq '' then begin
+			MrPrintF, 'LogErr', 'Error making ' + instr + ' ' + outlevel + ' ' + outdesc + ' file.'
+			continue
+		endif
+
+	;-----------------------------------------------------
+	; Write Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;ALTERNATING
+		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
+			if ~empty_file then stemp = mms_edi_amb_ql_write_alt(files[i], edi_ql.(i))
+			
+		;FIELD-ALIGNED
+		endif else if stregex(outdesc, 'amb|amb-pm2', /BOOLEAN) then begin
+			if ~empty_file then stemp = mms_edi_amb_ql_write_fa(files[i], edi_ql.(i))
+		
+		;????
+		endif else begin
+			message, 'Unknown data product: "' + outoptdesc + '".'
+		endelse
+		
+		;Free up some data
+		edi_data = MrStruct_RemoveTags(edi_ql, outoptdesc[i])
+
+		;Check status
+		status >= stemp
+		if stemp ge 100 then begin
+			MrPrintF, 'LogErr', 'Error writing to L2 file.'
+			continue
+		endif
+	endfor
 
 ;-----------------------------------------------------
 ; Status Report \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

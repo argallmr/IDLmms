@@ -30,6 +30,7 @@
 ;                               100      -  Unknown trapped error
 ;                               101      -  Error reading file
 ;                               102      -  No data in file
+;                               104      -  Incompatible file versions
 ;
 ; :Returns:
 ;       EDI:            Structure of EDI data. Fields are below.
@@ -159,10 +160,12 @@ STATUS=status
 	;               It should be "Epoch", but instead is "epoch_angle".
 	;               No special action is required so long as you are
 	;               aware of this.
+	;
 
 	
 	;Convert from energy bit to energy
 	tf_energy_units = 1B
+	
 	;vX.Y.Z and earlier brst files have energy bit values
 ;	tf_energy_units = 0B
 ;	if mode eq 'brst' then begin
@@ -178,30 +181,33 @@ STATUS=status
 ;-----------------------------------------------------
 ; Varialble Names \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	prefix = sc + '_' + instr + '_' + optdesc + '_'
 	
 	;Variable names for GDU1
-	counts1_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts1') + suffix
-	counts2_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts2') + suffix
-	counts3_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts3') + suffix
-	counts4_gdu1_name = mms_construct_varname(sc, instr, optdesc, 'gdu1_raw_counts4') + suffix
-	energy_gdu1_name  = mms_construct_varname(sc, instr, optdesc, 'energy1')
+	counts1_gdu1_name = prefix + 'gdu1_raw_counts1'
+	counts2_gdu1_name = prefix + 'gdu1_raw_counts2'
+	counts3_gdu1_name = prefix + 'gdu1_raw_counts3'
+	counts4_gdu1_name = prefix + 'gdu1_raw_counts4'
+	energy_gdu1_name  = prefix + 'energy1'
+	pitch_gdu1_name   = sc + '_' + instr + '_pitch_gdu1'
 	
 	;Variable names for GDU2
-	counts1_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts1') + suffix
-	counts2_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts2') + suffix
-	counts3_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts3') + suffix
-	counts4_gdu2_name = mms_construct_varname(sc, instr, optdesc, 'gdu2_raw_counts4') + suffix
-	energy_gdu2_name  = mms_construct_varname(sc, instr, optdesc, 'energy2')
+	counts1_gdu2_name = prefix + 'gdu2_raw_counts1'
+	counts2_gdu2_name = prefix + 'gdu2_raw_counts2'
+	counts3_gdu2_name = prefix + 'gdu2_raw_counts3'
+	counts4_gdu2_name = prefix + 'gdu2_raw_counts4'
+	energy_gdu2_name  = prefix + 'energy2'
+	pitch_gdu2_name   = sc + '_' + instr + '_pitch_gdu2'
 	
 	;Other variable names
-	phi_name        = mms_construct_varname(sc, instr, optdesc, 'phi')     + suffix
-	theta_name      = mms_construct_varname(sc, instr, optdesc, 'theta')   + suffix
-	pitch_gdu1_name = mms_construct_varname(sc, instr, 'pitch_gdu1')       + suffix
-	pitch_gdu2_name = mms_construct_varname(sc, instr, 'pitch_gdu2')       + suffix
-	dwell_name      = mms_construct_varname(sc, instr, optdesc, 'dwell')
-	pitch_name      = mms_construct_varname(sc, instr, optdesc, 'pitchmode')
-	pacmo_name      = mms_construct_varname(sc, instr, optdesc, 'pacmo')
-	optics_name     = mms_construct_varname(sc, instr, optdesc, 'optics')
+	phi_name          = prefix + 'phi'
+	theta_name        = prefix + 'theta'
+	dwell_name        = prefix + 'dwell'
+	pitch_name        = prefix + 'pitchmode'
+	pacmo_name        = prefix + 'pacmo'
+	optics_name       = prefix + 'optics'
+	perp_oneside_name = prefix + 'perp_onesided'
+	perp_bidir_name   = prefix + 'perp_bidirectional'
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -212,20 +218,20 @@ STATUS=status
 	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
 
 	;Read the data for GD12
-	counts_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
-	                          DEPEND_0 = epoch_gdu1, $
-	                          NRECS    = nRecs_gdu1, $
-	                          STATUS   = status_gdu1, $
-	                          TSTART   = tstart, $
-	                          TEND     = tend)
+	counts1_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
+	                           DEPEND_0 = epoch_gdu1, $
+	                           NRECS    = nRecs_gdu1, $
+	                           STATUS   = status_gdu1, $
+	                           TSTART   = tstart, $
+	                           TEND     = tend)
 
 	;Read the data for GD21
-	counts_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
-	                          DEPEND_0 = epoch_gdu2, $
-	                          NRECS    = nRecs_gdu2, $
-	                          STATUS   = status_gdu2, $
-	                          TSTART   = tstart, $
-	                          TEND     = tend)
+	counts1_gdu2 = MrCDF_nRead(cdfIDs, counts1_gdu2_name, $
+	                           DEPEND_0 = epoch_gdu2, $
+	                           NRECS    = nRecs_gdu2, $
+	                           STATUS   = status_gdu2, $
+	                           TSTART   = tstart, $
+	                           TEND     = tend)
 
 	;No records in file
 	;   - It is possible for only one of the detectors to be operating.
@@ -245,10 +251,10 @@ STATUS=status
 	endif
 
 	;Read the rest of the variables?
-	energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name,  TSTART=tstart, TEND=tend)
-	pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,   TSTART=tstart, TEND=tend)
-	energy_gdu2 = MrCDF_nRead(cdfIDs, energy_gdu2_name,  TSTART=tstart, TEND=tend)
-	pitch_gdu2  = MrCDF_nRead(cdfIDs, pitch_gdu2_name,   TSTART=tstart, TEND=tend)
+	energy_gdu1 = MrCDF_nRead(cdfIDs, energy_gdu1_name, TSTART=tstart, TEND=tend)
+	pitch_gdu1  = MrCDF_nRead(cdfIDs, pitch_gdu1_name,  TSTART=tstart, TEND=tend)
+	energy_gdu2 = MrCDF_nRead(cdfIDs, energy_gdu2_name, TSTART=tstart, TEND=tend)
+	pitch_gdu2  = MrCDF_nRead(cdfIDs, pitch_gdu2_name,  TSTART=tstart, TEND=tend)
 	
 	;Read other data
 	optics     = MrCDF_nRead(cdfIDs, optics_name, TSTART=tstart, TEND=tend)
@@ -256,6 +262,7 @@ STATUS=status
 	theta      = MrCDF_nRead(cdfIDs, theta_name,  TSTART=tstart, TEND=tend)
 	pitch_mode = MrCDF_nRead(cdfIDs, pitch_name,  TSTART=tstart, TEND=tend, DEPEND_0=epoch_timetag)
 	pack_mode  = MrCDF_nRead(cdfIDs, pacmo_name,  TSTART=tstart, TEND=tend)
+	dwell      = MrCDF_nRead(cdfIDs, dwell_name,  TSTART=tstart, TEND=tend)
 	
 	;Burst data?
 	if mode eq 'brst' then begin
@@ -267,11 +274,32 @@ STATUS=status
 		counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
 	endif
 	
+	;Perp one-sided and bidirectional
+	;   - v1.0.0 introduced these variables
+	;   - If the variables cannot be read, make their default = 0
+	iRead = where(vx ge 1, nRead, COMPLEMENT=iMake, NCOMPLEMENT=nMake)
+	if nMake eq 0 then begin
+		perp_oneside = MrCDF_nRead(cdfIDs, perp_oneside_name, TSTART=tstart, TEND=tend)
+		perp_bidir   = MrCDF_nRead(cdfIDs, perp_bidir_name,   TSTART=tstart, TEND=tend)
+	endif else if nRead eq 0 then begin
+		perp_oneside = bytarr(n_elements(epoch_timetag))
+		perp_bidir   = bytarr(n_elements(epoch_timetag))
+	endif else begin
+		status = 104B
+		message, 'Unfortunate mix of version numbers. Cannot continue.'
+	endelse
+	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
 		cdf_close, cdfIDs[i]
 		cdfIDs[i] = 0L
 	endfor
+
+;-----------------------------------------------------
+; Convert Dwell Time to Seconds \\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;DWELL has units of 1/512 seconds
+	dwell = float(dwell) / 512.0
 
 ;-----------------------------------------------------
 ; Convert Energy \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -335,23 +363,40 @@ STATUS=status
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
-	edi_amb = { epoch_gdu1:       temporary(epoch_gdu1), $
-	            epoch_gdu2:       temporary(epoch_gdu2), $
-	            epoch_angle:      temporary(epoch_angle), $
-	            epoch_timetag:    temporary(epoch_timetag), $
-	            optics:           temporary(optics), $
-	            counts1_gdu1:     temporary(counts_gdu1), $
-	            pitch_gdu1:       temporary(pitch_gdu1), $
-	            energy_gdu1:      temporary(energy_gdu1), $
-	            counts1_gdu2:     temporary(counts_gdu2), $
-	            pitch_gdu2:       temporary(pitch_gdu2), $
-	            energy_gdu2:      temporary(energy_gdu2), $
-	            azimuth:          temporary(phi), $
-	            polar:            temporary(theta), $
-	            pitch_mode:       temporary(pitch_mode), $
-	            pack_mode:        temporary(pack_mode) $
+	edi_amb = { epoch_gdu1:    reform( temporary(epoch_gdu1) ), $
+	            epoch_gdu2:    reform( temporary(epoch_gdu2) ), $
+	            epoch_angle:   reform( temporary(epoch_angle) ), $
+	            epoch_timetag: reform( temporary(epoch_timetag) ), $
+	            optics:        reform( temporary(optics) ), $
+	            dwell:         reform( temporary(dwell) ), $
+	            pitch_gdu1:    reform( temporary(pitch_gdu1) ), $
+	            energy_gdu1:   reform( temporary(energy_gdu1) ), $
+	            pitch_gdu2:    reform( temporary(pitch_gdu2) ), $
+	            energy_gdu2:   reform( temporary(energy_gdu2) ), $
+	            azimuth:       reform( temporary(phi) ), $
+	            polar:         reform( temporary(theta) ), $
+	            pitch_mode:    reform( temporary(pitch_mode) ), $
+	            pack_mode:     reform( temporary(pack_mode) ), $
+	            perp_oneside:  reform( temporary(perp_oneside) ), $
+	            perp_bidir:    reform( temporary(perp_bidir) ) $
 	          }
 	
+	if mode eq 'brst' then begin
+		edi_amb = create_struct(edi_amb, $
+		                        'counts_gdu1', transpose( [ temporary(counts1_gdu1), $
+		                                                    temporary(counts2_gdu1), $
+		                                                    temporary(counts3_gdu1), $
+		                                                    temporary(counts4_gdu1) ] ), $
+		                        'counts_gdu2', transpose( [ temporary(counts1_gdu2), $
+		                                                    temporary(counts2_gdu2), $
+		                                                    temporary(counts3_gdu2), $
+		                                                    temporary(counts4_gdu2) ] ) )
+	endif else begin
+		edi_amb = create_struct(edi_amb, $
+		                        'counts_gdu1', reform( temporary(counts1_gdu1) ), $
+		                        'counts_gdu2', reform( temporary(counts1_gdu2) ) )
+	endelse
+
 	;If fast and slow survey files were given, we need to sort in time.
 	if tf_sort then begin
 		igdu1  = sort(edi_amb.epoch_gdu1)
@@ -364,26 +409,19 @@ STATUS=status
 		edi_amb.epoch_angle   = edi_amb.epoch_angle[iangle]
 		edi_amb.epoch_timetag = edi_amb.epoch_timetag[itt]
 		edi_amb.optics        = edi_amb.optics[itt]
-		edi_amb.counts1_gdu1  = edi_amb.counts1_gdu1[igdu1]
+		edi_amb.dwell         = edi_amb.dwell[itt]
+		edi_amb.counts_gdu1   = edi_amb.counts_gdu1[igdu1,*]
 		edi_amb.pitch_gdu1    = edi_amb.pitch_gdu1[iangle]
 		edi_amb.energy_gdu1   = edi_amb.energy_gdu1[itt]
-		edi_amb.counts1_gdu2  = edi_amb.counts1_gdu2[igdu2]
+		edi_amb.counts_gdu2   = edi_amb.counts_gdu2[igdu2,*]
 		edi_amb.pitch_gdu2    = edi_amb.pitch_gdu2[iangle]
 		edi_amb.energy_gdu2   = edi_amb.energy_gdu2[itt]
 		edi_amb.azimuth       = edi_amb.azimuth[iangle]
 		edi_amb.polar         = edi_amb.polar[iangle]
 		edi_amb.pitch_mode    = edi_amb.pitch_mode[itt]
 		edi_amb.pack_mode     = edi_amb.pack_mode[itt]
-	endif
-	
-	;Burst data
-	if mode eq 'brst' then begin
-		edi_amb = create_struct(edi_amb, 'counts2_gdu1', counts2_gdu1, $
-		                                 'counts3_gdu1', counts3_gdu1, $
-		                                 'counts4_gdu1', counts4_gdu1, $
-		                                 'counts2_gdu2', counts2_gdu2, $
-		                                 'counts3_gdu2', counts3_gdu2, $
-		                                 'counts4_gdu2', counts4_gdu2)
+		edi_amb.perp_oneside  = edi_amb.perp_oneside[itt]
+		edi_amb.perp_bidir    = edi_amb.perp_bidir[itt]
 	endif
 	
 	;Return the data

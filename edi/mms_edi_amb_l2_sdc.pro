@@ -45,12 +45,10 @@
 ;       NO_LOG:             in, optional, type=boolean, default=0
 ;                           If set, no log file is created and all output is directed to
 ;                               the terminal window.
-;       PACK_MODE:          in, optional, type=integer, default=1
-;                           Packing mode of the data to be processed.
-;       PRELIMINARY:        in, optional, type=integer, default=0
-;                           Make a preliminary dataset that does not have absolute
-;                               calibrations applied. "-noabs" is appended to the
-;                               optional descriptor.
+;       PRELIMINARY:        in, optional, type=boolean, default=0
+;                           If set, a preliminary data set with no absolute cals is
+;                              is made. This is different from QL data in that QL data
+;                              does not have trajectory or error information.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -87,7 +85,6 @@ FILE_OUT=file_out, $
 HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
 NO_LOG=no_log, $
-PACK_MODE=pacmo, $
 PRELIMINARY=preliminary
 	compile_opt idl2
 	
@@ -103,7 +100,7 @@ PRELIMINARY=preliminary
 		log = MrStdLog(-2)
 		
 		;Unexpected trapped error
-		file_out = ''
+		files = ''
 		if n_elements(status) eq 0 || status eq 0 $
 			then status  = 100
 		
@@ -136,14 +133,13 @@ PRELIMINARY=preliminary
 		then message, 'MODE must be "srvy" or "brst".'
 	
 	;Defaults
-	tf_prelim = keyword_set(preliminary)
 	tf_log    = ~keyword_set(no_log)
+	tf_prelim = keyword_set(preliminary)
 	cal_path  = n_elements(cal_path_root)  eq 0 ? !edi_init.cal_path_root  : cal_path_root
 	data_path = n_elements(data_path_root) eq 0 ? !edi_init.data_path_root : data_path_root
 	dropbox   = n_elements(dropbox_root)   eq 0 ? !edi_init.dropbox_root   : dropbox_root
 	hk_path   = n_elements(hk_root)        eq 0 ? !edi_init.hk_root        : hk_root
 	log_path  = n_elements(log_path_root)  eq 0 ? !edi_init.log_path_root  : log_path_root
-	if n_elements(pacmo) eq 0 then pacmo = 1
 
 	;Check permissions
 	if ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -160,20 +156,12 @@ PRELIMINARY=preliminary
 	;Constants for source files
 	instr   = 'edi'
 	level   = 'l1a'
-	case pacmo of
-		1: optdesc = 'amb'
-		2: optdesc = 'amb-pm2'
-		else: message, 'Unknown value for PACMO (' + strtrim(pacmo, 2) + ').'
-	endcase
+	optdesc = 'amb'
 	
 	;Constants for destination files
 	outmode    = mode
 	outlevel   = 'l2'
-	outoptdesc = optdesc
 	status     = 0
-	
-	;Preliminary file?
-	if tf_prelim then outoptdesc += '-noabs'
 
 ;-----------------------------------------------------
 ; Create Log File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -300,9 +288,9 @@ PRELIMINARY=preliminary
 	MrPrintF, 'LogText', ''
 
 	;Process data
-	edi_data = mms_edi_amb_l2_create(edi_files, cal_file, dss_file, defatt_file, $
-	                                 STATUS = status_temp, $
-	                                 ABSCAL = ~tf_prelim)
+	edi_data = mms_edi_amb_l2_create( edi_files, cal_file, dss_file, defatt_file, $
+	                                  STATUS = status_temp, $
+	                                  ABSCAL = ~tf_prelim )
 	
 	;Empty file?
 	if status eq 102 then begin
@@ -319,33 +307,90 @@ PRELIMINARY=preliminary
 	endif else begin
 		message, 'Error created L2 data.'
 	endelse
-	
 
 ;-----------------------------------------------------
-; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Data Products \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	
+	;Parent files
 	parents = file_basename([edi_files, cal_file, dss_file, defatt_file])
 
-	;Create the file
-	file_out = mms_edi_amb_l2_mkfile(sc, mode, tstart, $
-	                                 BRST           = (mode eq 'brst'), $
-	                                 DROPBOX_ROOT   = dropbox, $
-	                                 DATA_PATH_ROOT = data_path, $
-	                                 EMPTY_FILE     = empty_file, $
-	                                 OPTDESC        = outoptdesc, $
-	                                 PARENTS        = parents, $
-	                                 STATUS         = status_temp)
-	if file_out eq '' then begin
-		status = status_temp
-		message, 'Error writing ' + instr + ' ' + outlevel + ' file.'
-	endif
+	;Data products to be written
+	outoptdesc = tag_names(edi_data)
+	nOptDesc   = n_elements(outoptdesc)
+	files      = strarr(nOptDesc)
 	
-	;Pick the biggest status
-	status >= status_temp
-	
-	;Write the data
-	if ~empty_file then status = mms_edi_amb_l2_write(file_out, temporary(edi_data))
-	if status ne 0 then message, 'Error writing to L2 file.'
+	;Loop over data sets
+	for i = 0, nOptDesc - 1  do begin
+		;Convert underscores to hyphens
+		outdesc = strlowcase(strjoin(strsplit(outoptdesc[i], '_', /EXTRACT), '-'))
+		if tf_prelim then outdesc += '-noabs'
+
+	;-----------------------------------------------------
+	; Make Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;ALTERNATING
+		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
+			;Create the file
+			files[i] = mms_edi_amb_l2_mkfile_alt(sc, mode, outdesc, tstart, $
+			                                     BRST           = (mode eq 'brst'), $
+			                                     DROPBOX_ROOT   = dropbox, $
+			                                     DATA_PATH_ROOT = data_path, $
+			                                     EMPTY_FILE     = empty_file, $
+			                                     PARENTS        = parents, $
+			                                     STATUS         = stemp)
+		
+		;FIELD-ALIGNED
+		endif else if stregex(outdesc, '^amb', /BOOLEAN) then begin
+			;Create the file
+			files[i] = mms_edi_amb_l2_mkfile_fa(sc, mode, outdesc, tstart, $
+			                                    BRST           = (mode eq 'brst'), $
+			                                    DROPBOX_ROOT   = dropbox, $
+			                                    DATA_PATH_ROOT = data_path, $
+			                                    EMPTY_FILE     = empty_file, $
+			                                    PARENTS        = parents, $
+			                                    STATUS         = stemp)
+		
+		;????
+		endif else begin
+			message, 'Unknown data product: "' + outoptdesc + '".'
+		endelse
+
+		;Check status
+		status >= stemp
+		if files[i] eq '' then begin
+			MrPrintF, 'LogErr', 'Error making ' + instr + ' ' + outlevel + ' ' + outdesc + ' file.'
+			continue
+		endif
+
+	;-----------------------------------------------------
+	; Write Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;ALTERNATING
+		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
+			if ~empty_file then stemp = mms_edi_amb_l2_write_alt(files[i], edi_data.(i))
+		
+		;FIELD-ALIGNED
+		endif else if stregex(outdesc, 'amb', /BOOLEAN) then begin
+			if ~empty_file then stemp = mms_edi_amb_l2_write_fa(files[i], edi_data.(i))
+		
+		;????
+		endif else begin
+			message, 'Unknown data product: "' + outoptdesc + '".'
+		endelse
+		
+		;Free up some data
+		edi_data = MrStruct_RemoveTags(edi_data, outoptdesc[i])
+
+		;Check status
+		status >= stemp
+		if stemp ge 100 then begin
+			MrPrintF, 'LogErr', 'Error writing to L2 file.'
+			continue
+		endif
+	endfor
 
 ;-----------------------------------------------------
 ; Finish Up \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -358,7 +403,7 @@ PRELIMINARY=preliminary
 	dt_sec = dt mod 60
 	
 	;Write destination to log file
-	MrPrintF, 'LogText', file_out, FORMAT='(%"File written to:    \"%s\".")'
+	MrPrintF, 'LogText', files, FORMAT='(%"File written to:    \"%s\".")'
 	MrPrintF, 'LogText', dt_hr, dt_min, dt_sec, FORMAT='(%"Total process time: %ihr %imin %0.3fs")'
 	
 	;Close the log file by returning  output to stderr
