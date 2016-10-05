@@ -206,7 +206,7 @@ VERSION=version
 					'fsm': begin
 						if stregex(optdesc, '^cal-(afg|dfg|scm)$', /FOLD_CASE, /BOOLEAN) $
 							then tstart = '%Y%M%d%H%m%S' $
-							else tstart = (mode eq 'brst') ? '%Y%M%d%H%m%S' : '%Y%M%d'
+							else tstart = '%Y%M%d'
 					endcase
 					'edp': begin
 						if optdesc eq 'dce' $
