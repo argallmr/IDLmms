@@ -427,7 +427,7 @@ STATUS=status
 	                                                       'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_0_vname, 'DEPEND_0',      epoch_vname
 	oamb -> WriteVarAttr, counts1_0_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     'Electron Counts PA0'
+	oamb -> WriteVarAttr, counts1_0_vname, 'FIELDNAM',     'Field-aligned electron counts'
 	oamb -> WriteVarAttr, counts1_0_vname, 'FILLVAL',      4294967295UL
 	oamb -> WriteVarAttr, counts1_0_vname, 'FORMAT',       'I5'
 	oamb -> WriteVarAttr, counts1_0_vname, 'LABLAXIS',     'counts'
@@ -443,7 +443,7 @@ STATUS=status
 	                                                         'data products guide for more details.'
 	oamb -> WriteVarAttr, counts1_180_vname, 'DEPEND_0',      epoch_vname
 	oamb -> WriteVarAttr, counts1_180_vname, 'DISPLAY_TYPE', 'time_series'
-	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     'Electron Counts PA180'
+	oamb -> WriteVarAttr, counts1_180_vname, 'FIELDNAM',     'Anti-field-aligned electron counts'
 	oamb -> WriteVarAttr, counts1_180_vname, 'FILLVAL',      4294967295UL
 	oamb -> WriteVarAttr, counts1_180_vname, 'FORMAT',       'I5'
 	oamb -> WriteVarAttr, counts1_180_vname, 'LABLAXIS',     'counts'
@@ -457,11 +457,11 @@ STATUS=status
 	if mode eq 'brst' then begin
 		;COUNTS2_PA0
 		oamb -> WriteVarAttr, counts2_0_vname, 'CATDESC',      'Field-aligned electrons from' + ch[1] + ' both GDUs. ' + $
-	                                                           'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                           'data products guide for more details.'
+		                                                       'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts2_0_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts2_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts2_0_vname, 'FIELDNAM',     'Electron Counts PA0'
+		oamb -> WriteVarAttr, counts2_0_vname, 'FIELDNAM',     'Field-aligned electron counts'
 		oamb -> WriteVarAttr, counts2_0_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts2_0_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts2_0_vname, 'LABLAXIS',     'counts'
@@ -473,11 +473,11 @@ STATUS=status
 
 		;COUNTS3_PA0
 		oamb -> WriteVarAttr, counts3_0_vname, 'CATDESC',      'Field-aligned electrons from' + ch[2] + ' both GDUs. ' + $
-	                                                           'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                           'data products guide for more details.'
+		                                                       'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts3_0_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts3_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts3_0_vname, 'FIELDNAM',     'Electron Counts PA0'
+		oamb -> WriteVarAttr, counts3_0_vname, 'FIELDNAM',     'Field-aligned electron counts'
 		oamb -> WriteVarAttr, counts3_0_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts3_0_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts3_0_vname, 'LABLAXIS',     'counts'
@@ -489,11 +489,11 @@ STATUS=status
 
 		;COUNTS4_PA0
 		oamb -> WriteVarAttr, counts4_0_vname, 'CATDESC',      'Field-aligned electrons from' + ch[3] + ' both GDUs. ' + $
-	                                                           'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                           'data products guide for more details.'
+		                                                       'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                       'data products guide for more details.'
 		oamb -> WriteVarAttr, counts4_0_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts4_0_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts4_0_vname, 'FIELDNAM',     'Electron Counts PA0'
+		oamb -> WriteVarAttr, counts4_0_vname, 'FIELDNAM',     'Field-aligned electron counts'
 		oamb -> WriteVarAttr, counts4_0_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts4_0_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts4_0_vname, 'LABLAXIS',     'counts'
@@ -505,11 +505,11 @@ STATUS=status
 
 		;COUNTS2_PA180
 		oamb -> WriteVarAttr, counts2_180_vname, 'CATDESC',      'Anti-field-aligned electrons from ' + ch[1] + ' both GDUs. ' + $
-	                                                             'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                             'data products guide for more details.'
+		                                                         'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts2_180_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts2_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts2_180_vname, 'FIELDNAM',     'Electron Counts PA180'
+		oamb -> WriteVarAttr, counts2_180_vname, 'FIELDNAM',     'Anti-field-aligned electron counts'
 		oamb -> WriteVarAttr, counts2_180_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts2_180_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts2_180_vname, 'LABLAXIS',     'counts'
@@ -521,11 +521,11 @@ STATUS=status
 
 		;COUNTS3_PA180
 		oamb -> WriteVarAttr, counts3_180_vname, 'CATDESC',      'Anti-field-aligned electrons from' + ch[2] + ' both GDUs. ' + $
-	                                                             'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                             'data products guide for more details.'
+		                                                         'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts3_180_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts3_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts3_180_vname, 'FIELDNAM',     'Electron Counts PA180'
+		oamb -> WriteVarAttr, counts3_180_vname, 'FIELDNAM',     'Anti-field-aligned electron counts'
 		oamb -> WriteVarAttr, counts3_180_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts3_180_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts3_180_vname, 'LABLAXIS',     'counts'
@@ -537,11 +537,11 @@ STATUS=status
 
 		;COUNTS4_PA180
 		oamb -> WriteVarAttr, counts4_180_vname, 'CATDESC',      'Anti-field-aligned electrons from' + ch[3] + 'both GDUs. ' + $
-	                                                             'Actual pitch-angle depends on the packing mode. See the EDI ' + $
-	                                                             'data products guide for more details.'
+		                                                         'Actual pitch-angle depends on the packing mode. See the EDI ' + $
+		                                                         'data products guide for more details.'
 		oamb -> WriteVarAttr, counts4_180_vname, 'DEPEND_0',      epoch_vname
 		oamb -> WriteVarAttr, counts4_180_vname, 'DISPLAY_TYPE', 'time_series'
-		oamb -> WriteVarAttr, counts4_180_vname, 'FIELDNAM',     'Electron Counts PA180'
+		oamb -> WriteVarAttr, counts4_180_vname, 'FIELDNAM',     'Anti-field-aligned electron counts'
 		oamb -> WriteVarAttr, counts4_180_vname, 'FILLVAL',      4294967295UL
 		oamb -> WriteVarAttr, counts4_180_vname, 'FORMAT',       'I5'
 		oamb -> WriteVarAttr, counts4_180_vname, 'LABLAXIS',     'counts'

@@ -94,10 +94,10 @@ ABSCAL=abscal
 	;One sided
 	;   - [0,180] are one-sided when PACK_MODE=2 (bit 2^4)
 	;   - 90 is one-sided when PERP_ONESIDE=1 (bit 2^5)
-	tf_onesided_gdu1 = ( ((edi.pitch_gdu1 eq 0) or (edi.pitch_gdu1 eq 180)) and MrBitSet(bitmask, 3) ) or $
-	                   ( (edi.pitch_gdu1 eq 90) and ((bitmask and 2^5) ne 0) )
-	tf_onesided_gdu2 = ( ((edi.pitch_gdu2 eq 0) or (edi.pitch_gdu2 eq 180)) and MrBitSet(bitmask, 5) ) or $
-	                   ( (edi.pitch_gdu2 eq 90) and MrBitSet(bitmask, 6) )
+	tf_onesided_gdu1 = ( ((edi.pitch_gdu1 eq 0) or (edi.pitch_gdu1 eq 180)) and MrBitGet(bitmask, 5) ) or $
+	                   ( (edi.pitch_gdu1 eq 90) and MrBitGet(bitmask, 6) )
+	tf_onesided_gdu2 = ( ((edi.pitch_gdu2 eq 0) or (edi.pitch_gdu2 eq 180)) and MrBitGet(bitmask, 5) ) or $
+	                   ( (edi.pitch_gdu2 eq 90) and MrBitGet(bitmask, 6) )
 
 	;Allocate memory
 	counts_gdu1 = make_array(ncts1, nChannels, TYPE=type)
