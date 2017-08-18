@@ -65,8 +65,8 @@ function mms_edi_amb_sort_perp_traj, edi, idx, pa
 ;-----------------------------------------------------
 	
 	;PA=90
-	iGDU1 = where(edi.pitch_gdu1 eq 90, nGDU1)
-	iGDU2 = where(edi.pitch_gdu2 eq 90, nGDU2)
+	iGDU1 = where(edi.pitch_gdu1[idx] eq 90, nGDU1)
+	iGDU2 = where(edi.pitch_gdu2[idx] eq 90, nGDU2)
 	
 	;Overall index
 	iGDU1 = idx[iGDU1]

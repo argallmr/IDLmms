@@ -184,7 +184,8 @@ function mms_edi_amb_sort, edi, bitmask
 			i1 = value_locate(edi.epoch_timetag, max([data.epoch_fa[-1], data.epoch_perp[-1]]))
 			
 			;Append dwell time
-			data = create_struct( temporary(data), 'dwell', edi.dwell[i0:i1] )
+			data = create_struct( temporary(data), $
+			                      'dwell', edi.dwell[i0:i1] )
 
 	;-----------------------------------------------------
 	; ??? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -198,6 +199,7 @@ function mms_edi_amb_sort, edi, bitmask
 	;-----------------------------------------------------
 		;Packet-time data
 		data = create_struct( temporary(data), $
+		                      'flip_flag',     edi.flip_flag[idx], $
 		                      'epoch_timetag', edi.epoch_timetag[i0:i1], $
 		                      'optics',        edi.optics[i0:i1], $
 		                      'energy_gdu1',   edi.energy_gdu1[i0:i1], $

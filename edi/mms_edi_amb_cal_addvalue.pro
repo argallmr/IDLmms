@@ -72,10 +72,10 @@ end
 ;                             in the cal file. Other cal file variables remain unchanged.
 ;                               TT2000_REL   -  TT2000 time stamps for relative calibration data
 ;                               TT2000_ABS   -  TT2000 time stamps for absolute calibration data
-;                               REL_OPTICS   -  Optics state at the time relative calibrations were performed
+;                               OPTICS_REL   -  Optics state at the time relative calibrations were performed
 ;                               RELCAL_GDU1  -  Relative calibration factors for GDU1
 ;                               RELCAL_GDU2  -  Relative calibration factors for GDU2
-;                               ABS_OPTICS   -  Optics state at the time absolute calibrations were performed
+;                               OPTICS_ABS   -  Optics state at the time absolute calibrations were performed
 ;                               ABSCAL_GDU1  -  Absolute calibration factors for GDU1
 ;                               ABSCAL_GDU2  -  Absolute calibration factors for GDU2
 ;
@@ -96,6 +96,7 @@ end
 function mms_edi_amb_cal_addvalue, file, cal_data, $
 CAL_PATH_ROOT=cal_path_root, $
 CLOBBER=clobber, $
+DROPBOX_ROOT=dropbox_root, $
 VERSION=version
 	compile_opt idl2
 	
@@ -104,6 +105,7 @@ VERSION=version
 		catch, /CANCEL
 		if obj_valid(ocal_old) then obj_destroy, ocal_old
 		if obj_valid(ocal_new) then obj_destroy, ocal_new
+		if file_test(cal_file) then file_delete, cal_file
 		MrPrintF, 'LogErr'
 		return, ''
 	endif
@@ -122,6 +124,19 @@ VERSION=version
 			if tf_exist $
 				then cal_path_root = !edi_init.cal_path_root $
 				else message, 'Cannot determine CAL_PATH_ROOT.'
+		endif
+	endif
+
+	;Dropbox path. Can be in two places:
+	;   - The environment variable DROPBOX_ROOT
+	;   - The system variable !EDI_INIT (unh_edi_init.pro)
+	if n_elements(dropbox_root) eq 0 then begin
+		dropbox_root = getenv('DROPBOX_ROOT')
+		if dropbox_root eq '' then begin
+			defsysv, '!edi_init', EXIST=tf_exist
+			if tf_exist $
+				then dropbox_root = !edi_init.dropbox_root $
+				else message, 'Cannot determine DROPBOX_ROOT.'
 		endif
 	endif
 	
@@ -153,7 +168,7 @@ VERSION=version
 	                              OPTDESC   = optdesc)
 
 	;Create the file
-	cal_file = filepath(cal_file, ROOT_DIR=cal_path_root, SUBDIRECTORY=[sc, 'edi'])
+	cal_file = filepath(cal_file, ROOT_DIR=dropbox_root)
 	ocal_old = MrCDF_File(file)
 	ocal_new = MrCDF_File(cal_file, /CREATE, CLOBBER=clobber)
 	
@@ -208,12 +223,18 @@ VERSION=version
 	if MrStruct_HasTag(cal_data, 'TT2000_REL') then begin
 		;Number of new values
 		nRel = n_elements(cal_data)
-		
+
 		;Read the old values
 		epoch_rel   = ocal_old -> Read(epoch_rel_vname,   NRECS=nEpoch,   FILLVALUE=epoch_fill)
 		optics_rel  = ocal_old -> Read(optics_rel_vname,  NRECS=nOptics,  FILLVALUE=optics_fill)
 		relcal_gdu1 = ocal_old -> Read(relcal_gdu1_vname, NRECS=nRelGDU1, FILLVALUE=gdu1_fill)
 		relcal_gdu2 = ocal_old -> Read(relcal_gdu2_vname, NRECS=nRelGDU2, FILLVALUE=gdu2_fill)
+		
+		;Fill data
+		if nEpoch   eq 0 then message, 'No epoch values found for relative calibrations.'
+		if nOptics  eq 0 then optics_rel  = replicate(optics_fill, nEpoch)
+		if nRelGDU1 eq 0 then relcal_gdu1 = replicate(gdu1_fill, [32, 129, nEpoch])
+		if nRelGDU2 eq 0 then relcal_gdu2 = replicate(gdu2_fill, [32, 129, nEpoch])
 
 		;Are there duplicate points?
 		!Null = MrIsMember( epoch_rel, cal_data.tt2000_rel, iDup, COUNT=nDupRel, $
@@ -248,7 +269,7 @@ VERSION=version
 			new_optics_rel  = amb_cal_getvalue(cal_data[iNew], 'OPTICS_REL',  optics_fill)
 			new_relcal_gdu1 = amb_cal_getvalue(cal_data[iNew], 'RELCAL_GDU1', gdu1_fill)
 			new_relcal_gdu2 = amb_cal_getvalue(cal_data[iNew], 'RELCAL_GDU2', gdu2_fill)
-			
+
 			;Append
 			optics_rel  = nOptics  eq 0 ? new_optics_rel  : [ [optics_rel],  [new_optics_rel] ]
 			relcal_gdu1 = nRelGDU1 eq 0 ? new_relcal_gdu1 : [ [[relcal_gdu1]], [[new_relcal_gdu1]] ]

@@ -208,6 +208,7 @@ STATUS=status
 	optics_name       = prefix + 'optics'
 	perp_oneside_name = prefix + 'perp_onesided'
 	perp_bidir_name   = prefix + 'perp_bidirectional'
+	flip_flag_name    = sc + '_' + instr + '_flip'
 
 ;-----------------------------------------------------
 ; Read Data \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -273,7 +274,7 @@ STATUS=status
 		counts3_gdu2 = MrCDF_nRead(cdfIDs, counts3_gdu2_name,  TSTART=tstart, TEND=tend)
 		counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
 	endif
-	
+
 	;Perp one-sided and bidirectional
 	;   - v1.0.0 introduced these variables
 	;   - If the variables cannot be read, make their default = 0
@@ -288,6 +289,20 @@ STATUS=status
 		status = 104B
 		message, 'Unfortunate mix of version numbers. Cannot continue.'
 	endelse
+	
+	;Flip flag
+	;   - v1.2.0 introduced this variable
+	;   - If the variables cannot be read, make their default = 0
+	iRead = where( (vx ge 1) or (vx eq 1 and vy ge 2), nRead, COMPLEMENT=iMake, NCOMPLEMENT=nMake)
+	if nMake eq 0 then begin
+		flip_flag = MrCDF_nRead(cdfIDs, flip_flag_name, TSTART=tstart, TEND=tend)
+	endif else if nRead eq 0 then begin
+		flip_flag = bytarr(n_elements(epoch_gdu1))
+	endif else begin
+		status = 104B
+		message, 'Unfortunate mix of version numbers. Cannot continue.'
+	endelse
+	
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
@@ -360,6 +375,29 @@ STATUS=status
 	endif
 
 ;-----------------------------------------------------
+; Update Flip Flag \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;
+	; There are two flip flags in sequence each time the GDU
+	; changes look directions. If we take every other flipped
+	; flag (the second of the pair for each pair), then add
+	; one, we get the index of the first element after the
+	; flipped bit.
+	;
+	; Note:
+	;     IDL> a = ingen(10)
+	;     IDL> print, a[ [1,99999] ]
+	;            9
+	;
+	if stregex(optdesc, 'alt', /BOOLEAN) then begin
+		iFlip = where(flip_flag, nFlip)
+		if nFlip gt 0 then begin
+			iFlip = iFlip[1:*:2]
+			flip_flag[iFlip+1] = 1
+		endif
+	endif
+
+;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;All data
@@ -378,7 +416,8 @@ STATUS=status
 	            pitch_mode:    reform( temporary(pitch_mode) ), $
 	            pack_mode:     reform( temporary(pack_mode) ), $
 	            perp_oneside:  reform( temporary(perp_oneside) ), $
-	            perp_bidir:    reform( temporary(perp_bidir) ) $
+	            perp_bidir:    reform( temporary(perp_bidir) ), $
+	            flip_flag:     reform( temporary(flip_flag) ) $
 	          }
 	
 	if mode eq 'brst' then begin

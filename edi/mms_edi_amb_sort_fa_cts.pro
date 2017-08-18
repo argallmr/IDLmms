@@ -61,8 +61,8 @@ function mms_edi_amb_sort_fa_cts, edi, idx, pa
 ; Find Pitch Angles \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;PA=0
-	iGDU1   = where(edi.pitch_gdu1 eq pa, nGDU1)
-	iGDU2   = where(edi.pitch_gdu2 eq pa, nGDU2)
+	iGDU1   = where(edi.pitch_gdu1[idx] eq pa, nGDU1)
+	iGDU2   = where(edi.pitch_gdu2[idx] eq pa, nGDU2)
 	
 	;Overall index
 	iGDU1 = idx[iGDU1]

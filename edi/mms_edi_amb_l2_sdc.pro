@@ -81,7 +81,7 @@ function mms_edi_amb_l2_sdc, sc, mode, tstart, $
 CAL_PATH_ROOT=cal_path_root, $
 DATA_PATH_ROOT=data_path_root, $
 DROPBOX_ROOT=dropbox_root, $
-FILE_OUT=file_out, $
+FILE_OUT=files, $
 HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
 NO_LOG=no_log, $

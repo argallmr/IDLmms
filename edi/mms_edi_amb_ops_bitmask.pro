@@ -63,19 +63,19 @@ function mms_edi_amb_ops_bitmask, edi
 ;-----------------------------------------------------
 	;Do not set identical modes separately. One would unset the other.
 	modeBit = bytarr(n_elements(edi.epoch_timetag))
-	modeBit = MrBitSet( modeBit, 1,  edi.pitch_mode   eq 0 )
+	modeBit = MrBitSet( modeBit, 1, (edi.pitch_mode   eq 0) )
 	modeBit = MrBitSet( modeBit, 2, (edi.pitch_mode   eq 1) or (edi.pitch_mode eq 3) ) ;PITCH_MODE 1,3 identical
-	modeBit = MrBitSet( modeBit, 3,  edi.pitch_mode   eq 2 )
+	modeBit = MrBitSet( modeBit, 3, (edi.pitch_mode   eq 2) )
 	modeBit = MrBitSet( modeBit, 4, (edi.pack_mode    eq 0) or (edi.pack_mode eq 1) )  ;PACMO 0,1 identical
-	modeBit = MrBitSet( modeBit, 5,  edi.pack_mode    eq 2 )
-	modeBit = MrBitSet( modeBit, 6,  edi.perp_oneside eq 1 )
-	modeBit = MrBitSet( modeBit, 7,  edi.perp_bidir   eq 1 )
+	modeBit = MrBitSet( modeBit, 5, (edi.pack_mode    eq 2) )
+	modeBit = MrBitSet( modeBit, 6, (edi.perp_oneside eq 1) )
+	modeBit = MrBitSet( modeBit, 7, (edi.perp_bidir   eq 1) )
 
 	;Look for counts outside of the packet time range
 	iLT = where( edi.epoch_gdu1 lt edi.epoch_timetag[0],  nLT )
 	iGT = where( edi.epoch_gdu1 gt edi.epoch_timetag[-1], nGT )
 	if nLT gt 0 then MrPrintF, 'LogWarn', nLT, FORMAT='(%"%i points before first packet time.")'
-	if nLT gt 0 then MrPrintF, 'LogWarn', nGT, FORMAT='(%"%i points after last packet time.")'
+	if nGT gt 0 then MrPrintF, 'LogWarn', nGT, FORMAT='(%"%i points after last packet time.")'
 	
 	;Expand the bits
 	iBits = value_locate(edi.epoch_timetag, edi.epoch_gdu1)

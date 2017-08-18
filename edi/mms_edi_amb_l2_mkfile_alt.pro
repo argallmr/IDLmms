@@ -97,38 +97,46 @@ STATUS=status
 	if stregex(optdesc, 'amb-alt-cc', /BOOLEAN) then begin
 		;BRST
 		if tf_brst then begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		
 		;SRVY
 		endif else begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;ALT-OC
 	endif else if stregex(optdesc, 'amb-alt-oc', /BOOLEAN) then begin
 		;Mods to data processing
 		if tf_brst then begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endif else begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;ALT-OOM
 	endif else if stregex(optdesc, 'amb-alt-oom', /BOOLEAN) then begin
 		;Mods to data processing
 		if tf_brst then begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endif else begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;ALT-OOB
 	endif else if stregex(optdesc, 'amb-alt-oob', /BOOLEAN) then begin
 		;Mods to data processing
 		if tf_brst then begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endif else begin
-			mods = [ 'v1.0.0 - Original version.' ]
+			mods = [ 'v1.0.0 - Original version.', $
+			         'v2.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;UNKNOWN
@@ -310,6 +318,7 @@ STATUS=status
 	gdu_0_vname               = prefix + 'gdu_0'              + suffix
 	gdu_180_vname             = prefix + 'gdu_180'            + suffix
 	dwell_vname               = prefix + 'dwell'              + suffix
+	flip_vname                = prefix + 'flip'               + suffix
 	flux1_0_vname             = prefix + 'flux1_0'            + suffix
 	flux2_0_vname             = prefix + 'flux2_0'            + suffix
 	flux3_0_vname             = prefix + 'flux3_0'            + suffix
@@ -395,6 +404,7 @@ STATUS=status
 	oamb -> CreateVar, t_tt_vname,    'CDF_TIME_TT2000'
 	oamb -> CreateVar, optics_vname,  'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, dwell_vname,   'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, flip_vname,    'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, e_gdu1_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, e_gdu2_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, gdu_0_vname,   'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
@@ -650,6 +660,16 @@ STATUS=status
 	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0B
 	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      254B
 	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
+
+	;FLIP
+	oamb -> WriteVarAttr, flip_vname, 'CATDESC',       'Flip-bit flag indicates that the look direction is 1=changing, 0=not changing.'
+	oamb -> WriteVarAttr, flip_vname, 'DEPEND_0',      t_vname
+	oamb -> WriteVarAttr, flip_vname, 'FIELDNAM',      'Flip flag'
+	oamb -> WriteVarAttr, flip_vname, 'FILLVAL',        255B
+	oamb -> WriteVarAttr, flip_vname, 'FORMAT',        'I1'
+	oamb -> WriteVarAttr, flip_vname, 'VALIDMIN',      0B
+	oamb -> WriteVarAttr, flip_vname, 'VALIDMAX',      1B
+	oamb -> WriteVarAttr, flip_vname, 'VAR_TYPE',      'support_data'
 
 	;ENERGY_GDU1
 	oamb -> WriteVarAttr, e_gdu1_vname, 'CATDESC',       'GDU1 energy'

@@ -150,8 +150,8 @@ STATUS=status
 	bitmask = mms_edi_amb_ops_bitmask(edi)
 
 	;Update the EDI structure
-	edi = MrStruct_RemoveTags(edi, ['PITCH_MODE', 'PACK_MODE', $
-	                                'PERP_ONESIDE', 'PERP_BIDIR'])
+;	edi = MrStruct_RemoveTags(edi, ['PITCH_MODE', 'PACK_MODE', $
+;	                                'PERP_ONESIDE', 'PERP_BIDIR'])
 
 ;-----------------------------------------------------
 ; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -185,6 +185,30 @@ STATUS=status
 
 	;Combine data
 	edi = create_struct(edi, temporary(traj))
+
+;-----------------------------------------------------
+; Apply Flip Bit \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	iFlip = where( edi.flip_flag, nFlip )
+	if nFlip GT 0 then begin
+		iAlt = where( MrBitGet( bitmask[iFlip], 3 ), nAlt )
+		if nAlt gt 0 then begin
+			fillval = -1e31
+			iFlip   = iFlip[iAlt]
+			edi.counts_gdu1[iFlip,*]      = fillval
+			edi.counts_gdu2[iFlip,*]      = fillval
+			edi.delta_gdu1[iFlip,*]       = fillval
+			edi.delta_gdu2[iFlip,*]       = fillval
+			edi.traj_bcs_gdu1[*,iFlip,*]  = fillval
+			edi.traj_dbcs_gdu1[*,iFlip,*] = fillval
+			edi.traj_gse_gdu1[*,iFlip,*]  = fillval
+			edi.traj_gsm_gdu1[*,iFlip,*]  = fillval
+			edi.traj_bcs_gdu2[*,iFlip,*]  = fillval
+			edi.traj_dbcs_gdu2[*,iFlip,*] = fillval
+			edi.traj_gse_gdu2[*,iFlip,*]  = fillval
+			edi.traj_gsm_gdu2[*,iFlip,*]  = fillval
+		endif
+	endif
 
 ;-----------------------------------------------------
 ; Sort Results by Mode and Pitch Angle \\\\\\\\\\\\\\\

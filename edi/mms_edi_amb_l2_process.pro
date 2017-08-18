@@ -57,10 +57,6 @@
 ;                               LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
 ;                               MMS SDC data directory structure. "/day" is included only if
 ;                               burst files are being processed.
-;       PACK_MODE:          in, optional, type=integer, default=1
-;                           Packing mode. Options are:
-;                               1 - Magnetic field is focused between channels 2 & 3
-;                               2 - Magnetic field is focused on channels 1
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -75,11 +71,11 @@
 ;       2015/10/26  -   Written by Matthew Argall
 ;-
 PRO mms_edi_amb_l2_process, sc, mode, tstart, tend, $
-NO_LOG=no_log, $
 DATA_PATH_ROOT=data_path_in, $
 DROPBOX_ROOT=dropbox_in, $
 LOG_PATH_ROOT=log_path_in, $
-PACK_MODE=pacmo
+NO_LOG=no_log, $
+PRELIMINARY=preliminary
 	compile_opt idl2
 	
 	catch, the_error
@@ -94,10 +90,10 @@ PACK_MODE=pacmo
 		endelse
 		return
 	endif
-	
+
 	;Everything starts out ok
 	status = 0
-	
+
 	;Initialize
 	unh_edi_init
 	
@@ -132,7 +128,6 @@ PACK_MODE=pacmo
 		else if tend eq '' then tend = date
 
 	;Keywords
-	if n_elements(pacmo)        eq 0 then pacmo     = 1
 	if n_elements(data_path_in) eq 0 then data_path = !edi_init.data_path_root else data_path = data_path_in
 	if n_elements(dropbox_in)   eq 0 then dropbox   = !edi_init.dropbox_root   else dropbox   = dropbox_in
 	if n_elements(log_path_in)  eq 0 then log_path  = !edi_init.log_path_root  else log_path  = log_path_in
@@ -145,22 +140,18 @@ PACK_MODE=pacmo
 	nMode  = n_elements(mode)
 	nStart = n_elements(tstart)
 	nEnd   = n_elements(tend)
-	nPacmo = n_elements(pacmo)
 	
 	;Unique values
 	if n_elements(uniq(sc,    sort(sc)))    ne nSC    then message, 'SC must contain only unique values.'
 	if n_elements(uniq(mode,  sort(mode)))  ne nMode  then message, 'MODE must contain only unique values.'
-	if n_elements(uniq(pacmo, sort(pacmo))) ne nPacmo then message, 'PACMO must contain only unique values.'
 	if nStart ne 1 then message, 'TSTART must be a scalar string.'
 	if nEnd   ne 1 then message, 'TEND must be a scalar string.'
 	
-	;Valid SC, MODE, and PACMO
+	;Valid SC and MODE
 	if min(MrIsMember(['mms1', 'mms2', 'mms3', 'mms4'], sc)) eq 0 $
 		then message, 'Invalid spacecraft ID given.'
 	if min(MrIsMember(['brst', 'srvy'], mode)) eq 0 $
 		then message, 'MODE mode be "brst" and/or "srvy"'
-	if min(MrIsMember([1, 2], pacmo)) eq 0 $
-		then message, 'PACMO must be 1 and/or 2.'
 	
 	;Directories must be read and/or writable
 	if tf_log && ~file_test(log_path, /DIRECTORY, /WRITE) $
@@ -169,6 +160,10 @@ PACK_MODE=pacmo
 		then message, 'DATA_PATH directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX directory must exist and be read- and writeable.'
+	
+	;Time formatting
+	if ~MrTokens_IsMatch(tstart, '%Y%M%d%H%m%S') then message, 'TSTART must be formatted as "%Y%M%d%H%m%S".'
+	if ~MrTokens_IsMatch(tend,   '%Y%M%d%H%m%S') then message, 'TEND must be formatted as "%Y%M%d%H%m%S".'
 	
 ;-----------------------------------------------------
 ; Reformat Times \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -184,8 +179,9 @@ PACK_MODE=pacmo
 	                FORMAT='(%"%04i-%02i-%02iT%02i:%02i:%02iZ")')
 	
 	;Constants for source files
-	instr = 'edi'
-	level = 'l1a'
+	instr   = 'edi'
+	level   = 'l1a'
+	optdesc = 'amb'
 	
 	;Constants for output
 	outinstr = 'edi'
@@ -208,12 +204,8 @@ PACK_MODE=pacmo
 	t_begin = systime(1)
 
 	;Loop
-	for p = 0, n_elements(pacmo) - 1 do begin
 	for j = 0, n_elements(mode)  - 1 do begin
 	for k = 0, n_elements(sc)    - 1 do begin
-		;Optional descriptor
-		optdesc = pacmo[p] eq 1 ? 'amb' : 'amb-pm' + string(pacmo[p], FORMAT='(i0)')
-
 		;Starting a new sc/mode
 		oLog -> AddText, '------------------------------------------------'
 		oLog -> AddText, '################################################'
@@ -319,8 +311,9 @@ PACK_MODE=pacmo
 			
 			;Process data
 			status_out = mms_edi_amb_l2_sdc(sc[k], mode[j], fstart, $
-			                                FILE_OUT  = file_out, $
-			                                PACK_MODE = pacmo[p])
+			                                FILE_OUT    = file_out, $
+			                                NO_LOG      = no_log, $
+			                                PRELIMINARY = preliminary )
 
 			;End of processing time
 			f_end = systime(1)
@@ -359,7 +352,6 @@ PACK_MODE=pacmo
 		endfor ;date
 	endfor ;sc
 	endfor ;mode
-	endfor ;pacmo
 	
 	;Finish processing
 	t_end = systime(1)

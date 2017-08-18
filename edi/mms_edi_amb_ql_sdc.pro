@@ -81,7 +81,7 @@ function mms_edi_amb_ql_sdc, sc, mode, tstart, $
 CAL_PATH_ROOT=cal_path_root, $
 DATA_PATH_ROOT=data_path_root, $
 DROPTBOX_ROOT=dropbox_root, $
-FILE_OUT=file_out, $
+FILE_OUT=files, $
 LOG_PATH_ROOT=log_path_root, $
 NO_LOG=no_log
 	compile_opt idl2
@@ -98,7 +98,7 @@ NO_LOG=no_log
 		log = MrStdLog(-2)
 		
 		;Unexpected trapped error
-		file_out = ''
+		files = ''
 		if n_elements(status) eq 0 || status eq 0 $
 			then status  = 100
 		
@@ -369,7 +369,7 @@ NO_LOG=no_log
 	dt_sec = dt mod 60
 	
 	;Write destination to log file
-	MrPrintF, 'LogText', file_out, FORMAT='(%"File written to:    \"%s\".")'
+	MrPrintF, 'LogText', files, FORMAT='(%"File written to:    \"%s\".")'
 	MrPrintF, 'LogText', dt_hr, dt_min, dt_sec, FORMAT='(%"Total process time: %ihr %imin %0.3fs")'
 	
 	;Close the log file by returning output to stderr

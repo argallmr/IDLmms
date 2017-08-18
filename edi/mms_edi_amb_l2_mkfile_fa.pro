@@ -60,6 +60,7 @@
 ;    Modification History::
 ;       2015/03/23  -   Written by Matthew Argall
 ;       2016/09/17  -   Renamed from mms_edi_amb_l2_mkfile to mms_edi_amb_l2_mkfile_fa - MRA
+;       2017/03/31  -   Added the flip flag. - MRA
 ;-
 function mms_edi_amb_l2_mkfile_fa, sc, mode, optdesc, tstart, amb_data, $
 BRST=brst, $
@@ -101,14 +102,16 @@ STATUS=status
 			mods = [ 'v1.0.0 - Original version.', $
 			         'v1.1.0 - Correct fill value for fluxes.', $
 			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.', $
-			         'v3.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.' ]
+			         'v3.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.', $
+			         'v4.0.0 - Added the flip flag.' ]
 		
 		;SRVY
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
 			         'v1.1.0 - Correct fill value for fluxes.', $
 			         'v2.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.', $
-			         'v3.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.' ]
+			         'v3.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.', $
+			         'v4.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;AMB
@@ -126,7 +129,8 @@ STATUS=status
 			         'v2.0.0 - Reduced file size with scalar errors. Update metadata.', $
 			         'v2.1.0 - Correct fill value for fluxes.', $
 			         'v3.0.0 - Omni-directional error for trajectories. Y-Version linked to cal file. Single epoch for counts.', $
-			         'v4.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.' ]
+			         'v4.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.', $
+			         'v5.0.0 - Added the flip flag.' ]
 		endif else begin
 			mods = [ 'v0.0.0 - Original version.', $
 			         'v1.0.0 - Include trajectory vectors and optics state.', $
@@ -139,7 +143,8 @@ STATUS=status
 			         'v2.0.0 - Reduced file size with scalar errors. Update metadata.', $
 			         'v2.1.0 - Correct fill value for fluxes.', $
 			         'v3.0.0 - Omni-directional error for trajectories. Correct time deltas. Y-Version linked to cal file. Single epoch for counts.', $
-			         'v4.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.' ]
+			         'v4.0.0 - Replace data in GSM coordinates with data in DBCS to be consistent with other particle instruments.', $
+			         'v5.0.0 - Added the flip flag.' ]
 		endelse
 	
 	;UNKNOWN
@@ -318,6 +323,7 @@ STATUS=status
 	e_gdu2_vname         = prefix + 'energy_gdu2'     + suffix
 	gdu_0_vname          = prefix + 'gdu_0'           + suffix
 	gdu_180_vname        = prefix + 'gdu_180'         + suffix
+	flip_vname           = prefix + 'flip'            + suffix
 	flux1_0_vname        = prefix + 'flux1_0'         + suffix
 	flux2_0_vname        = prefix + 'flux2_0'         + suffix
 	flux3_0_vname        = prefix + 'flux3_0'         + suffix
@@ -359,6 +365,7 @@ STATUS=status
 	oamb -> CreateVar, t_vname,       'CDF_TIME_TT2000'
 	oamb -> CreateVar, t_tt_vname,    'CDF_TIME_TT2000'
 	oamb -> CreateVar, optics_vname,  'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, flip_vname,    'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, e_gdu1_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, e_gdu2_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
 	oamb -> CreateVar, gdu_0_vname,   'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
@@ -478,10 +485,10 @@ STATUS=status
 	
 	;TT2000
 	oamb -> WriteVarAttr, t_vname, 'CATDESC',       'TT2000 time tags for EDI electron flux and trajectories.'
-	oamb -> WriteVarAttr, t_vname, 'DELTA_MINUS',    t_delta
-	oamb -> WriteVarAttr, t_vname, 'DELTA_PLUS',     t_delta
+	oamb -> WriteVarAttr, t_vname, 'DELTA_MINUS',   t_delta
+	oamb -> WriteVarAttr, t_vname, 'DELTA_PLUS',    t_delta
 	oamb -> WriteVarAttr, t_vname, 'FIELDNAM',      'Time'
-	oamb -> WriteVarAttr, t_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
+	oamb -> WriteVarAttr, t_vname, 'FILLVAL',       MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
 	oamb -> WriteVarAttr, t_vname, 'FORMAT',        'I16'
 	oamb -> WriteVarAttr, t_vname, 'LABLAXIS',      'UT'
 	oamb -> WriteVarAttr, t_vname, 'SI_CONVERSION', '1e-9>s'
@@ -506,20 +513,30 @@ STATUS=status
 
 	;OPTICS
 	oamb -> WriteVarAttr, optics_vname, 'CATDESC',       'Optics state'
-	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',       t_tt_vname
+	oamb -> WriteVarAttr, optics_vname, 'DEPEND_0',      t_tt_vname
 	oamb -> WriteVarAttr, optics_vname, 'FIELDNAM',      'Optics state'
-	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',        255B
+	oamb -> WriteVarAttr, optics_vname, 'FILLVAL',       255B
 	oamb -> WriteVarAttr, optics_vname, 'FORMAT',        'I4'
 	oamb -> WriteVarAttr, optics_vname, 'LABLAXIS',      'Optics'
 	oamb -> WriteVarAttr, optics_vname, 'VALIDMIN',      0B
 	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      254B
 	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
+	;FLIP
+	oamb -> WriteVarAttr, flip_vname, 'CATDESC',       'Flip-bit flag indicates that the look direction is 1=changing, 0=not changing.'
+	oamb -> WriteVarAttr, flip_vname, 'DEPEND_0',      t_vname
+	oamb -> WriteVarAttr, flip_vname, 'FIELDNAM',      'Flip flag'
+	oamb -> WriteVarAttr, flip_vname, 'FILLVAL',        255B
+	oamb -> WriteVarAttr, flip_vname, 'FORMAT',        'I1'
+	oamb -> WriteVarAttr, flip_vname, 'VALIDMIN',      0B
+	oamb -> WriteVarAttr, flip_vname, 'VALIDMAX',      1B
+	oamb -> WriteVarAttr, flip_vname, 'VAR_TYPE',      'support_data'
+
 	;ENERGY_GDU1
 	oamb -> WriteVarAttr, e_gdu1_vname, 'CATDESC',       'GDU1 energy'
-	oamb -> WriteVarAttr, e_gdu1_vname, 'DEPEND_0',       t_tt_vname
+	oamb -> WriteVarAttr, e_gdu1_vname, 'DEPEND_0',      t_tt_vname
 	oamb -> WriteVarAttr, e_gdu1_vname, 'FIELDNAM',      'Energy'
-	oamb -> WriteVarAttr, e_gdu1_vname, 'FILLVAL',        65535US
+	oamb -> WriteVarAttr, e_gdu1_vname, 'FILLVAL',       65535US
 	oamb -> WriteVarAttr, e_gdu1_vname, 'FORMAT',        'I4'
 	oamb -> WriteVarAttr, e_gdu1_vname, 'LABLAXIS',      'Energy'
 	oamb -> WriteVarAttr, e_gdu1_vname, 'SI_CONVERSION', '1.602e-19>J'
@@ -543,7 +560,7 @@ STATUS=status
 
 	;GDU_0
 	oamb -> WriteVarAttr, gdu_0_vname, 'CATDESC',       'Sorts 0 degree counts by GDU'
-	oamb -> WriteVarAttr, gdu_0_vname, 'DEPEND_0',       t_vname
+	oamb -> WriteVarAttr, gdu_0_vname, 'DEPEND_0',      t_vname
 	oamb -> WriteVarAttr, gdu_0_vname, 'FIELDNAM',      'GDU Identifier'
 	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_0_vname, 'FORMAT',        'I1'
@@ -553,7 +570,7 @@ STATUS=status
 
 	;GDU_180
 	oamb -> WriteVarAttr, gdu_180_vname, 'CATDESC',       'Sorts 180 degree counts by GDU'
-	oamb -> WriteVarAttr, gdu_180_vname, 'DEPEND_0',       t_vname
+	oamb -> WriteVarAttr, gdu_180_vname, 'DEPEND_0',      t_vname
 	oamb -> WriteVarAttr, gdu_180_vname, 'FIELDNAM',      'GDU Identifier'
 	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_180_vname, 'FORMAT',        'I1'

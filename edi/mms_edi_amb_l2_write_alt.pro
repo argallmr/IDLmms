@@ -93,6 +93,7 @@ function mms_edi_amb_l2_write_alt, amb_file, amb_data
 	if ~isa(amb_data.epoch_fa,          'LONG64') then message, 'amb_data.epoch_fa must be LONG64.'
 	if ~isa(amb_data.epoch_timetag,     'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
 	if ~isa(amb_data.optics,            'BYTE')   then message, 'amb_data.optics must be BYTE.'
+	if ~isa(amb_data.flip_flag,         'BYTE')   then message, 'amb_data.flip_flag must be BYTE.'
 	if ~isa(amb_data.energy_gdu1,       'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,       'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,             'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
@@ -134,11 +135,12 @@ function mms_edi_amb_l2_write_alt, amb_file, amb_data
 	t_perp_vname              = 'Epoch_90'
 	t_tt_vname                = 'epoch_timetag'
 	optics_vname              = prefix + 'optics_state'       + suffix
+	flip_vname                = prefix + 'flip'               + suffix
+	dwell_vname               = prefix + 'dwell'              + suffix
 	e_gdu1_vname              = prefix + 'energy_gdu1'        + suffix
 	e_gdu2_vname              = prefix + 'energy_gdu2'        + suffix
 	gdu_0_vname               = prefix + 'gdu_0'              + suffix
 	gdu_180_vname             = prefix + 'gdu_180'            + suffix
-	dwell_vname               = prefix + 'dwell'              + suffix
 	flux1_0_vname             = prefix + 'flux1_0'            + suffix
 	flux2_0_vname             = prefix + 'flux2_0'            + suffix
 	flux3_0_vname             = prefix + 'flux3_0'            + suffix
@@ -222,6 +224,7 @@ function mms_edi_amb_l2_write_alt, amb_file, amb_data
 	oamb -> WriteVar, t_perp_vname,  amb_data.epoch_perp
 	oamb -> WriteVar, t_tt_vname,    amb_data.epoch_timetag
 	oamb -> WriteVar, optics_vname,  amb_data.optics
+	oamb -> WriteVar, flip_vname,    amb_data.flip_flag
 	oamb -> WriteVar, e_gdu1_vname,  amb_data.energy_gdu1
 	oamb -> WriteVar, e_gdu2_vname,  amb_data.energy_gdu2
 	oamb -> WriteVar, gdu_0_vname,   amb_data.gdu_0
