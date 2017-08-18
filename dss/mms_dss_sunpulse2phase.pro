@@ -202,7 +202,8 @@ SUNPULSE=sunpulse
 		sunpulse     = [ pseudopulse, sunpulse     ]
 		dPulse       = [ period[0],   period       ]
 		dPulse_flag  = [ 0,           dPulse_flag  ]
-		period       = [ period[0],   period       ]
+;		period       = [ period[0],   period       ]
+		period       = [ 0,           period       ]
 		valid_period = [ 0,           valid_period ]
 		flag         = [ 3,           flag         ] 
 	endif
