@@ -243,9 +243,17 @@ VERSION=version
 			else _version = nVersion eq nmax ? version : replicate(version, nmax)
 		
 		;Subdirs are different for burst data.
-		if directory eq '' $
-			then subdir = mode[0] eq 'brst' ? ['%Y', '%M', '%d'] : ['%Y', '%M'] $
-			else subdir  = ''
+		if directory eq '' then begin
+			case mode[0] of
+				'brst': subdir = ['%Y', '%M', '%d']
+				'srvy': subdir = ['%Y', '%M']
+				'slow': subdir = ['%Y', '%M']
+				'fast': subdir = ['%Y', '%M']
+				else:   subdir = ''                ;FGM lorangecal, hirangecal
+			endcase
+		endif else begin
+			subdir = ''
+		endelse
 
 		;Create the file name(s)
 		fname = mms_construct_filename_join(_sc, _instr, _mode, _level, fdesc, _tstart, _version)

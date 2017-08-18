@@ -65,7 +65,8 @@ SEARCHSTR=fpattern, $
 TIMEORDER=timeorder, $
 TSTART=tstart, $
 TEND=tend, $
-UNIFORM=uniform
+UNIFORM=uniform, $
+VERSION=version
 	compile_opt idl2
 	on_error, 2
 
@@ -84,12 +85,13 @@ UNIFORM=uniform
 ; Filename  ////////////////////////////////////////////
 ;-------------------------------------------------------
 	;Create the file name
-	fpattern = mms_construct_filename(sc, instr, mode, level, $
-	                                  OPTDESC   = optdesc,    $
-	                                  DIRECTORY = directory,  $
-	                                  SDC_ROOT  = sdc_root,   $
-;	                                  TSTART    = tstart, $
-	                                  UNIFORM   = uniform)
+	fpattern = mms_construct_filename( sc, instr, mode, level, $
+	                                   OPTDESC   = optdesc,    $
+	                                   DIRECTORY = directory,  $
+	                                   SDC_ROOT  = sdc_root,   $
+;	                                   TSTART    = tstart, $
+	                                   UNIFORM   = uniform, $
+	                                   VERSION   = version )
 
 	;Search for the file name
 	nfiles = 0
