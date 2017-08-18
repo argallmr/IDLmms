@@ -82,8 +82,12 @@ function mms_edi_q0_l2_write, q0_file, q0_data
 	if ~isa(q0_data.energy_gdu2,    'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
 	if ~isa(q0_data.counts_gdu1,    'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
 	if ~isa(q0_data.counts_gdu2,    'UINT')   then message, 'q0_data.counts_gdu2 must be UINT.'
+	if ~isa(q0_data.traj_gdu1_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu1_bcs must be FLOAT.'
+	if ~isa(q0_data.traj_gdu1_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu1_dbcs must be FLOAT.'
 	if ~isa(q0_data.traj_gdu1_gse,  'FLOAT')  then message, 'q0_data.traj_gdu1_gse must be FLOAT.'
 	if ~isa(q0_data.traj_gdu1_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu1_gsm must be FLOAT.'
+	if ~isa(q0_data.traj_gdu2_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu2_bcs must be FLOAT.'
+	if ~isa(q0_data.traj_gdu2_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu2_dbcs must be FLOAT.'
 	if ~isa(q0_data.traj_gdu2_gse,  'FLOAT')  then message, 'q0_data.traj_gdu2_gse must be FLOAT.'
 	if ~isa(q0_data.traj_gdu2_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu2_gsm must be FLOAT.'
 
@@ -99,20 +103,24 @@ function mms_edi_q0_l2_write, q0_file, q0_data
 	prefix  = strjoin([sc, instr], '_') + '_'
 	suffix  = '_' + strjoin([mode, level], '_')
 	
-	epoch_vname            = 'Epoch'
-	epoch_gdu1_vname       = 'epoch_gdu1'
-	epoch_gdu2_vname       = 'epoch_gdu2'
-	epoch_timetag_vname    = 'epoch_timetag'
-	optics_vname           = prefix + 'optics_state'              + suffix
-	e_gdu1_vname           = prefix + 'energy_gdu1'               + suffix
-	e_gdu2_vname           = prefix + 'energy_gdu2'               + suffix
-	q0_gdu1_vname          = prefix + 'counts_gdu1'               + suffix
-	q0_gdu2_vname          = prefix + 'counts_gdu2'               + suffix
+	epoch_vname          = 'Epoch'
+	epoch_gdu1_vname     = 'epoch_gdu1'
+	epoch_gdu2_vname     = 'epoch_gdu2'
+	epoch_timetag_vname  = 'epoch_timetag'
+	optics_vname         = prefix + 'optics_state' + suffix
+	e_gdu1_vname         = prefix + 'energy_gdu1'  + suffix
+	e_gdu2_vname         = prefix + 'energy_gdu2'  + suffix
+	q0_gdu1_vname        = prefix + 'counts_gdu1'  + suffix
+	q0_gdu2_vname        = prefix + 'counts_gdu2'  + suffix
 	
-	traj_gdu1_gse_vname    = prefix + 'traj_gse_gdu1'             + suffix
-	traj_gdu2_gse_vname    = prefix + 'traj_gse_gdu2'             + suffix
-	traj_gdu1_gsm_vname    = prefix + 'traj_gsm_gdu1'             + suffix
-	traj_gdu2_gsm_vname    = prefix + 'traj_gsm_gdu2'             + suffix
+	traj_gdu1_bcs_vname  = prefix + 'traj_bcs_gdu1'  + suffix
+	traj_gdu2_bcs_vname  = prefix + 'traj_bcs_gdu2'  + suffix
+	traj_gdu1_dbcs_vname = prefix + 'traj_dbcs_gdu1' + suffix
+	traj_gdu2_dbcs_vname = prefix + 'traj_dbcs_gdu2' + suffix
+	traj_gdu1_gse_vname  = prefix + 'traj_gse_gdu1'  + suffix
+	traj_gdu2_gse_vname  = prefix + 'traj_gse_gdu2'  + suffix
+	traj_gdu1_gsm_vname  = prefix + 'traj_gsm_gdu1'  + suffix
+	traj_gdu2_gsm_vname  = prefix + 'traj_gsm_gdu2'  + suffix
 
 ;------------------------------------------------------
 ; Write Data                                          |
@@ -130,10 +138,14 @@ function mms_edi_q0_l2_write, q0_file, q0_data
 	oq0 -> WriteVar, q0_gdu2_vname,       q0_data.counts_gdu2
 	
 	;Trajectories
-	oq0 -> WriteVar, traj_gdu1_gse_vname,  q0_data.traj_gdu1_gse
-	oq0 -> WriteVar, traj_gdu2_gse_vname,  q0_data.traj_gdu2_gse
-	oq0 -> WriteVar, traj_gdu1_gsm_vname,  q0_data.traj_gdu1_gsm
-	oq0 -> WriteVar, traj_gdu2_gsm_vname,  q0_data.traj_gdu2_gsm
+	oq0 -> WriteVar, traj_gdu1_bcs_vname,   q0_data.traj_gdu1_bcs
+	oq0 -> WriteVar, traj_gdu2_bcs_vname,   q0_data.traj_gdu2_bcs
+	oq0 -> WriteVar, traj_gdu1_dbcs_vname,  q0_data.traj_gdu1_dbcs
+	oq0 -> WriteVar, traj_gdu2_dbcs_vname,  q0_data.traj_gdu2_dbcs
+	oq0 -> WriteVar, traj_gdu1_gse_vname,   q0_data.traj_gdu1_gse
+	oq0 -> WriteVar, traj_gdu2_gse_vname,   q0_data.traj_gdu2_gse
+	oq0 -> WriteVar, traj_gdu1_gsm_vname,   q0_data.traj_gdu1_gsm
+	oq0 -> WriteVar, traj_gdu2_gsm_vname,   q0_data.traj_gdu2_gsm
 
 ;------------------------------------------------------
 ; Close the File                                      |

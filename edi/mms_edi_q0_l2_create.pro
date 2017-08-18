@@ -230,15 +230,15 @@ STATUS=status
 
 	;Despin det1
 	bcs2dbcs          = mms_dss_xdespin(dss, q0_data.tt2000_gd21)
-	traj_gd21_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs))
-	traj_gd21_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs_lo))
-	traj_gd21_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_gd21_bcs_hi))
+	traj_gd21_dbcs    = MrVector_Rotate(bcs2dbcs, traj_gd21_bcs)
+	traj_gd21_dbcs_lo = MrVector_Rotate(bcs2dbcs, traj_gd21_bcs_lo)
+	traj_gd21_dbcs_hi = MrVector_Rotate(bcs2dbcs, traj_gd21_bcs_hi)
 	
 	;Despin det2
 	bcs2dbcs          = mms_dss_xdespin(temporary(dss), q0_data.tt2000_gd12)
-	traj_gd12_dbcs    = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs))
-	traj_gd12_dbcs_lo = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs_lo))
-	traj_gd12_dbcs_hi = MrVector_Rotate(bcs2dbcs, temporary(traj_gd12_bcs_hi))
+	traj_gd12_dbcs    = MrVector_Rotate(bcs2dbcs, traj_gd12_bcs)
+	traj_gd12_dbcs_lo = MrVector_Rotate(bcs2dbcs, traj_gd12_bcs_lo)
+	traj_gd12_dbcs_hi = MrVector_Rotate(bcs2dbcs, traj_gd12_bcs_hi)
 	bcs2dbcs          = !Null
 
 ;-----------------------------------------------------
@@ -253,14 +253,14 @@ STATUS=status
 	;
 	
 	;det1
-	traj_gd21_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs),    TYPE='Z')
-	traj_gd21_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs_lo), TYPE='Z')
-	traj_gd21_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, temporary(traj_gd21_dbcs_hi), TYPE='Z')
+	traj_gd21_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, traj_gd21_dbcs,    TYPE='Z')
+	traj_gd21_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, traj_gd21_dbcs_lo, TYPE='Z')
+	traj_gd21_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd21, traj_gd21_dbcs_hi, TYPE='Z')
 	
 	;gd12
-	traj_gd12_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs),    TYPE='Z')
-	traj_gd12_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs_lo), TYPE='Z')
-	traj_gd12_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, temporary(traj_gd12_dbcs_hi), TYPE='Z')
+	traj_gd12_gse    = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, traj_gd12_dbcs,    TYPE='Z')
+	traj_gd12_gse_lo = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, traj_gd12_dbcs_lo, TYPE='Z')
+	traj_gd12_gse_hi = mms_rot_despun2gse(defatt, q0_data.tt2000_gd12, traj_gd12_dbcs_hi, TYPE='Z')
 	defatt           = !Null
 
 	;
@@ -283,6 +283,26 @@ STATUS=status
 	;
 	;Reduce data by one dimensions by converting to spherical coordinates
 	;
+	
+	;gd21 BCS
+	traj_gd21_bcs    = cv_coord(FROM_RECT=traj_gd21_bcs,    /TO_SPHERE, /DEGREES)
+	traj_gd21_bcs_lo = cv_coord(FROM_RECT=traj_gd21_bcs_lo, /TO_SPHERE, /DEGREES)
+	traj_gd21_bcs_hi = cv_coord(FROM_RECT=traj_gd21_bcs_hi, /TO_SPHERE, /DEGREES)
+	
+	;gd12 BCS
+	traj_gd12_bcs    = cv_coord(FROM_RECT=traj_gd12_bcs,    /TO_SPHERE, /DEGREES)
+	traj_gd12_bcs_lo = cv_coord(FROM_RECT=traj_gd12_bcs_lo, /TO_SPHERE, /DEGREES)
+	traj_gd12_bcs_hi = cv_coord(FROM_RECT=traj_gd12_bcs_hi, /TO_SPHERE, /DEGREES)
+	
+	;gd21 DBCS
+	traj_gd21_dbcs    = cv_coord(FROM_RECT=traj_gd21_dbcs,    /TO_SPHERE, /DEGREES)
+	traj_gd21_dbcs_lo = cv_coord(FROM_RECT=traj_gd21_dbcs_lo, /TO_SPHERE, /DEGREES)
+	traj_gd21_dbcs_hi = cv_coord(FROM_RECT=traj_gd21_dbcs_hi, /TO_SPHERE, /DEGREES)
+	
+	;gd12 DBCS
+	traj_gd12_dbcs    = cv_coord(FROM_RECT=traj_gd12_dbcs,    /TO_SPHERE, /DEGREES)
+	traj_gd12_dbcs_lo = cv_coord(FROM_RECT=traj_gd12_dbcs_lo, /TO_SPHERE, /DEGREES)
+	traj_gd12_dbcs_hi = cv_coord(FROM_RECT=traj_gd12_dbcs_hi, /TO_SPHERE, /DEGREES)
 
 	;gd21 GSE
 	traj_gd21_gse    = cv_coord(FROM_RECT=traj_gd21_gse,    /TO_SPHERE, /DEGREES)
@@ -308,6 +328,26 @@ STATUS=status
 	;Convert from elevation to polar angle
 	;
 	
+	;gd21 BCS
+	traj_gd21_bcs[1,*]    = abs(traj_gd21_bcs[1,*] - 90.0)
+	traj_gd21_bcs_lo[1,*] = abs(traj_gd21_bcs_lo[1,*] - 90.0)
+	traj_gd21_bcs_hi[1,*] = abs(traj_gd21_bcs_hi[1,*] - 90.0)
+
+	;gd12 BCS
+	traj_gd12_bcs[1,*]    = abs(traj_gd12_bcs[1,*] - 90.0)
+	traj_gd12_bcs_lo[1,*] = abs(traj_gd12_bcs_lo[1,*] - 90.0)
+	traj_gd12_bcs_hi[1,*] = abs(traj_gd12_bcs_hi[1,*] - 90.0)
+	
+	;gd21 DBCS
+	traj_gd21_dbcs[1,*]    = abs(traj_gd21_dbcs[1,*] - 90.0)
+	traj_gd21_dbcs_lo[1,*] = abs(traj_gd21_dbcs_lo[1,*] - 90.0)
+	traj_gd21_dbcs_hi[1,*] = abs(traj_gd21_dbcs_hi[1,*] - 90.0)
+
+	;gd12 DBCS
+	traj_gd12_dbcs[1,*]    = abs(traj_gd12_dbcs[1,*] - 90.0)
+	traj_gd12_dbcs_lo[1,*] = abs(traj_gd12_dbcs_lo[1,*] - 90.0)
+	traj_gd12_dbcs_hi[1,*] = abs(traj_gd12_dbcs_hi[1,*] - 90.0)
+	
 	;gd21 GSE
 	traj_gd21_gse[1,*]    = abs(traj_gd21_gse[1,*] - 90.0)
 	traj_gd21_gse_lo[1,*] = abs(traj_gd21_gse_lo[1,*] - 90.0)
@@ -332,42 +372,62 @@ STATUS=status
 ; Deltas \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;GD12
-	traj_gd12_gse_lo = traj_gd12_gse - traj_gd12_gse_lo
-	traj_gd12_gse_hi = traj_gd12_gse_hi - traj_gd12_gse
-	traj_gd12_gsm_lo = traj_gd12_gsm - traj_gd12_gsm_lo
-	traj_gd12_gsm_hi = traj_gd12_gsm_hi - traj_gd12_gsm
+	traj_gd12_bcs_lo  = traj_gd12_bcs - traj_gd12_bcs_lo
+	traj_gd12_bcs_hi  = traj_gd12_bcs_hi - traj_gd12_bcs
+	traj_gd12_dbcs_lo = traj_gd12_dbcs - traj_gd12_dbcs_lo
+	traj_gd12_dbcs_hi = traj_gd12_dbcs_hi - traj_gd12_dbcs
+	traj_gd12_gse_lo  = traj_gd12_gse - traj_gd12_gse_lo
+	traj_gd12_gse_hi  = traj_gd12_gse_hi - traj_gd12_gse
+	traj_gd12_gsm_lo  = traj_gd12_gsm - traj_gd12_gsm_lo
+	traj_gd12_gsm_hi  = traj_gd12_gsm_hi - traj_gd12_gsm
 	
 	;GD12
-	traj_gd21_gse_lo = traj_gd21_gse - traj_gd21_gse_lo
-	traj_gd21_gse_hi = traj_gd21_gse_hi - traj_gd21_gse
-	traj_gd21_gsm_lo = traj_gd21_gsm - traj_gd21_gsm_lo
-	traj_gd21_gsm_hi = traj_gd21_gsm_hi - traj_gd21_gsm
+	traj_gd21_bcs_lo  = traj_gd21_bcs - traj_gd21_bcs_lo
+	traj_gd21_bcs_hi  = traj_gd21_bcs_hi - traj_gd21_bcs
+	traj_gd21_dbcs_lo = traj_gd21_dbcs - traj_gd21_dbcs_lo
+	traj_gd21_dbcs_hi = traj_gd21_dbcs_hi - traj_gd21_dbcs
+	traj_gd21_gse_lo  = traj_gd21_gse - traj_gd21_gse_lo
+	traj_gd21_gse_hi  = traj_gd21_gse_hi - traj_gd21_gse
+	traj_gd21_gsm_lo  = traj_gd21_gsm - traj_gd21_gsm_lo
+	traj_gd21_gsm_hi  = traj_gd21_gsm_hi - traj_gd21_gsm
 
 ;-----------------------------------------------------
 ; Output \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Collect the data into a structure
 	;   - Detector quantities: GD12 -> GDU2 and GD21 -> GDU1
-	q0_out = { tt2000_gdu1:      q0_data.tt2000_gd21, $
-	           tt2000_gdu2:      q0_data.tt2000_gd12, $
-	           tt2000_timetag:   q0_data.tt2000_timetag, $
-	           optics:           q0_data.optics, $
-	           energy_gdu1:      q0_data.energy_gd21, $
-	           energy_gdu2:      q0_data.energy_gd12, $
-	           counts_gdu1:      q0_data.word15_gd21, $
-	           counts_gdu2:      q0_data.word15_gd12, $
-	           traj_gdu1_gse:    traj_gd21_gse[0:1,*], $
-	           traj_gdu1_gse_lo: traj_gd21_gse_lo[0:1,*], $
-	           traj_gdu1_gse_hi: traj_gd21_gse_hi[0:1,*], $
-	           traj_gdu2_gse:    traj_gd12_gse[0:1,*], $
-	           traj_gdu2_gse_lo: traj_gd12_gse_lo[0:1,*], $
-	           traj_gdu2_gse_hi: traj_gd12_gse_hi[0:1,*], $
-	           traj_gdu1_gsm:    traj_gd21_gsm[0:1,*], $
-	           traj_gdu1_gsm_lo: traj_gd21_gsm_lo[0:1,*], $
-	           traj_gdu1_gsm_hi: traj_gd21_gsm_hi[0:1,*], $
-	           traj_gdu2_gsm:    traj_gd12_gsm[0:1,*], $
-	           traj_gdu2_gsm_lo: traj_gd12_gsm_lo[0:1,*], $
-	           traj_gdu2_gsm_hi: traj_gd12_gsm_hi[0:1,*] $
+	q0_out = { tt2000_gdu1:       q0_data.tt2000_gd21, $
+	           tt2000_gdu2:       q0_data.tt2000_gd12, $
+	           tt2000_timetag:    q0_data.tt2000_timetag, $
+	           optics:            q0_data.optics, $
+	           energy_gdu1:       q0_data.energy_gd21, $
+	           energy_gdu2:       q0_data.energy_gd12, $
+	           counts_gdu1:       q0_data.word15_gd21, $
+	           counts_gdu2:       q0_data.word15_gd12, $
+	           traj_gdu1_bcs:     float( traj_gd21_bcs[0:1,*] ), $
+	           traj_gdu1_bcs_lo:  float( traj_gd21_bcs_lo[0:1,*] ), $
+	           traj_gdu1_bcs_hi:  float( traj_gd21_bcs_hi[0:1,*] ), $
+	           traj_gdu2_bcs:     float( traj_gd12_bcs[0:1,*] ), $
+	           traj_gdu2_bcs_lo:  float( traj_gd12_bcs_lo[0:1,*] ), $
+	           traj_gdu2_bcs_hi:  float( traj_gd12_bcs_hi[0:1,*] ), $
+	           traj_gdu1_dbcs:    traj_gd21_dbcs[0:1,*], $
+	           traj_gdu1_dbcs_lo: traj_gd21_dbcs_lo[0:1,*], $
+	           traj_gdu1_dbcs_hi: traj_gd21_dbcs_hi[0:1,*], $
+	           traj_gdu2_dbcs:    traj_gd12_dbcs[0:1,*], $
+	           traj_gdu2_dbcs_lo: traj_gd12_dbcs_lo[0:1,*], $
+	           traj_gdu2_dbcs_hi: traj_gd12_dbcs_hi[0:1,*], $
+	           traj_gdu1_gse:     traj_gd21_gse[0:1,*], $
+	           traj_gdu1_gse_lo:  traj_gd21_gse_lo[0:1,*], $
+	           traj_gdu1_gse_hi:  traj_gd21_gse_hi[0:1,*], $
+	           traj_gdu2_gse:     traj_gd12_gse[0:1,*], $
+	           traj_gdu2_gse_lo:  traj_gd12_gse_lo[0:1,*], $
+	           traj_gdu2_gse_hi:  traj_gd12_gse_hi[0:1,*], $
+	           traj_gdu1_gsm:     traj_gd21_gsm[0:1,*], $
+	           traj_gdu1_gsm_lo:  traj_gd21_gsm_lo[0:1,*], $
+	           traj_gdu1_gsm_hi:  traj_gd21_gsm_hi[0:1,*], $
+	           traj_gdu2_gsm:     traj_gd12_gsm[0:1,*], $
+	           traj_gdu2_gsm_lo:  traj_gd12_gsm_lo[0:1,*], $
+	           traj_gdu2_gsm_hi:  traj_gd12_gsm_hi[0:1,*] $
 	         }
 
 	;Done

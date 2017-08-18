@@ -79,7 +79,7 @@ RESET=reset
 	             cal_path_root:  '/nfs/edi/cals', $
 	             hk_root:        '/nfs/hk', $
 	             unh_data_root:  '/nfs/edi', $
-	             status:    0B $
+	             status:         0B $
 	           }
 	
 	;Create or reset the system variable
