@@ -55,6 +55,7 @@
 ; :History:
 ;   Modification History::
 ;       2015-11-27  -   Written by Matthew Argall
+;       2017-06-21  -   Combined gei2dmpa and dsl2gei in wrong order. Fixed. - MRA
 ;-
 function mms_fdoa_xdsl2dmpa, defatt, time
 	compile_opt idl2
@@ -68,7 +69,7 @@ function mms_fdoa_xdsl2dmpa, defatt, time
 	dsl2gei = transpose(temporary(gei2dsl), [1,0,2])
 	
 	;DSL --> DMPA
-	dsl2dmpa = MrMatrix_Multiply(dsl2gei, gei2dmpa)
+	dsl2dmpa = MrMatrix_Multiply(gei2dmpa, dsl2gei)
 	
 	return, dsl2dmpa
 end
