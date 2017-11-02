@@ -36,7 +36,10 @@
 ;   A Batch file for rotating FSM L3 data from OMB to GSE coordinates.
 ;
 ;   Calling Sequence:
-;       $ idl mms_fsm_l3_rotate file
+;       $ idl mms_fsm_l3_rotate data_file
+;       $ idl mms_fsm_l3_rotate data_file log_file
+;       $ idl mms_fsm_l3_rotate data_file tf_all
+;       $ idl mms_fsm_l3_rotate data_file tf_all log_file
 ;
 ; :Author:
 ;   Matthew Argall::
@@ -49,6 +52,8 @@
 ; :History:
 ;   Modification History::
 ;       2017-03-16  -   Written by Matthew Argall
+;       2017-10-08  -   Added TF_ALL input parameter to write data in all coordinates
+;                           to output file. - MRA
 ;-
 ;*****************************************************************************************
 
@@ -65,25 +70,38 @@ mms_fsm_startup
 ; Parse Inputs /////////////////////////////
 ;-------------------------------------------
 
-;args  = '/nfs/fsm/temp/mms1_fsm_brst_l3_8kHz-temp-x_20161123080224_v3.1.2.cdf'
-;nArgs = 1
+;nArgs   = 2
+;args    = StrArr(nArgs)
+;args[0] = '/nfs/fsm/temp/mms1_fsm_brst_l3_8khz-temp-x_20170711232803_v4.0.0.cdf'
+;args[1] = '1'
 
 ;Arguments passed in from the command line
 ;   - mms_fsm_fgm_l2 sc instr mode tstart
 args = Command_Line_Args(COUNT=nArgs)
-IF nArgs NE 1 && nArgs NE 2 THEN BEGIN & $
+IF nArgs EQ 0 || nArgs GE 3 THEN BEGIN & $
 	MrPrintF, 'LogErr', 'Incorrect number of arguments.' & $
 	Exit, STATUS=200 & $
 ENDIF
 
-;Inputs
+;Parse inputs
+IF nArgs GE 2 THEN BEGIN & $
+	Catch, the_error & $
+	IF the_error EQ 0 $
+		THEN tf_all  = Keyword_Set(Fix(args[1])) $
+		ELSE logfile = args[1] & $
+	Catch, /CANCEL & $
+ENDIF
+IF nArgs EQ 3 THEN logfile = args[2]
+
+;Default Inputs
 fsm_file = args[0]
-logfile  = nArgs EQ 2 ? args[1] : 'stderr'
+IF N_Elements(logfile) EQ 0 THEN logfile = 'stderr'
+IF N_Elements(tf_all)  EQ 0 THEN tf_all  = 0B
 mms_dissect_filename, fsm_file, SC=sc, INSTR=instr, MODE=mode, LEVEL=level, TSTART=tstart
 
 ;Open the log file
 ;   - Append to the end
-IF nArgs EQ 5 THEN BEGIN & $
+IF logfile NE 'stderr' THEN BEGIN & $
 	oLog = MrStdLog(logfile, /APPEND) & $
 	lun  = oLog.lun & $
 ENDIF ELSE lun = -2
@@ -318,7 +336,8 @@ MrVar_ExportToCDF, fsm_file, [b_dmpa_vname, b_gse_vname, b_gsm_vname], global_at
 ;-------------------------------------------
 
 ;Open the new and old files
-file_new = StrJoin(StrSplit(fsm_file, '-temp', /EXTRACT, /REGEX))
+file_new = tf_all ? StrJoin(StrSplit(fsm_file, '-temp', /EXTRACT, /REGEX), '-cs-test') $
+                  : StrJoin(StrSplit(fsm_file, '-temp', /EXTRACT, /REGEX))
 ocdf_new = MrCDF_File(file_new, /CREATE, /CLOBBER)
 ocdf_old = MrCDF_File(fsm_file)
 
@@ -335,9 +354,84 @@ FOR i = 0, nVarAttrs - 1 DO ocdf_old -> CopyVarAttrTo, varAttrs[i], ocdf_new
 ;   - OMB: 3, 5
 ;   - DMPA: 19, 20
 ;   - GSM: 14, 17, 23, 24
+
+;OLD VARIABLES
+;  0   Epoch
+;  1   mms1_fsm_epoch_delta_brst_l3
+;  2   mms1_fsm_b_mag_brst_l3
+;  3   mms1_fsm_b_omb_brst_l3
+;  4   mms1_fsm_flag_brst_l3
+;  5   mms1_fsm_b_omb_labels_brst_l3
+;  6   Epoch_fgm
+;  7   Epoch_state
+;  8   mms1_fsm_bdeltahalf_brst_l3
+;  9   mms1_fsm_hirange_brst_l3
+; 10   mms1_fsm_stemp_brst_l3
+; 11   mms1_fsm_etemp_brst_l3
+; 12   mms1_fsm_mode_brst_l3
+; 13   mms1_fsm_r_gse_brst_l3
+; 14   mms1_fsm_r_gsm_brst_l3
+; 15   mms1_fsm_rdeltahalf_brst_l3
+; 16   label_r_gse
+; 17   label_r_gsm
+; 18   represent_vec_tot
+; 19   mms1_fsm_b_dmpa_brst_l3
+; 20   mms1_fsm_b_dmpa_labls_brst_l3
+; 21   mms1_fsm_b_gse_brst_l3
+; 22   mms1_fsm_b_gse_labls_brst_l3
+; 23   mms1_fsm_b_gsm_brst_l3
+; 24   mms1_fsm_b_gsm_labls_brst_l3
+
+;NORMAL OUTPUT
+;  0   Epoch
+;  1   mms1_fsm_epoch_delta_brst_l3
+;  2   mms1_fsm_b_mag_brst_l3
+; 21   mms1_fsm_b_gse_brst_l3
+;  4   mms1_fsm_flag_brst_l3
+; 22   mms1_fsm_b_gse_labls_brst_l3
+;  6   Epoch_fgm
+;  7   Epoch_state
+;  8   mms1_fsm_bdeltahalf_brst_l3
+; 15   mms1_fsm_rdeltahalf_brst_l3
+; 13   mms1_fsm_r_gse_brst_l3
+; 16   label_r_gse
+; 18   represent_vec_tot
+;  9   mms1_fsm_hirange_brst_l3
+; 10   mms1_fsm_stemp_brst_l3
+; 11   mms1_fsm_etemp_brst_l3
+; 12   mms1_fsm_mode_brst_l3
+
+;OUTPUT ALL
+;  0   Epoch
+;  1   mms1_fsm_epoch_delta_brst_l3
+;  2   mms1_fsm_b_mag_brst_l3
+;  3   mms1_fsm_b_omb_brst_l3
+; 19   mms1_fsm_b_dmpa_brst_l3
+; 21   mms1_fsm_b_gse_brst_l3
+; 23   mms1_fsm_b_gsm_brst_l3
+;  4   mms1_fsm_flag_brst_l3
+;  5   mms1_fsm_b_omb_labels_brst_l3
+; 20   mms1_fsm_b_dmpa_labls_brst_l3
+; 22   mms1_fsm_b_gse_labls_brst_l3
+; 24   mms1_fsm_b_gsm_labls_brst_l3
+;  6   Epoch_fgm
+;  7   Epoch_state
+;  8   mms1_fsm_bdeltahalf_brst_l3
+; 15   mms1_fsm_rdeltahalf_brst_l3
+; 13   mms1_fsm_r_gse_brst_l3
+; 14   mms1_fsm_r_gsm_brst_l3
+; 16   label_r_gse
+; 17   label_r_gsm
+; 18   represent_vec_tot
+;  9   mms1_fsm_hirange_brst_l3
+; 10   mms1_fsm_stemp_brst_l3
+; 11   mms1_fsm_etemp_brst_l3
+; 12   mms1_fsm_mode_brst_l3
+
 vnames = ocdf_old -> GetVarNames(COUNT=nVars)
-;vorder = [0,1,2,3,19,21,23,4,5,20,22,24,6,7,8,15,13,14,16,17,18,9,10,11,12]
-vorder = [0,1,2,21,4,22,6,7,8,15,13,16,18,9,10,11,12]
+IF tf_all $
+	THEN vorder = [0,1,2,3,19,21,23,4,5,20,22,24,6,7,8,15,13,14,16,17,18,9,10,11,12] $
+	ELSE vorder = [0,1,2,21,4,22,6,7,8,15,13,16,18,9,10,11,12]
 FOR i = 0, N_Elements(vorder)-1 DO ocdf_old -> CopyVariableTo, vnames[vorder[i]], ocdf_new
 
 ;Close the new file
