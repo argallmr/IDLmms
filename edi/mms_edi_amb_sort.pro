@@ -55,6 +55,8 @@
 ; :History:
 ;    Modification History::
 ;       2016/09/14  -   Written by Matthew Argall
+;       2017/10/24  -   Alternating mode bits checking was ambiguous. Reordered from
+;                           most to least specific. - MRA
 ;-
 function mms_edi_amb_sort, edi, bitmask
 	compile_opt idl2
@@ -172,10 +174,10 @@ function mms_edi_amb_sort, edi, bitmask
 			
 			;Subset of field-aligned mode
 			case 1 of
-				MrBitGet(theBit, 4): tag = 'amb_alt_cc'
+				array_equal( MrBitGet(theBit, [5,6,7]), 1 ): tag = 'amb_alt_oob'
+				array_equal( MrBitGet(theBit, [5,6]),   1 ): tag = 'amb_alt_oom'
 				MrBitGet(theBit, 5): tag = 'amb_alt_oc'
-				array_equal( MrBitSet(theBit, [5,6]),   1 ): tag = 'amb_alt_oom'
-				array_equal( MrBitSet(theBit, [5,6,7]), 1 ): tag = 'amb_alt_oob'
+				MrBitGet(theBit, 4): tag = 'amb_alt_cc'
 				else: message, 'Unknown bit combination (' + strtrim(theBit, 2) + ').'
 			endcase
 			

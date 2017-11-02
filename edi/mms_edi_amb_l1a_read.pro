@@ -71,6 +71,8 @@
 ;       2015/11/24  -   Renamed from mms_edi_read_l1a_amb to mms_edi_amb_l1a_read. - MRA
 ;       2016/02/01  -   Accommodate packing mode = 2 files. - MRA
 ;       2016/02/27  -   Added STATUS keyword. - MRA
+;       2017/10/13  -   FLIP_FLAG variable was added in v1.2.0. Was checking VX GE 1
+;                           instead of VX GT 1. Fixed. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
 EXPAND_ANGLES=expand_angles, $
@@ -219,7 +221,7 @@ STATUS=status
 	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
 
 	;Read the data for GD12
-	counts1_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
+	counts1_gdu1 = MrCDF_nRead(files, counts1_gdu1_name, $
 	                           DEPEND_0 = epoch_gdu1, $
 	                           NRECS    = nRecs_gdu1, $
 	                           STATUS   = status_gdu1, $
@@ -293,7 +295,7 @@ STATUS=status
 	;Flip flag
 	;   - v1.2.0 introduced this variable
 	;   - If the variables cannot be read, make their default = 0
-	iRead = where( (vx ge 1) or (vx eq 1 and vy ge 2), nRead, COMPLEMENT=iMake, NCOMPLEMENT=nMake)
+	iRead = where( (vx gt 1) or (vx eq 1 and vy ge 2), nRead, COMPLEMENT=iMake, NCOMPLEMENT=nMake)
 	if nMake eq 0 then begin
 		flip_flag = MrCDF_nRead(cdfIDs, flip_flag_name, TSTART=tstart, TEND=tend)
 	endif else if nRead eq 0 then begin
