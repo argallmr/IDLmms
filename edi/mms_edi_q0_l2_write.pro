@@ -42,6 +42,7 @@
 ;    Modification History::
 ;       2016/02/17  -   Written by Matthew Argall
 ;       2016/03/23  -   Separated file creating from file writing. - MRA
+;       2018/02/13  -   Handle cases when GDU1 or GDU2 have no data (e.g. 1 gun operations). - MRA
 ;-
 function mms_edi_q0_l2_write, q0_file, q0_data
 	compile_opt idl2
@@ -74,22 +75,26 @@ function mms_edi_q0_l2_write, q0_file, q0_data
 	;
 	; Check sizes
 	;
-	if ~isa(q0_data.tt2000_gdu1,    'LONG64') then message, 'q0_data.tt2000_gdu1 must be LONG64.'
-	if ~isa(q0_data.tt2000_gdu2,    'LONG64') then message, 'q0_data.tt2000_gdu2 must be LONG64.'
 	if ~isa(q0_data.tt2000_timetag, 'LONG64') then message, 'q0_data.tt2000_timetag must be LONG64.'
 	if ~isa(q0_data.optics,         'BYTE')   then message, 'q0_data.optics must be BYTE.'
-	if ~isa(q0_data.energy_gdu1,    'UINT')   then message, 'q0_data.energy_gdu1 must be UINT.'
-	if ~isa(q0_data.energy_gdu2,    'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
-	if ~isa(q0_data.counts_gdu1,    'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
-	if ~isa(q0_data.counts_gdu2,    'UINT')   then message, 'q0_data.counts_gdu2 must be UINT.'
-	if ~isa(q0_data.traj_gdu1_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu1_bcs must be FLOAT.'
-	if ~isa(q0_data.traj_gdu1_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu1_dbcs must be FLOAT.'
-	if ~isa(q0_data.traj_gdu1_gse,  'FLOAT')  then message, 'q0_data.traj_gdu1_gse must be FLOAT.'
-	if ~isa(q0_data.traj_gdu1_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu1_gsm must be FLOAT.'
-	if ~isa(q0_data.traj_gdu2_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu2_bcs must be FLOAT.'
-	if ~isa(q0_data.traj_gdu2_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu2_dbcs must be FLOAT.'
-	if ~isa(q0_data.traj_gdu2_gse,  'FLOAT')  then message, 'q0_data.traj_gdu2_gse must be FLOAT.'
-	if ~isa(q0_data.traj_gdu2_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu2_gsm must be FLOAT.'
+	if q0_data.n_gdu1 gt 0 then begin
+		if ~isa(q0_data.tt2000_gdu1,    'LONG64') then message, 'q0_data.tt2000_gdu1 must be LONG64.'
+		if ~isa(q0_data.energy_gdu1,    'UINT')   then message, 'q0_data.energy_gdu1 must be UINT.'
+		if ~isa(q0_data.counts_gdu1,    'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
+		if ~isa(q0_data.traj_gdu1_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu1_bcs must be FLOAT.'
+		if ~isa(q0_data.traj_gdu1_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu1_dbcs must be FLOAT.'
+		if ~isa(q0_data.traj_gdu1_gse,  'FLOAT')  then message, 'q0_data.traj_gdu1_gse must be FLOAT.'
+		if ~isa(q0_data.traj_gdu1_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu1_gsm must be FLOAT.'
+	endif
+	if q0_data.n_gdu2 gt 0 then begin
+		if ~isa(q0_data.tt2000_gdu2,    'LONG64') then message, 'q0_data.tt2000_gdu2 must be LONG64.'
+		if ~isa(q0_data.energy_gdu2,    'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
+		if ~isa(q0_data.counts_gdu2,    'UINT')   then message, 'q0_data.counts_gdu2 must be UINT.'
+		if ~isa(q0_data.traj_gdu2_bcs,  'FLOAT')  then message, 'q0_data.traj_gdu2_bcs must be FLOAT.'
+		if ~isa(q0_data.traj_gdu2_dbcs, 'FLOAT')  then message, 'q0_data.traj_gdu2_dbcs must be FLOAT.'
+		if ~isa(q0_data.traj_gdu2_gse,  'FLOAT')  then message, 'q0_data.traj_gdu2_gse must be FLOAT.'
+		if ~isa(q0_data.traj_gdu2_gsm,  'FLOAT')  then message, 'q0_data.traj_gdu2_gsm must be FLOAT.'
+	endif
 
 	;Open the CDF file
 	oq0 = MrCDF_File(q0_file, /MODIFY)
@@ -128,24 +133,24 @@ function mms_edi_q0_l2_write, q0_file, q0_data
 
 	;Write variable data to file
 	;   - All are detector quantities, so GD12 --> GDU2 and GD21 --> GDU2
-	oq0 -> WriteVar, epoch_gdu1_vname,    q0_data.tt2000_gdu1
-	oq0 -> WriteVar, epoch_gdu2_vname,    q0_data.tt2000_gdu2
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, epoch_gdu1_vname,    q0_data.tt2000_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, epoch_gdu2_vname,    q0_data.tt2000_gdu2
 	oq0 -> WriteVar, epoch_timetag_vname, q0_data.tt2000_timetag
 	oq0 -> WriteVar, optics_vname,        q0_data.optics
-	oq0 -> WriteVar, e_gdu1_vname,        q0_data.energy_gdu1
-	oq0 -> WriteVar, e_gdu2_vname,        q0_data.energy_gdu2
-	oq0 -> WriteVar, q0_gdu1_vname,       q0_data.counts_gdu1
-	oq0 -> WriteVar, q0_gdu2_vname,       q0_data.counts_gdu2
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, e_gdu1_vname,        q0_data.energy_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, e_gdu2_vname,        q0_data.energy_gdu2
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, q0_gdu1_vname,       q0_data.counts_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, q0_gdu2_vname,       q0_data.counts_gdu2
 	
 	;Trajectories
-	oq0 -> WriteVar, traj_gdu1_bcs_vname,   q0_data.traj_gdu1_bcs
-	oq0 -> WriteVar, traj_gdu2_bcs_vname,   q0_data.traj_gdu2_bcs
-	oq0 -> WriteVar, traj_gdu1_dbcs_vname,  q0_data.traj_gdu1_dbcs
-	oq0 -> WriteVar, traj_gdu2_dbcs_vname,  q0_data.traj_gdu2_dbcs
-	oq0 -> WriteVar, traj_gdu1_gse_vname,   q0_data.traj_gdu1_gse
-	oq0 -> WriteVar, traj_gdu2_gse_vname,   q0_data.traj_gdu2_gse
-	oq0 -> WriteVar, traj_gdu1_gsm_vname,   q0_data.traj_gdu1_gsm
-	oq0 -> WriteVar, traj_gdu2_gsm_vname,   q0_data.traj_gdu2_gsm
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, traj_gdu1_bcs_vname,   q0_data.traj_gdu1_bcs
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, traj_gdu2_bcs_vname,   q0_data.traj_gdu2_bcs
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, traj_gdu1_dbcs_vname,  q0_data.traj_gdu1_dbcs
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, traj_gdu2_dbcs_vname,  q0_data.traj_gdu2_dbcs
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, traj_gdu1_gse_vname,   q0_data.traj_gdu1_gse
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, traj_gdu2_gse_vname,   q0_data.traj_gdu2_gse
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, traj_gdu1_gsm_vname,   q0_data.traj_gdu1_gsm
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, traj_gdu2_gsm_vname,   q0_data.traj_gdu2_gsm
 
 ;------------------------------------------------------
 ; Close the File                                      |
