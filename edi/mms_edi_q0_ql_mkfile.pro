@@ -61,6 +61,7 @@
 ; :History:
 ;    Modification History::
 ;       2016/03/23  -   Written by Matthew Argall
+;       2018/01/13  -   Updated y-version number to v2.1.0. - MRA
 ;-
 function mms_edi_q0_ql_mkfile, sc, mode, tstart, $
 DROPBOX_ROOT=dropbox, $
@@ -124,7 +125,8 @@ STATUS=status
 	         'v1.1.0 - Added optics state.', $ 
 	         'v1.2.0 - Update PI_Name.', $ 
 	         'v1.3.0 - Fixed optics datatype.', $ 
-	         'v2.0.0 - Removed unused Epoch variable.' ]
+	         'v2.0.0 - Removed unused Epoch variable.', $ 
+	         'v2.1.0 - Data for optics is now written to file.' ]
 	
 	;Get the version
 	version = stregex(mods[-1], '^v([0-9]+)\.([0-9]+)\.([0-9]+)', /SUBEXP, /EXTRACT)
@@ -227,6 +229,8 @@ STATUS=status
 	suffix  = '_' + strjoin([mode, level], '_')
 	
 	epoch_timetag_vname = 'epoch_timetag'
+	epoch_gdu1_vname    = 'epoch_gdu1'
+	epoch_gdu2_vname    = 'epoch_gdu2'
 	optics_vname        = prefix + 'optics_state' + suffix
 	e_gdu1_vname        = prefix + 'energy_gdu1' + suffix
 	e_gdu2_vname        = prefix + 'energy_gdu2' + suffix

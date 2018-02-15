@@ -42,6 +42,8 @@
 ;    Modification History::
 ;       2016/02/17  -   Written by Matthew Argall
 ;       2016/03/23  -   Separated file creating from file writing. - MRA
+;       2018/02/13  -   Handles cases when data from GDU1 and/or GDU2 are not available,
+;                           as in the case of one-gun operations. - MRA
 ;-
 function mms_edi_q0_ql_write, q0_file, q0_data
 	compile_opt idl2
@@ -74,14 +76,18 @@ function mms_edi_q0_ql_write, q0_file, q0_data
 	;
 	; Check sizes
 	;
-	if ~isa(q0_data.tt2000_gdu1,    'LONG64') then message, 'q0_data.tt2000_gdu1 must be LONG64.'
-	if ~isa(q0_data.tt2000_gdu2,    'LONG64') then message, 'q0_data.tt2000_gdu2 must be LONG64.'
 	if ~isa(q0_data.tt2000_timetag, 'LONG64') then message, 'q0_data.tt2000_timetag must be LONG64.'
 	if ~isa(q0_data.optics,         'BYTE')   then message, 'q0_data.optics must be BYTE.'
-	if ~isa(q0_data.energy_gdu1,    'UINT')   then message, 'q0_data.energy_gdu1 must be UINT.'
-	if ~isa(q0_data.energy_gdu2,    'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
-	if ~isa(q0_data.counts_gdu1,    'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
-	if ~isa(q0_data.counts_gdu2,    'UINT')   then message, 'q0_data.counts_gdu2 must be UINT.'
+	if q0_data.n_gdu1 gt 0 then begin
+		if ~isa(q0_data.tt2000_gdu1, 'LONG64') then message, 'q0_data.tt2000_gdu1 must be LONG64.'
+		if ~isa(q0_data.energy_gdu1, 'UINT')   then message, 'q0_data.energy_gdu1 must be UINT.'
+		if ~isa(q0_data.counts_gdu1, 'UINT')   then message, 'q0_data.counts_gdu1 must be UINT.'
+	endif
+	if q0_data.n_gdu2 gt 0 then begin
+		if ~isa(q0_data.tt2000_gdu2, 'LONG64') then message, 'q0_data.tt2000_gdu2 must be LONG64.'
+		if ~isa(q0_data.energy_gdu2, 'UINT')   then message, 'q0_data.energy_gdu2 must be UINT.'
+		if ~isa(q0_data.counts_gdu2, 'UINT')   then message, 'q0_data.counts_gdu2 must be UINT.'
+	endif
 
 	;Open the CDF file
 	oq0 = MrCDF_File(q0_file, /MODIFY)
@@ -111,14 +117,14 @@ function mms_edi_q0_ql_write, q0_file, q0_data
 
 	;Write variable data to file
 	;   - All are detector quantities, so GD12 --> GDU2 and GD21 --> GDU2
-	oq0 -> WriteVar, epoch_gdu1_vname,    q0_data.tt2000_gdu1
-	oq0 -> WriteVar, epoch_gdu2_vname,    q0_data.tt2000_gdu2
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, epoch_gdu1_vname,    q0_data.tt2000_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, epoch_gdu2_vname,    q0_data.tt2000_gdu2
 	oq0 -> WriteVar, epoch_timetag_vname, q0_data.tt2000_timetag
-	oq0 -> WriteVar, e_gdu1_vname,        q0_data.optics
-	oq0 -> WriteVar, e_gdu1_vname,        q0_data.energy_gdu1
-	oq0 -> WriteVar, e_gdu2_vname,        q0_data.energy_gdu2
-	oq0 -> WriteVar, counts_gdu1_vname,   q0_data.counts_gdu1
-	oq0 -> WriteVar, counts_gdu2_vname,   q0_data.counts_gdu2
+	oq0 -> WriteVar, optics_vname,        q0_data.optics
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, e_gdu1_vname,        q0_data.energy_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, e_gdu2_vname,        q0_data.energy_gdu2
+	if q0_data.n_gdu1 gt 0 then oq0 -> WriteVar, counts_gdu1_vname,   q0_data.counts_gdu1
+	if q0_data.n_gdu2 gt 0 then oq0 -> WriteVar, counts_gdu2_vname,   q0_data.counts_gdu2
 	
 ;------------------------------------------------------
 ; Close the File                                      |

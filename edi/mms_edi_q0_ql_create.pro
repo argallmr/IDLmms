@@ -21,6 +21,8 @@
 ; :History:
 ;    Modification History::
 ;       2016/02/17  -   Written by Matthew Argall
+;       2018/02/13  -   Handles cases when data from GDU1 and/or GDU2 are not available,
+;                           as in the case of one-gun operations. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -98,19 +100,30 @@ STATUS=status
 	;   - Automatically combines slow and fast survey data
 	;   - Will check sc, instr, mode, level, optdesc
 	q0_data = mms_edi_q0_l1a_read(files, tstart, tend)
-
+	
 ;-----------------------------------------------------
 ; Output Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-	q0_out = { tt2000_gdu1:    q0_data.tt2000_gd21, $
-	           tt2000_gdu2:    q0_data.tt2000_gd12, $
+	q0_out = { n_gdu1:         q0_data.count_gd21, $
+	           n_gdu2:         q0_data.count_gd12, $
 	           tt2000_timetag: q0_data.tt2000_timetag, $
-	           optics:         q0_data.optics, $
-	           energy_gdu1:    q0_data.energy_gd21, $
-	           energy_gdu2:    q0_data.energy_gd21, $
-	           counts_gdu1:    q0_data.word15_gd21, $
-	           counts_gdu2:    q0_data.word15_gd12 $
-	         }
+	           optics:         q0_data.optics }
+	
+	;GDU1
+	if q0_data.count_gd21 gt 0 then begin
+		q0_out = create_struct( q0_out, $
+		                        'tt2000_gdu1', q0_data.tt2000_gd21, $
+		                        'energy_gdu1', q0_data.energy_gd21, $
+		                        'counts_gdu1', q0_data.word15_gd21 )
+	endif
+	
+	;GDU2
+	if q0_data.count_gd12 gt 0 then begin
+		q0_out = create_struct( q0_out, $
+		                        'tt2000_gdu2', q0_data.tt2000_gd12, $
+		                        'energy_gdu2', q0_data.energy_gd12, $
+		                        'counts_gdu2', q0_data.word15_gd12 )
+	endif
 	
 	;Done
 	return, q0_out
