@@ -76,6 +76,7 @@
 ;       2016/03/23  -   Added CAL_PATH_ROOT and HK_ROOT. Updated location of calibration
 ;                           and house-keeping files. - MRA
 ;       2016/03/30  -   Added PRELIMINARY keyword. - MRA
+;       2018/01/12  -   Fixed indexing error when multiple modes were present in same file. - MRA
 ;-
 function mms_edi_amb_l2_sdc, sc, mode, tstart, $
 CAL_PATH_ROOT=cal_path_root, $
@@ -369,12 +370,14 @@ PRELIMINARY=preliminary
 	;-----------------------------------------------------
 		;ALTERNATING
 		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		;   - After data is written to the file, it is removed from the structure
+		;       * Data structure element 0 (zero) always contains the data to be written
 		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
-			if ~empty_file then stemp = mms_edi_amb_l2_write_alt(files[i], edi_data.(i))
+			if ~empty_file then stemp = mms_edi_amb_l2_write_alt(files[i], edi_data.(0))
 		
 		;FIELD-ALIGNED
 		endif else if stregex(outdesc, 'amb', /BOOLEAN) then begin
-			if ~empty_file then stemp = mms_edi_amb_l2_write_fa(files[i], edi_data.(i))
+			if ~empty_file then stemp = mms_edi_amb_l2_write_fa(files[i], edi_data.(0))
 		
 		;????
 		endif else begin
