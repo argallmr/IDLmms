@@ -335,12 +335,14 @@ NO_LOG=no_log
 	;-----------------------------------------------------
 		;ALTERNATING
 		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		;   - After data is written to the file, it is removed from the structure
+		;       * Data structure element 0 (zero) always contains the data to be written
 		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
-			if ~empty_file then stemp = mms_edi_amb_ql_write_alt(files[i], edi_ql.(i))
+			if ~empty_file then stemp = mms_edi_amb_ql_write_alt(files[i], edi_ql.(0))
 			
 		;FIELD-ALIGNED
 		endif else if stregex(outdesc, 'amb|amb-pm2', /BOOLEAN) then begin
-			if ~empty_file then stemp = mms_edi_amb_ql_write_fa(files[i], edi_ql.(i))
+			if ~empty_file then stemp = mms_edi_amb_ql_write_fa(files[i], edi_ql.(0))
 		
 		;????
 		endif else begin
