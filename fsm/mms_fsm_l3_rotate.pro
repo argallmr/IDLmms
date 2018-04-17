@@ -261,7 +261,7 @@ oB_dmpa['FORMAT']        = 'f11.4'
 oB_dmpa['LABL_PTR_1']    = oB_dmpa_labl
 oB_dmpa['SI_CONVERSION'] = '1e-9>T'
 oB_dmpa['UNITS']         = 'nT'
-oB_dmpa['VALIDMIN']      = 0.0
+oB_dmpa['VALIDMIN']      = -1e5
 oB_dmpa['VALIDMAX']      = 1e5
 oB_dmpa['VAR_TYPE']      = 'data'
 
@@ -274,7 +274,7 @@ oB_gse['FORMAT']        = 'f11.4'
 oB_gse['LABL_PTR_1']    = oB_gse_labl
 oB_gse['SI_CONVERSION'] = '1e-9>T'
 oB_gse['UNITS']         = 'nT'
-oB_gse['VALIDMIN']      = 0.0
+oB_gse['VALIDMIN']      = -1e5
 oB_gse['VALIDMAX']      = 1e5
 oB_gse['VAR_TYPE']      = 'data'
 
@@ -287,7 +287,7 @@ oB_gsm['FORMAT']        = 'f11.4'
 oB_gsm['LABL_PTR_1']    = oB_gsm_labl
 oB_gsm['SI_CONVERSION'] = '1e-9>T'
 oB_gsm['UNITS']         = 'nT'
-oB_gsm['VALIDMIN']      = 0.0
+oB_gsm['VALIDMIN']      = -1e5
 oB_gsm['VALIDMAX']      = 1e5
 oB_gsm['VAR_TYPE']      = 'data'
 
