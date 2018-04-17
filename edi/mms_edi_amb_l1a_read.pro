@@ -73,6 +73,10 @@
 ;       2016/02/27  -   Added STATUS keyword. - MRA
 ;       2017/10/13  -   FLIP_FLAG variable was added in v1.2.0. Was checking VX GE 1
 ;                           instead of VX GT 1. Fixed. - MRA
+;       2018/03/16  -   Use Hans's mms_edi_amb_l1a_expandangles to expand angles. Avoids
+;                           problem where epoch_angle variable is time shifted by one
+;                           point in amb-alt-oob. Fixes other problems associated with
+;                           flipping look directions. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
 EXPAND_ANGLES=expand_angles, $
@@ -276,7 +280,7 @@ STATUS=status
 		counts3_gdu2 = MrCDF_nRead(cdfIDs, counts3_gdu2_name,  TSTART=tstart, TEND=tend)
 		counts4_gdu2 = MrCDF_nRead(cdfIDs, counts4_gdu2_name,  TSTART=tstart, TEND=tend)
 	endif
-
+	
 	;Perp one-sided and bidirectional
 	;   - v1.0.0 introduced these variables
 	;   - If the variables cannot be read, make their default = 0
@@ -349,7 +353,6 @@ STATUS=status
 	;
 	; Expand the EPOCH_ANGLE values to match the resolution of EPOCH_GDU[12]
 	;
-
 	nangle = n_elements(epoch_angle)
 	nepoch = n_elements(epoch_gdu1)
 	if tf_expand_angles && nangle ne nepoch then begin
@@ -368,12 +371,18 @@ STATUS=status
 			then MrPrintF, 'LogWarn', nextrap, FORMAT='(%"%i counts before first epoch_angle time.")'
 		
 		;Locate each EPOCH_GDU1 within EPOCH_ANGLE
-		iloc = value_locate(epoch_angle, epoch_gdu1) > 0
-
+;		iloc = value_locate(epoch_angle, epoch_gdu1) > 0
+;		iloc = iloc + 1
+		
 		;Expand the angle arrays
 		epoch_angle = epoch_gdu1
-		theta       = theta[iloc]
-		phi         = phi[iloc]
+;		theta       = theta[iloc]
+;		phi         = phi[iloc]
+		
+		temp  = mmsedi_amb_expandangles(reform(pitch_gdu1), reform(phi), reform(theta))
+		theta = temp.theta
+		phi   = temp.phi
+		temp  = !Null
 	endif
 
 ;-----------------------------------------------------
@@ -391,14 +400,15 @@ STATUS=status
 	;     IDL> print, a[ [1,99999] ]
 	;            9
 	;
-	if stregex(optdesc, 'alt', /BOOLEAN) then begin
-		iFlip = where(flip_flag, nFlip)
+	iAlt = where(pitch_mode eq 1 or pitch_mode eq 3, nAlt)
+	if nAlt gt 0 then begin
+		iFlip = where(flip_flag[iAlt], nFlip)
 		if nFlip gt 0 then begin
 			iFlip = iFlip[1:*:2]
-			flip_flag[iFlip+1] = 1
+			flip_flag[iAlt[iFlip+1]] = 1
 		endif
 	endif
-
+	
 ;-----------------------------------------------------
 ; Return Structure \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------

@@ -128,20 +128,19 @@ ABSCAL=abscal
 
 ;------------------------------------------------------
 ; Replace Fillvals                                    |
-;------------------------------------------------------
-	
+;------------------------------------------------------	
 	;Counts1 GDU1
 	if nfill_gdu1 gt 0 then begin
-		counts_gdu1[ifill_gdu1,*] = fillval
-		delta_gdu1[ifill_gdu1,*]  = fillval
+		counts_gdu1[ifill_gdu1] = fillval
+		delta_gdu1[ifill_gdu1]  = fillval
 	endif
 	
 	;c1 GDU2
 	if nfill_gdu2 gt 0 then begin
-		counts_gdu2[ifill_gdu2,*] = fillval
-		delta_gdu2[ifill_gdu2,*]  = fillval
+		counts_gdu2[ifill_gdu2] = fillval
+		delta_gdu2[ifill_gdu2]  = fillval
 	endif
-
+	
 ;------------------------------------------------------
 ; Return                                              |
 ;------------------------------------------------------

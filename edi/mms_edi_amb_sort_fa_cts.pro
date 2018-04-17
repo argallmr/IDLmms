@@ -49,6 +49,8 @@
 ; :History:
 ;    Modification History::
 ;       2016/09/16  -   Written by Matthew Argall
+;       2018/03/16  -   GDU flag was not being filled and sorted the same way as the
+;                           rest of the data. Fixed. -  MRA
 ;-
 function mms_edi_amb_sort_fa_cts, edi, idx, pa
 	compile_opt idl2
@@ -76,17 +78,18 @@ function mms_edi_amb_sort_fa_cts, edi, idx, pa
 		counts    = [ edi.counts_gdu1[iGDU1,*], edi.counts_gdu2[iGDU2,*] ]
 		delta     = [ edi.delta_gdu1[iGDU1,*],  edi.delta_gdu2[iGDU2,*]  ]
 	
+		;Mark GDU
+		gdu                      = bytarr(nGDU1 + nGDU2)
+		gdu[0:nGDU1-1]           = 1B
+		gdu[nGDU1:nGDU1+nGDU2-1] = 2B
+	
 		;Sort times
 		isort  = sort(t)
 		t      = t[isort]
 		counts = counts[isort,*]
 		delta  = delta[isort,*]
-	
-		;Mark GDU
-		gdu        = bytarr(nGDU1 + nGDU2)
-		gdu[iGDU1] = 1B
-		gdu[iGDU2] = 2B
-
+		gdu    = gdu[isort]
+		
 	;Only GDU1 data
 	endif else if nGDU1 gt 0 then begin
 		t      = edi.epoch_gdu1[iGDU1]

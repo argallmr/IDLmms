@@ -98,12 +98,18 @@ STATUS=status
 		;BRST
 		if tf_brst then begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		
 		;SRVY
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endelse
 	
 	;ALT-OC
@@ -111,10 +117,16 @@ STATUS=status
 		;Mods to data processing
 		if tf_brst then begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endelse
 	
 	;ALT-OOM
@@ -122,10 +134,16 @@ STATUS=status
 		;Mods to data processing
 		if tf_brst then begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endelse
 	
 	;ALT-OOB
@@ -133,10 +151,16 @@ STATUS=status
 		;Mods to data processing
 		if tf_brst then begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
-			         'v2.0.0 - Added the flip flag.' ]
+			         'v2.0.0 - Added the flip flag.', $
+			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
+			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
+			                  'GDU flags match data.' ]
 		endelse
 	
 	;UNKNOWN

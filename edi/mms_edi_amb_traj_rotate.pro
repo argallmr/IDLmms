@@ -63,7 +63,7 @@ function mms_edi_amb_traj_rotate_channel, time, traj, edi2bcs, bcs2dbcs, defatt
 	
 	;EDI to BCS
 	traj_bcs = MrVector_Rotate(edi2bcs, traj)
-
+	
 	;BCS to DBCS
 	traj_dbcs = MrVector_Rotate(bcs2dbcs, traj_bcs )
 
@@ -74,23 +74,26 @@ function mms_edi_amb_traj_rotate_channel, time, traj, edi2bcs, bcs2dbcs, defatt
 	traj_gsm = mms_rot_gse2gsm(time, traj_gse)
 	
 	;Cartesian to Spherical
+	traj_edi  = cv_coord(FROM_RECT=traj,      /TO_SPHERE, /DEGREES)
 	traj_bcs  = cv_coord(FROM_RECT=traj_bcs,  /TO_SPHERE, /DEGREES)
 	traj_dbcs = cv_coord(FROM_RECT=traj_dbcs, /TO_SPHERE, /DEGREES)
 	traj_gse  = cv_coord(FROM_RECT=traj_gse,  /TO_SPHERE, /DEGREES)
 	traj_gsm  = cv_coord(FROM_RECT=traj_gsm,  /TO_SPHERE, /DEGREES)
 
 	;Remove the radial coordinate
+	traj_edi  = traj_bcs[0:1,*]
 	traj_bcs  = traj_bcs[0:1,*]
 	traj_dbcs = traj_dbcs[0:1,*]
 	traj_gse  = traj_gse[0:1,*]
 	traj_gsm  = traj_gsm[0:1,*]
 	
 	;Convert from elevation angle to polar angle
+	traj_edi[1,*]  = abs(traj_edi[1,*]  - 90.0)
 	traj_bcs[1,*]  = abs(traj_bcs[1,*]  - 90.0)
 	traj_dbcs[1,*] = abs(traj_dbcs[1,*] - 90.0)
 	traj_gse[1,*]  = abs(traj_gse[1,*]  - 90.0)
 	traj_gsm[1,*]  = abs(traj_gsm[1,*]  - 90.0)
-
+	
 	;Output a structure of data
 	data = { bcs:  temporary(traj_bcs), $
 	         dbcs: temporary(traj_dbcs), $

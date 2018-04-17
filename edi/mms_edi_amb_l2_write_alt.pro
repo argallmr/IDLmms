@@ -287,7 +287,7 @@ function mms_edi_amb_l2_write_alt, amb_file, amb_data
 ;------------------------------------------------------
 ; Write Trajectory Data                               |
 ;------------------------------------------------------
-
+	
 	;BRST
 	if mode eq 'brst' then begin
 		

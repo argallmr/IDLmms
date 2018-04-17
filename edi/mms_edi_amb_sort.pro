@@ -139,11 +139,11 @@ function mms_edi_amb_sort, edi, bitmask
 		
 		if data_90.epoch_90_gdu1[0] ne t_fill then begin
 			;Assert that that time tags are identical
-			if array_equal(data_90.epoch_90_gdu1, data_90.epoch_90_gdu1) then begin
+			if array_equal(data_90.epoch_90_gdu1, data_90.epoch_90_gdu2) then begin
 				data_90 = MrStruct_RenameTags(data_90, 'EPOCH_90_GDU1', 'EPOCH_PERP')
 				data_90 = MrStruct_RemoveTags(data_90, 'EPOCH_90_GDU2')
 			endif else begin
-				message, 'Time tags for [0,180] counts are not identical.'
+				message, 'Time tags for 90-degree counts are not identical.'
 			endelse
 		endif
 

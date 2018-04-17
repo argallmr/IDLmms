@@ -97,8 +97,8 @@ function mms_edi_amb_sort_perp_cts, edi, idx, pa
 	endif else begin
 		MrPrintF, 'LogWarn', 'No PA=90 data for GDU2.'
 		gdu2 = create_struct( 'epoch_90_gdu2',  t_fill, $
-		                      'counts_90_gdu3', -1S, $
-		                      'delta_90_gdu3',  -1S )
+		                      'counts_90_gdu2', -1S, $
+		                      'delta_90_gdu2',  -1S )
 	endelse
 	
 	;Combine data

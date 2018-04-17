@@ -77,7 +77,7 @@ BRST=brst
 	;   - Each anode is 11.25 degrees wide
 	W = 11.25
 	N = fix( round(phi / W), TYPE=1)
-
+	
 ;-----------------------------------------------------
 ; Step Through Each Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -86,12 +86,139 @@ BRST=brst
 		idx    = where(bitmask eq theBit, nIdx)
 
 	;-----------------------------------------------------
+	; AMB-ALT-OOB \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;AMB-ALT-OOB
+		;   - pitch    = alternating     = bit 2
+		;   - [0,180]  = one-sided       = bit 5
+		;   - 90       = one-sided       = bit 6
+		;   - 90       = bi-directional  = bit 7
+		if array_equal( MrBitGet( theBit, [2,5,6,7] ), 1)  then begin
+			ch_fa_gdu1 = indgen(1,nChannels) + 1S
+			ch_fa_gdu2 = indgen(1,nChannels) + 1S
+			ch_90_gdu1 = indgen(1,nChannels) + 1S
+			ch_90_gdu2 = -(indgen(1,nChannels) + 1S)
+			
+			;BRST
+			;   - 0,180, GDU1: (N - 0.5 + ch) * W
+			;   - 0,180, GDU2: (14.5 - N + ch) * W
+			;   - 90, GDU1: (N - 0.5 + ch) * W
+			;   - 90, GDU2: (16.5 - N - ch) * W
+			if tf_brst then begin
+				offset_fa_gdu1 = -0.5
+				offset_fa_gdu2 = 14.5
+				offset_90_gdu1 = -0.5
+				offset_90_gdu2 = 16.5
+			
+			;SRVY
+			;   - 0,180, GDU1: (N + 0.5) * W
+			;   - 0,180, GDU2: (15.5 - N) * W
+			;   - 90, GDU1: (N + 0.5) * W
+			;   - 90, GDU2: (15.5 - N) * W
+			;   - Add/Subtract 1.0 to compensate for subtracting/adding channel 1
+			;     (compare with brst)
+			endif else begin
+				offset_fa_gdu1 =  0.5 - 1.0
+				offset_fa_gdu2 = 15.5 - 1.0
+				offset_90_gdu1 =  0.5 - 1.0
+				offset_90_gdu2 = 15.5 + 1.0
+			endelse
+
+	;-----------------------------------------------------
+	; AMB-ALT-OOM \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;AMB-ALT-OOM
+		;   - pitch    = alternating       = bit 2
+		;   - [0,180]  = one-sided         = bit 5
+		;   - 90       = one-sided         = bit 6
+		;   - 90       = moni-directional  = bit -
+		endif else if array_equal( MrBitGet( theBit, [2,5,6] ), 1)  then begin
+			ch_fa_gdu1 = indgen(1,nChannels) + 1S
+			ch_fa_gdu2 = indgen(1,nChannels) + 1S
+			ch_90_gdu1 = indgen(1,nChannels) + 1S
+			ch_90_gdu2 = indgen(1,nChannels) + 1S
+			
+			;BRST
+			if tf_brst then begin
+				offset_fa_gdu1 = -0.5
+				offset_fa_gdu2 = 14.5
+				offset_90_gdu1 = -0.5
+				offset_90_gdu2 = 14.5
+			
+			;SRVY
+			;   - Subtract 1.0 to compensate for adding channel 1 below
+			endif else begin
+				offset_fa_gdu1 =  0.5 - 1.0
+				offset_fa_gdu2 = 15.5 - 1.0
+				offset_90_gdu1 =  0.5 - 1.0
+				offset_90_gdu2 = 15.5 - 1.0
+			endelse
+
+	;-----------------------------------------------------
+	; AMB-ALT-OC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;AMB-ALT-OC
+		;   - pitch    = alternating = bit 2
+		;   - [0,180]  = one-sided   = bit 5
+		;   - 90       = centered    = bit -
+		endif else if array_equal( MrBitGet( theBit, [2,5] ), 1) then begin
+			ch_fa_gdu1 = indgen(1,nChannels) + 1S
+			ch_fa_gdu2 = indgen(1,nChannels) + 1S
+			ch_90_gdu1 = indgen(1,nChannels) + 1S
+			ch_90_gdu2 = indgen(1,nChannels) + 1S
+			
+			;BRST
+			if tf_brst then begin
+				offset_fa_gdu1 = -0.5
+				offset_fa_gdu2 = 14.5
+				offset_90_gdu1 = -2.5
+				offset_90_gdu2 = 13.5
+			
+			;SRVY
+			;   - Subtract 1.0 to compensate for adding channel 1 below
+			endif else begin
+				offset_fa_gdu1 =  0.5 - 1.0
+				offset_fa_gdu2 = 15.5 - 1.0
+				offset_90_gdu1 =  0.0 - 1.0
+				offset_90_gdu2 = 16.0 - 1.0
+			endelse
+
+	;-----------------------------------------------------
+	; AMB-ALT-CC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;AMB-ALT-CC
+		;   - pitch    = alternating = bit 2
+		;   - [0,180]  = centered    = bit 4
+		;   - 90       = centered    = bit -
+		endif else if array_equal( MrBitGet( theBit, [2,4] ), 1) then begin
+			ch_fa_gdu1 = indgen(1,nChannels) + 1S
+			ch_fa_gdu2 = indgen(1,nChannels) + 1S
+			ch_90_gdu1 = indgen(1,nChannels) + 1S
+			ch_90_gdu2 = indgen(1,nChannels) + 1S
+			
+			;BRST
+			if tf_brst then begin
+				offset_fa_gdu1 = -2.5
+				offset_fa_gdu2 = 13.5
+				offset_90_gdu1 = -2.5
+				offset_90_gdu2 = 13.5
+			
+			;SRVY
+			;   - Subtract 1.0 to compensate for adding channel 1 below
+			endif else begin
+				offset_fa_gdu1 =  0.0 - 1.0
+				offset_fa_gdu2 = 16.0 - 1.0
+				offset_90_gdu1 =  0.0 - 1.0
+				offset_90_gdu2 = 16.0 - 1.0
+			endelse
+
+	;-----------------------------------------------------
 	; AMB \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
 		;AMB
 		;   - pitch   = field-aligned = bit 1
 		;   - [0,180] = centered      = bit 4
-		if array_equal( MrBitGet( theBit, [1,4] ), 1) then begin
+		endif else if array_equal( MrBitGet( theBit, [1,4] ), 1) then begin
 			ch_fa_gdu1 = indgen(1,nChannels) + 1S
 			ch_fa_gdu2 = indgen(1,nChannels) + 1S
 			
@@ -130,124 +257,8 @@ BRST=brst
 			endelse
 
 	;-----------------------------------------------------
-	; AMB-ALT-CC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	; ???? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;AMB-ALT-CC
-		;   - pitch    = alternating = bit 2
-		;   - [0,180]  = centered    = bit 4
-		;   - 90       = centered    = bit -
-		endif else if array_equal( MrBitGet( theBit, [2,4] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
-			
-			;BRST
-			if tf_brst then begin
-				offset_fa_gdu1 = -2.5
-				offset_fa_gdu2 = 13.5
-				offset_90_gdu1 = -2.5
-				offset_90_gdu2 = 13.5
-			
-			;SRVY
-			;   - Subtract 1.0 to compensate for adding channel 1 below
-			endif else begin
-				offset_fa_gdu1 =  0.0 - 1.0
-				offset_fa_gdu2 = 16.0 - 1.0
-				offset_90_gdu1 =  0.0 - 1.0
-				offset_90_gdu2 = 16.0 - 1.0
-			endelse
-
-	;-----------------------------------------------------
-	; AMB-ALT-OC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-	;-----------------------------------------------------
-		;AMB-ALT-OC
-		;   - pitch    = alternating = bit 2
-		;   - [0,180]  = one-sided   = bit 5
-		;   - 90       = centered    = bit -
-		endif else if array_equal( MrBitGet( theBit, [2,5] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
-			
-			;BRST
-			if tf_brst then begin
-				offset_fa_gdu1 = -0.5
-				offset_fa_gdu2 = 14.5
-				offset_90_gdu1 = -2.5
-				offset_90_gdu2 = 13.5
-			
-			;SRVY
-			;   - Subtract 1.0 to compensate for adding channel 1 below
-			endif else begin
-				offset_fa_gdu1 =  0.5 - 1.0
-				offset_fa_gdu2 = 15.5 - 1.0
-				offset_90_gdu1 =  0.0 - 1.0
-				offset_90_gdu2 = 16.0 - 1.0
-			endelse
-
-	;-----------------------------------------------------
-	; AMB-ALT-OOM \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-	;-----------------------------------------------------
-		;AMB-ALT-OOM
-		;   - pitch    = alternating       = bit 2
-		;   - [0,180]  = one-sided         = bit 5
-		;   - 90       = one-sided         = bit 6
-		;   - 90       = moni-directional  = bit -
-		endif else if array_equal( MrBitGet( theBit, [2,5,6] ), 1)  then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
-			
-			;BRST
-			if tf_brst then begin
-				offset_fa_gdu1 = -0.5
-				offset_fa_gdu2 = 14.5
-				offset_90_gdu1 = -0.5
-				offset_90_gdu2 = 14.5
-			
-			;SRVY
-			;   - Subtract 1.0 to compensate for adding channel 1 below
-			endif else begin
-				offset_fa_gdu1 =  0.5 - 1.0
-				offset_fa_gdu2 = 15.5 - 1.0
-				offset_90_gdu1 =  0.5 - 1.0
-				offset_90_gdu2 = 15.5 - 1.0
-			endelse
-
-	;-----------------------------------------------------
-	; AMB-ALT-OOB \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-	;-----------------------------------------------------
-		;AMB-ALT-OOB
-		;   - pitch    = alternating     = bit 2
-		;   - [0,180]  = one-sided       = bit 5
-		;   - 90       = one-sided       = bit 6
-		;   - 90       = bi-directional  = bit 7
-		endif else if array_equal( MrBitGet( theBit, [2,5,6,7] ), 1)  then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = -(indgen(1,nChannels) + 1S)
-			
-			;BRST
-			if tf_brst then begin
-				offset_fa_gdu1 = -0.5
-				offset_fa_gdu2 = 14.5
-				offset_90_gdu1 = -0.5
-				offset_90_gdu2 = 16.5
-			
-			;SRVY
-			;   - Add/Subtract 1.0 to compensate for subtracting/adding channel 1 below
-			endif else begin
-				offset_fa_gdu1 =  0.5 - 1.0
-				offset_fa_gdu2 = 15.5 - 1.0
-				offset_90_gdu1 =  0.5 - 1.0
-				offset_90_gdu2 = 15.5 + 1.0
-			endelse
-		
-		;???
 		endif else begin
 			message, 'Unknown operational mode (' + strtrim(theBit, 2) + ').'
 		endelse
@@ -277,10 +288,10 @@ BRST=brst
 	;-----------------------------------------------------
 	; Perpendicular Channels \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if n_elements(offset_fa_gdu1 gt 0) then begin
+		if n_elements(offset_90_gdu1 gt 0) then begin
 			;Indices of perpendicular anodes
 			iGDU1 = where( pitch_gdu1[idx] eq 90, nGDU1)
-			iGDU2 = where( pitch_gdu1[idx] eq 90, nGDU2)
+			iGDU2 = where( pitch_gdu2[idx] eq 90, nGDU2)
 			
 			;Phi value for each anode
 			
@@ -303,7 +314,7 @@ BRST=brst
 	;GDU1
 	gdu1 = (gdu1 + (gdu1 lt 0)*360.0) mod 360.0
 	gdu2 = (gdu2 + (gdu2 lt 0)*360.0) mod 360.0
-
+	
 	;Return
 	return, {phi_gdu1: temporary(gdu1), phi_gdu2: temporary(gdu2)}
 end

@@ -185,13 +185,13 @@ STATUS=status
 
 	;Combine data
 	edi = create_struct(edi, temporary(traj))
-
+	
 ;-----------------------------------------------------
 ; Apply Flip Bit \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	iFlip = where( edi.flip_flag, nFlip )
-	if nFlip GT 0 then begin
-		iAlt = where( MrBitGet( bitmask[iFlip], 3 ), nAlt )
+	if nFlip LT 0 then begin
+		iAlt = where( MrBitGet( bitmask[iFlip], 2 ), nAlt )
 		if nAlt gt 0 then begin
 			fillval = -1e31
 			iFlip   = iFlip[iAlt]
@@ -214,6 +214,6 @@ STATUS=status
 ; Sort Results by Mode and Pitch Angle \\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	results = mms_edi_amb_sort( temporary(edi), temporary(bitmask) )
-
+stop
 	return, results
 end
