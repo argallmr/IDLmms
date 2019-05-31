@@ -56,8 +56,8 @@ TSTART=tstart, $
 VERBOSE=verbose, $
 VERSION=version, $
 DELETE=delete, $
-DATA_PATH_ROOT=data_path, $
-DROPTBOX_ROOT=dropbox, $
+DATA_PATH_ROOT=data_path_root, $
+DROPBOX_ROOT=dropbox_root, $
 MOVE=move
 	compile_opt idl2
 	on_error, 2
@@ -82,7 +82,7 @@ MOVE=move
 	;Find files
 	files = file_search(dropbox_root, 'mms*.cdf', /FULLY_QUALIFY_PATH, COUNT=count)
 	if count eq 0 then return
-
+	
 ;-----------------------------------------------------
 ; Filter Results \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
