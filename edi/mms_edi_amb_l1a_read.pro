@@ -19,9 +19,6 @@
 ;                       End time of the data interval to read, as an ISO-8601 string.
 ;
 ; :Keywords:
-;       QUALITY:        in, optional, type=integer/intarr, default=pwd
-;                       Quality of EDI beams to return. Can be a scalar or vector with
-;                           values [0, 1, 2, 3].
 ;       STATUS:         in, optional, type=integer
 ;                       Error status. Output codes are:
 ;                           OK      = 0
@@ -77,10 +74,10 @@
 ;                           problem where epoch_angle variable is time shifted by one
 ;                           point in amb-alt-oob. Fixes other problems associated with
 ;                           flipping look directions. - MRA
+;       2019/05/09  -   Removed the QUALITY keyword; a remnant from e-field mode. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
 EXPAND_ANGLES=expand_angles, $
-QUALITY=quality, $
 STATUS=status
 	compile_opt idl2
 	
@@ -101,7 +98,6 @@ STATUS=status
 	endif
 	
 	tf_expand_angles = keyword_set(expand_angles)
-	if n_elements(quality) eq 0 then quality = [0, 1, 2, 3]
 	
 ;-----------------------------------------------------
 ; Check Input Files \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -375,7 +371,7 @@ STATUS=status
 ;		iloc = iloc + 1
 		
 		;Expand the angle arrays
-		epoch_angle = epoch_gdu1
+;		epoch_angle = epoch_gdu1
 ;		theta       = theta[iloc]
 ;		phi         = phi[iloc]
 		

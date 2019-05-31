@@ -145,7 +145,7 @@ STATUS=status
 	;Update the EDI structure
 	edi = MrStruct_RemoveTags(edi, ['PITCH_MODE',   'PACK_MODE', $
 	                                'PERP_ONESIDE', 'PERP_BIDIR'])
-
+	
 ;-----------------------------------------------------
 ; Apply Calibrations \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------

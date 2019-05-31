@@ -342,6 +342,17 @@ PRELIMINARY=preliminary
 			                                     PARENTS        = parents, $
 			                                     STATUS         = stemp)
 		
+		;PERPENDICULAR
+		endif else if stregex(outdesc, 'amb-perp', /BOOLEAN) then begin
+			;create the file
+			files[i] = mms_edi_amb_l2_mkfile_perp(sc, mode, outdesc, tstart, $
+			                                      BRST           = (mode eq 'brst'), $
+			                                      DROPBOX_ROOT   = dropbox, $
+			                                      DATA_PATH_ROOT = data_path, $
+			                                      EMPTY_FILE     = empty_file, $
+			                                      PARENTS        = parents, $
+			                                      STATUS         = stemp)
+		
 		;FIELD-ALIGNED
 		endif else if stregex(outdesc, '^amb', /BOOLEAN) then begin
 			;Create the file
@@ -375,8 +386,12 @@ PRELIMINARY=preliminary
 		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
 			if ~empty_file then stemp = mms_edi_amb_l2_write_alt(files[i], edi_data.(0))
 		
+		;PERPENDICULAR
+		endif else if stregex(outdesc, 'amb-perp', /BOOLEAN) then begin
+			if ~empty_file then stemp = mms_edi_amb_l2_write_perp(files[i], edi_data.(0))
+		
 		;FIELD-ALIGNED
-		endif else if stregex(outdesc, 'amb', /BOOLEAN) then begin
+		endif else if stregex(outdesc, '^amb', /BOOLEAN) then begin
 			if ~empty_file then stemp = mms_edi_amb_l2_write_fa(files[i], edi_data.(0))
 		
 		;????

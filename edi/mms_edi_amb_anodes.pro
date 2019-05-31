@@ -89,6 +89,10 @@ BRST=brst
 	;   - Each anode is 11.25 degrees wide
 	N = fix(phi / 11.25, TYPE=1)
 	
+	;Anode placement:
+	;   - GDU1: Anode = N + offset
+	;   - GDU2: Anode = offset - N
+	
 ;-----------------------------------------------------
 ; Step Through Each Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -104,29 +108,21 @@ BRST=brst
 		;   - [0,180]  = one-sided       = bit 5
 		;   - 90       = one-sided       = bit 6
 		;   - 90       = bi-directional  = bit 7
-		if array_equal( MrBitGet( theBit, [2,5,6,7] ), 1)  then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = -(indgen(1,nChannels) + 1S)
+		if array_equal( MrBitGet( theBit, [2,5,6,7] ), 1) then begin
 			
 			;BRST
-			;   - 0,180, GDU1: N - 1 + ch
-			;   - 0,180, GDU2: 14 - N + ch
-			;   - 90, GDU1: N - 1 + ch
-			;   - 90, GDU2: 16 - N - ch
 			if tf_brst then begin
-				offset_fa_gdu1 = -1
-				offset_fa_gdu2 = 14
-				offset_90_gdu1 = -1
-				offset_90_gdu2 = 16
-				
+				offset_fa_gdu1 = [  [0],  [1],  [2],  [3] ]
+				offset_fa_gdu2 = [ [15], [14], [13], [12] ]
+				offset_90_gdu1 = [  [0],  [1],  [2],  [3] ]
+				offset_90_gdu2 = [ [15], [14], [13], [12] ]
+			
 			;SRVY
 			endif else begin
-				offset_fa_gdu1 = -1  ;(N + offset + 1) = N     -->  offset = -1
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N  -->  offset = 15
-				offset_90_gdu1 = -1  ;(N + offset + 1) = N     -->  offset = -1
-				offset_90_gdu2 = 17  ;(offset - N - 1) = 16-N  -->  offset = 17
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [15]
+				offset_90_gdu1 = [0]
+				offset_90_gdu2 = [15]
 			endelse
 
 	;-----------------------------------------------------
@@ -137,25 +133,21 @@ BRST=brst
 		;   - [0,180]  = one-sided         = bit 5
 		;   - 90       = one-sided         = bit 6
 		;   - 90       = moni-directional  = bit -
-		endif else if array_equal( MrBitGet( theBit, [2,5,6] ), 1)  then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
+		endif else if array_equal( MrBitGet( theBit, [2,5,6] ), 1) then begin
 			
 			;BRST
 			if tf_brst then begin
-				offset_fa_gdu1 = -1
-				offset_fa_gdu2 = 14
-				offset_90_gdu1 = -1
-				offset_90_gdu2 = 14
+				offset_fa_gdu1 = [  [0],  [1],  [2],  [3] ]
+				offset_fa_gdu2 = [ [15], [16], [17], [18] ]
+				offset_90_gdu1 = [  [0],  [1],  [2],  [3] ]
+				offset_90_gdu2 = [ [15], [16], [17], [18] ]
 				
 			;SRVY
 			endif else begin
-				offset_fa_gdu1 = -1  ;(offset + N + 1) = N
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N
-				offset_90_gdu1 = -1
-				offset_90_gdu2 = 15
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [15]
+				offset_90_gdu1 = [0]
+				offset_90_gdu2 = [15]
 			endelse
 
 	;-----------------------------------------------------
@@ -166,24 +158,20 @@ BRST=brst
 		;   - [0,180]  = one-sided   = bit 5
 		;   - 90       = centered    = bit -
 		endif else if array_equal( MrBitGet( theBit, [2,5] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
 			
 			;BRST
 			if tf_brst then begin
-				offset_fa_gdu1 = -1
-				offset_fa_gdu2 = 14
-				offset_90_gdu1 = -3
-				offset_90_gdu2 = 13
+				offset_fa_gdu1 = [  [0],  [1],  [2],  [3] ]
+				offset_fa_gdu2 = [ [15], [16], [17], [18] ]
+				offset_90_gdu1 = [ [-2], [-1],  [0],  [1] ]
+				offset_90_gdu2 = [ [14], [15], [16], [17] ]
 				
 			;SRVY
 			endif else begin
-				offset_fa_gdu1 = -1  ;(offset + N + 1) = N
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N
-				offset_90_gdu1 = -1
-				offset_90_gdu2 = 15
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [15]
+				offset_90_gdu1 = [0]   ;Use the channel associated with the reported azimuth angle
+				offset_90_gdu2 = [16]  ;Use the channel associated with the reported azimuth angle
 			endelse
 		
 	;-----------------------------------------------------
@@ -194,24 +182,21 @@ BRST=brst
 		;   - [0,180]  = centered    = bit 4
 		;   - 90       = centered    = bit -
 		endif else if array_equal( MrBitGet( theBit, [2,4] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
-			ch_90_gdu1 = indgen(1,nChannels) + 1S
-			ch_90_gdu2 = indgen(1,nChannels) + 1S
 			
 			;BRST
 			if tf_brst then begin
-				offset_fa_gdu1 = -3
-				offset_fa_gdu2 = 13
-				offset_90_gdu1 = -3
-				offset_90_gdu2 = 13
+				offset_fa_gdu1 = [ [-2], [-1],  [0],  [1] ]
+				offset_fa_gdu2 = [ [14], [15], [16], [17] ]
+				offset_90_gdu1 = [ [-2], [-1],  [0],  [1] ]
+				offset_90_gdu2 = [ [14], [15], [16], [17] ]
 				
 			;SRVY
+			;   - Use the channel associated with the reported azimuth angle
 			endif else begin
-				offset_fa_gdu1 = -1  ;(offset + N + 1) = N
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N
-				offset_90_gdu1 = -1
-				offset_90_gdu2 = 15
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [16]
+				offset_90_gdu1 = [0]
+				offset_90_gdu2 = [16]
 			endelse
 
 	;-----------------------------------------------------
@@ -221,18 +206,17 @@ BRST=brst
 		;   - pitch   = field-aligned = bit 1
 		;   - [0,180] = centered      = bit 4
 		endif else if array_equal( MrBitGet( theBit, [1,4] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
 			
 			;BRST
 			if tf_brst then begin
-				offset_fa_gdu1 = -3
-				offset_fa_gdu2 = 13
+				offset_fa_gdu1 = [[-2], [-1],  [0],  [1]]
+				offset_fa_gdu2 = [[14], [15], [16], [17]]
 				
 			;SRVY
+			;   - Use the channel associated with the reported azimuth angle
 			endif else begin
-				offset_fa_gdu1 = -1  ;(offset + N + 1) = N
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [16]
 			endelse
 
 	;-----------------------------------------------------
@@ -242,18 +226,34 @@ BRST=brst
 		;   - pitch   = field-aligned = bit 1
 		;   - [0,180] = one-sided     = bit 5
 		endif else if array_equal( MrBitGet( theBit, [1,5] ), 1) then begin
-			ch_fa_gdu1 = indgen(1,nChannels) + 1S
-			ch_fa_gdu2 = indgen(1,nChannels) + 1S
 			
 			;BRST
 			if tf_brst then begin
-				offset_fa_gdu1 = -1
-				offset_fa_gdu2 = 14
+				offset_fa_gdu1 = [[0], [1], [2], [3]]
+				offset_fa_gdu2 = [[15], [16], [17], [18]]
 				
 			;SRVY
 			endif else begin
-				offset_fa_gdu1 = -1  ;(offset + N + 1) = N
-				offset_fa_gdu2 = 15  ;(offset - N + 1) = 16-N
+				offset_fa_gdu1 = [0]
+				offset_fa_gdu2 = [15]
+			endelse
+
+	;-----------------------------------------------------
+	; PERP-OB \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		;AMB-PM2
+		;   - pitch    = perpendicular   = bit 3
+		;   - 90       = one-sided       = bit 6
+		;   - 90       = bi-directional  = bit 7
+		endif else if array_equal( MrBitGet( theBit, [3,6,7] ), 1) then begin
+			
+			;BRST
+			if tf_brst then begin
+				offset_90_gdu1 = [[0], [1], [2], [3]]
+				offset_90_gdu2 = [[15], [14], [13], [12]]
+			endif else begin
+				offset_90_gdu1 = [0]
+				offset_90_gdu2 = [15]
 			endelse
 
 	;-----------------------------------------------------
@@ -266,7 +266,7 @@ BRST=brst
 	;-----------------------------------------------------
 	; Field-Aligned Channels \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if n_elements(offset_fa_gdu1 gt 0) then begin
+		if n_elements(offset_fa_gdu1) gt 0 then begin
 			;Indices of field-aligned anodes
 			iGDU1 = where( pitch_gdu1[idx] eq 0 or pitch_gdu1[idx] eq 180, nGDU1)
 			iGDU2 = where( pitch_gdu2[idx] eq 0 or pitch_gdu2[idx] eq 180, nGDU2)
@@ -275,18 +275,16 @@ BRST=brst
 			
 			;GDU1
 			if nGDU1 gt 0 then gdu1[idx[iGDU1],*] = rebin(N[idx[iGDU1]], nGDU1, nChannels) + $
-			                                        offset_fa_gdu1                         + $
-			                                        rebin(ch_fa_gdu1, nGDU1, nChannels)
+			                                        rebin(offset_fa_gdu1, nGDU1, nChannels)
 			;GDU2
-			if nGDU2 gt 0 then gdu2[idx[iGDU2],*] = offset_fa_gdu2                         - $
-			                                        rebin(N[idx[iGDU2]], nGDU2, nChannels) + $
-			                                        rebin(ch_fa_gdu2, nGDU2, nChannels)
+			if nGDU2 gt 0 then gdu2[idx[iGDU2],*] = rebin(offset_fa_gdu2, nGDU2, nChannels) - $
+			                                        rebin(N[idx[iGDU2]], nGDU2, nChannels)
 		endif
 
 	;-----------------------------------------------------
 	; Perpendicular Channels \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if n_elements(offset_90_gdu1 gt 0) then begin
+		if n_elements(offset_90_gdu1) gt 0 then begin
 			;Indices of perpendicular anodes
 			iGDU1 = where( pitch_gdu1[idx] eq 90, nGDU1)
 			iGDU2 = where( pitch_gdu2[idx] eq 90, nGDU2)
@@ -295,13 +293,12 @@ BRST=brst
 			
 			;GDU1
 			if nGDU1 gt 0 then gdu1[idx[iGDU1],*] = rebin(N[idx[iGDU1]], nGDU1, nChannels) + $
-			                                        offset_90_gdu1                         + $
-			                                        rebin(ch_90_gdu1, nGDU1, nChannels)
+			                                        rebin(transpose(offset_90_gdu1), nGDU1, nChannels)
 			
 			;GDU2
-			if nGDU2 gt 0 then gdu2[idx[iGDU2],*] = offset_90_gdu2                         - $
-			                                        rebin(N[idx[iGDU2]], nGDU2, nChannels) + $
-			                                        rebin(ch_90_gdu2, nGDU2, nChannels)
+			if nGDU2 gt 0 then gdu2[idx[iGDU2],*] = rebin(transpose(offset_90_gdu2), nGDU2, nChannels) - $
+			                                        rebin(N[idx[iGDU2]], nGDU2, nChannels)
+			                                        
 		endif
 	endfor
 

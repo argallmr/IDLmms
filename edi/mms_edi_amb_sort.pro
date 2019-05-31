@@ -172,7 +172,7 @@ function mms_edi_amb_sort, edi, bitmask
 			;Combine the data
 			data = create_struct(temporary(data_0), temporary(data_90), temporary(data_180))
 			
-			;Subset of field-aligned mode
+			;Subset of alternating mode
 			case 1 of
 				array_equal( MrBitGet(theBit, [5,6,7]), 1 ): tag = 'amb_alt_oob'
 				array_equal( MrBitGet(theBit, [5,6]),   1 ): tag = 'amb_alt_oom'
@@ -188,6 +188,25 @@ function mms_edi_amb_sort, edi, bitmask
 			;Append dwell time
 			data = create_struct( temporary(data), $
 			                      'dwell', edi.dwell[i0:i1] )
+
+	;-----------------------------------------------------
+	; Perpendicular \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+	;-----------------------------------------------------
+		endif else if MrBitGet( theBit, 3 ) then begin
+			;Combine the data
+			data = create_struct(temporary(data_90))
+			
+			;Subset of perpendicular mode
+			case 1 of
+				array_equal(MrBitGet(theBit, [3,6,7]), 1): tag = 'amb_perp_ob'
+				array_equal(MrBitGet(theBit, [3,6]),   1): tag = 'amb_perp_om'
+				array_equal(MrBitGet(theBit, [3]),     1): tag = 'amb_perp_c'
+				else: message, 'Unknown bit combination (' + strtrim(theBit, 2) + ').'
+			endcase
+			
+			;Select timetag, energy, optics
+			i0 = value_locate(edi.epoch_timetag, data.epoch_perp[0])
+			i1 = value_locate(edi.epoch_timetag, data.epoch_perp[-1])
 
 	;-----------------------------------------------------
 	; ??? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

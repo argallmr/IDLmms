@@ -182,7 +182,7 @@ STATUS=status
 	;Incident trajectories
 	;   - GDU1 and GDU2 have identical time tags
 	traj = mms_edi_amb_traj_rotate( edi.epoch_gdu1, temporary(traj), dss_file, defatt_file )
-
+stop
 	;Combine data
 	edi = create_struct(edi, temporary(traj))
 	
@@ -214,6 +214,6 @@ STATUS=status
 ; Sort Results by Mode and Pitch Angle \\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	results = mms_edi_amb_sort( temporary(edi), temporary(bitmask) )
-stop
+	
 	return, results
 end

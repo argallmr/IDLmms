@@ -17,6 +17,7 @@
 ;        | amb-alt-oc  |   1,3   |    2   |      0     |    0    |
 ;        | amb-alt-oom |   1,3   |    2   |      1     |    0    |
 ;        | amb-alt-oob |   1,3   |    2   |      1     |    1    |
+;        | amb-perp-ob |    2    |   --   |      1     |    1    |
 ;        |-------------------------------------------------------------|
 ;        |                           bitmask                           |
 ;        |-------------------------------------------------------------|
@@ -26,6 +27,19 @@
 ;        | amb-alt-oc  |   2^1   |   2^4  |      0     |    0    |  18 |
 ;        | amb-alt-oom |   2^1   |   2^4  |     2^5    |    0    |  50 |
 ;        | amb-alt-oob |   2^1   |   2^4  |     2^5    |   2^6   | 114 |
+;        | amb-perp-c  |   2^2   |    0   |      0     |    0    |   4 |
+;        | amb-perp-om |   2^2   |    0   |     2^5    |    0    |  36 |
+;        | amb-perp-ob |   2^2   |    0   |     2^5    |   2^6   | 100 |
+;        |-------------------------------------------------------------|
+;        |     bit     |    Meaning                                    |
+;        |-------------------------------------------------------------|
+;        |      1      | Field-aligned                                 |
+;        |      2      | Perpendicular                                 |
+;        |      3      | Alternating                                   |
+;        |      4      | Packing mode 0,1                              |
+;        |      5      | Packing mode 2                                |
+;        |      6      | One-sided                                     |
+;        |      7      | Bi-directional                                |
 ;        |-------------------------------------------------------------|
 ;
 ; :Params:
@@ -62,6 +76,7 @@ function mms_edi_amb_ops_bitmask, edi
 ; Separate into Operational Modes \\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Do not set identical modes separately. One would unset the other.
+	;   - Ignore PACK_MODE if PITCH_MODE is "perpendicular"
 	modeBit = bytarr(n_elements(edi.epoch_timetag))
 	modeBit = MrBitSet( modeBit, 1, (edi.pitch_mode   eq 0) )
 	modeBit = MrBitSet( modeBit, 2, (edi.pitch_mode   eq 1) or (edi.pitch_mode eq 3) ) ;PITCH_MODE 1,3 identical
@@ -70,6 +85,13 @@ function mms_edi_amb_ops_bitmask, edi
 	modeBit = MrBitSet( modeBit, 5, (edi.pack_mode    eq 2) )
 	modeBit = MrBitSet( modeBit, 6, (edi.perp_oneside eq 1) )
 	modeBit = MrBitSet( modeBit, 7, (edi.perp_bidir   eq 1) )
+	
+	;Unset packing mode if in perpendicular mode
+	iperp = where(edi.pitch_mode eq 2, nperp)
+	if nperp gt 0 then begin
+		modeBit[iperp] = MrBitSet(modeBit[iperp], 4, 0)
+		modeBit[iperp] = MrBitSet(modeBit[iperp], 5, 0)
+	endif
 
 	;Look for counts outside of the packet time range
 	iLT = where( edi.epoch_gdu1 lt edi.epoch_timetag[0],  nLT )

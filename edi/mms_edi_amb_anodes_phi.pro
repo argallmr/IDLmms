@@ -55,6 +55,62 @@ BRST=brst
 	compile_opt idl2
 	on_error, 2
 	
+	tf_brst = keyword_set(brst)
+	
+	;--------------------------------------------------------------------------
+	; Telemetry  Placement  GDU1                     GDU2
+	;--------------------------------------------------------------------------
+	; Burst      any        phi = (A + 0.5) * 11.25  phi = (A + 0.5) * 11.25
+	; Survey     centered   phi = N * 11.25          phi = (16 - N) * 11.25
+	; Survey     one-sided  phi = (N + 0.5) * 11.25  phi = (15.5 - N) * 11.25
+	;--------------------------------------------------------------------------
+	;  N = reference anode number (phi / 11.25)
+	;  A = per-channel anode number
+	;--------------------------------------------------------------------------
+	
+	;Anode width (degrees)
+	width = 11.25
+	
+	;BRST
+	if tf_brst then begin
+		anode = mms_edi_amb_anodes(phi, bitmask, pitch_gdu1, pitch_gdu2, /BRST)
+		phi_gdu1 = (anode.n_gdu1 + 0.5) * width
+		phi_gdu2 = (anode.n_gdu2 + 0.5) * width
+	
+	;SRVY
+	endif else begin
+		nphi     = n_elements(phi)
+		N        = fix(round( phi / width), TYPE=1)
+		
+		;Separate anode placement types
+		iOneSided = where(MrBitGet(bitmask, 5) OR ~MrBitGet(bitmask, 6), nOneSided, $
+		                  COMPLEMENT=iCenter, NCOMPLEMENT=nCenter)
+		
+		phi_gdu1 = fltarr(nphi)
+		phi_gdu2 = fltarr(nphi)
+		
+		if nCenter gt 0 then begin
+			phi_gdu1[iCenter] = N[iCenter] * width
+			phi_gdu2[iCenter] = (16 - N[iCenter]) * width
+		endif
+		
+		if nOneSided gt 0 then begin
+			phi_gdu1[iOneSided] = (N[iOneSided] + 0.5) * width
+			phi_gdu2[iOneSided] = (15.5 - N[iOneSided]) * width
+		endif
+	endelse
+	
+	;Force into range [0, 360)
+	phi_gdu1 = (phi_gdu1 + (phi_gdu1 lt 0)*360.0) mod 360.0
+	phi_gdu2 = (phi_gdu2 + (phi_gdu2 lt 0)*360.0) mod 360.0
+	
+	;Return
+	return, {phi_gdu1: temporary(phi_gdu1), phi_gdu2: temporary(phi_gdu2)}
+	
+;*****************************************************
+; OLD VERSION BELOW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+;*****************************************************
+	
 	;Check Inputs
 	nPhi    = n_elements(phi)
 	tf_brst = keyword_set(brst)
@@ -266,7 +322,7 @@ BRST=brst
 	;-----------------------------------------------------
 	; Field-Aligned Channels \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if n_elements(offset_fa_gdu1 gt 0) then begin
+		if n_elements(offset_fa_gdu1) gt 0 then begin
 			;Indices of field-aligned anodes
 			iGDU1 = where( pitch_gdu1[idx] eq 0 or pitch_gdu1[idx] eq 180, nGDU1)
 			iGDU2 = where( pitch_gdu2[idx] eq 0 or pitch_gdu2[idx] eq 180, nGDU2)
@@ -288,7 +344,7 @@ BRST=brst
 	;-----------------------------------------------------
 	; Perpendicular Channels \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		if n_elements(offset_90_gdu1 gt 0) then begin
+		if n_elements(offset_90_gdu1) gt 0 then begin
 			;Indices of perpendicular anodes
 			iGDU1 = where( pitch_gdu1[idx] eq 90, nGDU1)
 			iGDU2 = where( pitch_gdu2[idx] eq 90, nGDU2)

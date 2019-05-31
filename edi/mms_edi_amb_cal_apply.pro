@@ -175,11 +175,13 @@ DELTA=err_tot
 	;   - Careful of C = R = 0 case. Should be 1.
 	iZero = where(counts eq 0, nZero, COMPLEMENT=iGood, NCOMPLEMENT=nGood)
 	dC_dR = fltarr(nZero+nGood)
-	if nGood gt 0 then dC_dR[iGood] = cnts_DT[igood] * ( 1.0/counts[iGood] + 1.0/(counts[iGood] + ta/dt) )
+;	if nGood gt 0 then dC_dR[iGood] = cnts_DT[igood] * ( 1.0/counts[iGood] + 1.0/(counts[iGood] + ta/dt) )
+	if nGood gt 0 then dC_dR[iGood] = err_raw * ( ta / (ta - counts[igood]*dt) )^2.0
 	if nZero gt 0 then dC_dR[iZero] = 1.0
 	
 	;Error in dead-time corrected counts
-	err_DT = err_raw * temporary(dC_dR)
+;	err_DT = err_raw * temporary(dC_dR)
+	err_DT = temporary(dC_dR)
 	
 	;ABSCAL Error
 	if tf_abscal then begin
@@ -187,8 +189,12 @@ DELTA=err_tot
 		err_abs = abs_err_pct * abscal
 		
 		;Total error
-		err_tot = sqrt( (relcal * abscal)^2  * err_DT + $
-		                (relcal * cnts_DT)^2 * err_abs )
+;		err_tot = sqrt( (relcal * abscal)^2  * err_DT + $
+;		                (relcal * cnts_DT)^2 * err_abs )
+		err_tot = fltarr(nZero+nGood)
+		if nGood gt 0 then err_tot[iGood] = cnts_abs[iGood] * sqrt( (err_DT[iGood]/cnts_DT[iGood])^2.0 + abs_err_pct^2.0 )
+		if nZero gt 0 then err_tot[iZero] = 0.0
+;		err_tot = cnts_abs * sqrt( (err_DT/cnts_DT)^2.0 + abs_err_pct^2.0 )
 	
 	;RELCAL Error
 	endif else begin
