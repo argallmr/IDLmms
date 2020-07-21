@@ -76,7 +76,7 @@ function mms_fdoa_read_defatt_header, file
 	if the_error ne 0 then begin
 		catch, /CANCEL
 		if n_elements(lun) gt 0 then free_lun, lun
-		void = cgErrorMSG(/QUIET)
+		MrPrintF, 'LogErr'
 		return, !Null
 	endif
 	

@@ -57,6 +57,8 @@
 ;       2016/09/14  -   Written by Matthew Argall
 ;       2017/10/24  -   Alternating mode bits checking was ambiguous. Reordered from
 ;                           most to least specific. - MRA
+;       2020/03/25  -   Fixed index error when first data point occurs before first
+;                           packet time. - MRA
 ;-
 function mms_edi_amb_sort, edi, bitmask
 	compile_opt idl2
@@ -92,9 +94,18 @@ function mms_edi_amb_sort, edi, bitmask
 	nBits    = n_elements(uniqBits)
 	
 	;Log information
-	strBits = nBits eq 1 ? string(uniqBits, FORMAT='(i0)') : '[' + strjoin(string(uniqBits, FORMAT='(i0)'), ',') + ']'
+	modes = mms_edi_amb_ops_bitmask2mode(uniqBits)
+	strBits = '[' + strjoin(modes, ', ') + ']'
 	MrPrintF, 'LogText', nBits,              FORMAT= '(%"Number of operational modes found: %i")'
 	MrPrintF, 'LogText', temporary(strBits), FORMAT= '(%"  Modes: %s")'
+	
+	;Find bits associated with each packet
+	; - Figure out if it is burst mode or survey mode data
+	; - Organize the bits by packet
+	; - Take the bit at the beginning of each packet
+	nperpacket = median(edi.epoch_gdu1[1:*] - edi.epoch_gdu1)/1e3 < 128 ? 128 : 1024
+	npackets = n_elements(edi.epoch_gdu1) / nperpacket
+	packet_bits = (reform(bitmask, nperpacket, npackets))[0,*]
 	
 ;-----------------------------------------------------
 ; Step Through Each Mode \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -102,7 +113,10 @@ function mms_edi_amb_sort, edi, bitmask
 	for i = 0, nBits - 1 do begin
 		theBit = bitmask[iUniq[i]]
 		idx    = where(bitmask eq theBit, nIdx)
-
+		pidx   = where(packet_bits eq theBit, nPIdx)
+		
+		print, modes[i], nPIdx
+		
 	;-----------------------------------------------------
 	; Sort Counts \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
@@ -161,9 +175,9 @@ function mms_edi_amb_sort, edi, bitmask
 				else: message, 'Unknown bit combination (' + strtrim(theBit, 2) + ').'
 			endcase
 			
-			;Select timetag, energy, optics
-			i0 = value_locate(edi.epoch_timetag, data.epoch_fa[0])
-			i1 = value_locate(edi.epoch_timetag, data.epoch_fa[-1])
+			;Append flip flag
+			data = create_struct( temporary(data), $
+			                      'flip_0_180', edi.flip_flag[idx] )
 
 	;-----------------------------------------------------
 	; Alternating \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -181,14 +195,18 @@ function mms_edi_amb_sort, edi, bitmask
 				else: message, 'Unknown bit combination (' + strtrim(theBit, 2) + ').'
 			endcase
 			
-			;Select timetag, energy, optics
-			i0 = value_locate(edi.epoch_timetag, min([data.epoch_fa[0],  data.epoch_perp[0]]))
-			i1 = value_locate(edi.epoch_timetag, max([data.epoch_fa[-1], data.epoch_perp[-1]]))
+			;Which flip flags are associated with field-aligned and perpendicular mode data?
+			;   - This assumes that GDU1 and GDU2 flip at the same time (as does a single flip variable)
+			;   - PA 0 & 180 have the same time tags so one flip variable for all field-aligned data
+			;   - Ditto for PA 90 for GDU1 and GDU2
+			i90 = where(edi.pitch_gdu1[idx] eq 90, n90, COMPLEMENT=iFA, NCOMPLEMENT=nFA)
 			
 			;Append dwell time
 			data = create_struct( temporary(data), $
-			                      'dwell', edi.dwell[i0:i1] )
-
+			                      'dwell',      edi.dwell[pidx], $
+			                      'flip_0_180', edi.flip_flag[idx[iFA]], $
+			                      'flip_90',    edi.flip_flag[idx[i90]] )
+			
 	;-----------------------------------------------------
 	; Perpendicular \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
@@ -204,9 +222,9 @@ function mms_edi_amb_sort, edi, bitmask
 				else: message, 'Unknown bit combination (' + strtrim(theBit, 2) + ').'
 			endcase
 			
-			;Select timetag, energy, optics
-			i0 = value_locate(edi.epoch_timetag, data.epoch_perp[0])
-			i1 = value_locate(edi.epoch_timetag, data.epoch_perp[-1])
+			;Append flip flag
+			data = create_struct( temporary(data), $
+			                      'flip_90', edi.flip_flag )
 
 	;-----------------------------------------------------
 	; ??? \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -220,11 +238,10 @@ function mms_edi_amb_sort, edi, bitmask
 	;-----------------------------------------------------
 		;Packet-time data
 		data = create_struct( temporary(data), $
-		                      'flip_flag',     edi.flip_flag[idx], $
-		                      'epoch_timetag', edi.epoch_timetag[i0:i1], $
-		                      'optics',        edi.optics[i0:i1], $
-		                      'energy_gdu1',   edi.energy_gdu1[i0:i1], $
-		                      'energy_gdu2',   edi.energy_gdu2[i0:i1] )
+		                      'epoch_timetag', edi.epoch_timetag[pidx], $
+		                      'optics',        edi.optics[pidx], $
+		                      'energy_gdu1',   edi.energy_gdu1[pidx], $
+		                      'energy_gdu2',   edi.energy_gdu2[pidx] )
 		
 		;Append results
 		result = n_elements(result) eq 0 $

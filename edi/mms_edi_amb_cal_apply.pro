@@ -167,7 +167,7 @@ DELTA=err_tot
 	;
 	; TODO: Incorporate relative calibration error
 	;
-
+	
 	;Raw counts error
 	err_raw = sqrt(counts)
 
@@ -176,7 +176,7 @@ DELTA=err_tot
 	iZero = where(counts eq 0, nZero, COMPLEMENT=iGood, NCOMPLEMENT=nGood)
 	dC_dR = fltarr(nZero+nGood)
 ;	if nGood gt 0 then dC_dR[iGood] = cnts_DT[igood] * ( 1.0/counts[iGood] + 1.0/(counts[iGood] + ta/dt) )
-	if nGood gt 0 then dC_dR[iGood] = err_raw * ( ta / (ta - counts[igood]*dt) )^2.0
+	if nGood gt 0 then dC_dR[iGood] = err_raw[igood] * ( ta / (ta - counts[igood]*dt) )^2.0
 	if nZero gt 0 then dC_dR[iZero] = 1.0
 	
 	;Error in dead-time corrected counts

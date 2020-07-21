@@ -64,6 +64,10 @@
 ;       2015/03/30  -   Check for preliminary datasets without absolute calibrations. - MRA
 ;       2016/09/17  -   Rename from mms_edi_amb_l2_write to mms_edi_amb_l2_write_fa.
 ;                           Replaced GSM with DBCS data. - MRA
+;       2018/07/10  -   Removed the flip flag because flipping look directions from 0 to
+;                           180 has no adverse affects on the data. - MRA
+;       2020/01/30  -   Added flip flag back in because of Han's new flip flag
+;                           reconstruction algorithm. - MRA
 ;-
 function mms_edi_amb_l2_write_fa, amb_file, amb_data
 	compile_opt idl2
@@ -103,7 +107,7 @@ function mms_edi_amb_l2_write_fa, amb_file, amb_data
 	if ~isa(amb_data.epoch_fa,      'LONG64') then message, 'amb_data.epoch_fa must be LONG64.'
 	if ~isa(amb_data.epoch_timetag, 'LONG64') then message, 'amb_data.epoch_timetag must be LONG64.'
 	if ~isa(amb_data.optics,        'BYTE')   then message, 'amb_data.optics must be BYTE.'
-	if ~isa(amb_data.flip_flag,     'BYTE')   then message, 'amb_data.flip_flag must be BYTE.'
+	if ~isa(amb_data.flip_0_180,    'BYTE')   then message, 'amb_data.flip_0_180 must be BYTE.'
 	if ~isa(amb_data.energy_gdu1,   'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,   'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
 	if ~isa(amb_data.gdu_0,         'BYTE')   then message, 'amb_data.gdu_0 must be BYTE.'
@@ -136,7 +140,7 @@ function mms_edi_amb_l2_write_fa, amb_file, amb_data
 	e_gdu2_vname         = prefix + 'energy_gdu2'     + suffix
 	gdu_0_vname          = prefix + 'gdu_0'           + suffix
 	gdu_180_vname        = prefix + 'gdu_180'         + suffix
-	flip_vname           = prefix + 'flip'            + suffix
+	flip_0_180_vname     = prefix + 'flip_0_180'      + suffix
 	flux1_0_vname        = prefix + 'flux1_0'         + suffix
 	flux2_0_vname        = prefix + 'flux2_0'         + suffix
 	flux3_0_vname        = prefix + 'flux3_0'         + suffix
@@ -175,14 +179,14 @@ function mms_edi_amb_l2_write_fa, amb_file, amb_data
 ;------------------------------------------------------
 
 	;Write variable data to file
-	oamb -> WriteVar, t_vname,       amb_data.epoch_fa
-	oamb -> WriteVar, t_tt_vname,    amb_data.epoch_timetag
-	oamb -> WriteVar, optics_vname,  amb_data.optics
-	oamb -> WriteVar, flip_vname,    amb_data.flip_flag
-	oamb -> WriteVar, e_gdu1_vname,  amb_data.energy_gdu1
-	oamb -> WriteVar, e_gdu2_vname,  amb_data.energy_gdu2
-	oamb -> WriteVar, gdu_0_vname,   amb_data.gdu_0
-	oamb -> WriteVar, gdu_180_vname, amb_data.gdu_180
+	oamb -> WriteVar, t_vname,          amb_data.epoch_fa
+	oamb -> WriteVar, t_tt_vname,       amb_data.epoch_timetag
+	oamb -> WriteVar, optics_vname,     amb_data.optics
+	oamb -> WriteVar, flip_0_180_vname, amb_data.flip_0_180
+	oamb -> WriteVar, e_gdu1_vname,     amb_data.energy_gdu1
+	oamb -> WriteVar, e_gdu2_vname,     amb_data.energy_gdu2
+	oamb -> WriteVar, gdu_0_vname,      amb_data.gdu_0
+	oamb -> WriteVar, gdu_180_vname,    amb_data.gdu_180
 
 ;------------------------------------------------------
 ; Write Flux Data                                     |

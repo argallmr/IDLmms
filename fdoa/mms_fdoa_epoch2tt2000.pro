@@ -120,7 +120,8 @@ TAI=tai
 		end
 		
 		;Convert 1958-001T00:00:00 UTC to TT2000 (TAI)
-		ref_epoch = cdf_parse_tt2000('1958-01-01T00:00:00.000.000.000')
+		;ref_epoch = cdf_parse_tt2000('1958-01-01T00:00:00.000.000.000')
+		ref_epoch = cdf_parse_tt2000('1958-01-01T00:00:00.000')
 
 		;Convert TAI seconds to nanoseconds
 		tai = long64(_epoch * 1d9)

@@ -57,6 +57,9 @@
 ;                               LOG_DIR/sc/instr/mode/level/year/month[/day] to mimick the
 ;                               MMS SDC data directory structure. "/day" is included only if
 ;                               burst files are being processed.
+;       _REF_EXTRA:         in, optional
+;                           Any keyword accepted by mms_edi_amb_l2_sdc is also accepted
+;                               here via keyword inheritance. - MRA
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -69,13 +72,14 @@
 ; :History:
 ;    Modification History::
 ;       2015/10/26  -   Written by Matthew Argall
+;       2019/08/21  -   Added the _REF_EXTRA keyword. - MRA
 ;-
 PRO mms_edi_amb_l2_process, sc, mode, tstart, tend, $
 DATA_PATH_ROOT=data_path_in, $
 DROPBOX_ROOT=dropbox_in, $
 LOG_PATH_ROOT=log_path_in, $
 NO_LOG=no_log, $
-PRELIMINARY=preliminary
+_REF_EXTRA=extra
 	compile_opt idl2
 	
 	catch, the_error
@@ -311,9 +315,9 @@ PRELIMINARY=preliminary
 			
 			;Process data
 			status_out = mms_edi_amb_l2_sdc(sc[k], mode[j], fstart, $
-			                                FILE_OUT    = file_out, $
-			                                NO_LOG      = no_log, $
-			                                PRELIMINARY = preliminary )
+			                                FILE_OUT      = file_out, $
+			                                NO_LOG        = no_log, $
+			                                _STRICT_EXTRA = extra )
 
 			;End of processing time
 			f_end = systime(1)

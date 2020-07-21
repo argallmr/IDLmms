@@ -25,6 +25,7 @@
 ;       2015/11/04  -   Calculate pitch angle for ambient data. - MRA
 ;       2016/01/29  -   Split the QL and L2 processes into separate programs. - MRA
 ;       2016/03/30  -   Added the ABSCAL keyword. - MRA
+;       2020/05/04  -   Propagate fill values into trajectories. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -182,7 +183,7 @@ STATUS=status
 	;Incident trajectories
 	;   - GDU1 and GDU2 have identical time tags
 	traj = mms_edi_amb_traj_rotate( edi.epoch_gdu1, temporary(traj), dss_file, defatt_file )
-stop
+	
 	;Combine data
 	edi = create_struct(edi, temporary(traj))
 	
@@ -208,6 +209,39 @@ stop
 			edi.traj_gse_gdu2[*,iFlip,*]  = fillval
 			edi.traj_gsm_gdu2[*,iFlip,*]  = fillval
 		endif
+	endif
+	
+;-----------------------------------------------------
+; Apply Fill Values \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Fill values in counts need to be applied to trajectories
+	fillval   = tf_abscal ? -1e31 : 4294967295UL
+	ibad_gdu1 = where(edi.counts_gdu1[*,0] eq fillval, nbad_gdu1)
+	ibad_gdu2 = where(edi.counts_gdu2[*,0] eq fillval, nbad_gdu2)
+	if nbad_gdu1 gt 0 then begin
+;		edi.traj_bcs_gdu1[*,ibad_gdu1,*]  = fillval
+		edi.traj_dbcs_gdu1[*,ibad_gdu1,*] = fillval
+		edi.traj_gse_gdu1[*,ibad_gdu1,*]  = fillval
+;		edi.traj_gsm_gdu1[*,ibad_gdu1,*]  = fillval
+	endif
+	if nbad_gdu2 gt 0 then begin
+;		edi.traj_bcs_gdu2[*,ibad_gdu2,*]  = fillval
+		edi.traj_dbcs_gdu2[*,ibad_gdu2,*] = fillval
+		edi.traj_gse_gdu2[*,ibad_gdu2,*]  = fillval
+;		edi.traj_gsm_gdu2[*,ibad_gdu2,*]  = fillval
+	endif
+	
+	;Fill values also need to be kept from phi and theta
+	ibad = where(edi.azimuth eq -1e31 or edi.polar eq -1e31, nbad)
+	if nbad gt 0 then begin
+;		edi.traj_bcs_gdu1[*,ibad,*]  = -1e31
+		edi.traj_dbcs_gdu1[*,ibad,*] = -1e31
+		edi.traj_gse_gdu1[*,ibad,*]  = -1e31
+;		edi.traj_gsm_gdu1[*,ibad,*]  = -1e31
+;		edi.traj_bcs_gdu2[*,ibad,*]  = -1e31
+		edi.traj_dbcs_gdu2[*,ibad,*] = -1e31
+		edi.traj_gse_gdu2[*,ibad,*]  = -1e31
+;		edi.traj_gsm_gdu2[*,ibad,*]  = -1e31
 	endif
 
 ;-----------------------------------------------------

@@ -53,15 +53,21 @@
 ;                               be processed.
 ;
 ; :Keywords:
+;       ALTERNATING:        in, optional, type=boolean, default=1
+;                           If set, alternating mode data files will be produce.
 ;       DATA_PATH_ROOT:     in, optional, type=string, default=!mms_init.data_path
 ;                           Root of the SDC-like directory structure where data files
 ;                               find their final resting place.
 ;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox
 ;                           Directory into which data files are initially saved.
+;       FIELD_ALIGNED:      in, optional, type=boolean, default=1
+;                           If set, field_aligned mode data files will be produce.
 ;       FILE_OUT:           out, optional, type=string
 ;                           Named variable to receive the name of the output file.
 ;       LOG_PATH_ROOT:      in, optional, type=string, default=!mms_init.log_path
 ;                           Root directory into which log files are saved.
+;       PERPENDICULAR:      in, optional, type=boolean, default=1
+;                           If set, perpendicular mode data files will be produce.
 ;
 ; :Returns:
 ;       STATUS:             out, required, type=byte
@@ -89,12 +95,16 @@
 ;       2015/11/24  -   Errors return error code 100 (error) instead of 1 (warning) - MRA
 ;       2016/01/15  -   Changed in puts from FAST_FILE, SLOW_FILE, QL_FILE to
 ;                           SC, MODE, TSTART. - MRA
+;       2019/08/21  -   Added the ALTERNATIONG, FIELD_ALIGNED, and PERPENDICULAR keywords. - MRA
 ;-
 function mms_edi_amb_sdc, sc, mode, level, tstart, $
+ALTERNATING=alternating, $
 DATA_PATH_ROOT=data_path, $
 DROPTBOX_ROOT=dropbox, $
+FIELD_ALIGNED=field_aligned, $
 FILE_OUT=file_out, $
-LOG_PATH_ROOT=log_path
+LOG_PATH_ROOT=log_path, $
+PERPENDICULAR=perpendicular
 	compile_opt idl2
 	
 	catch, the_error
@@ -154,6 +164,16 @@ LOG_PATH_ROOT=log_path
 		then message, 'DATA_PATH_ROOT directory must exist and be readable.'
 	if ~file_test(dropbox, /DIRECTORY, /READ, /WRITE) $
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
+	
+	;Which data products to create
+	tf_alt  = n_elements(alternationg)  eq 0 ? 1B : keyword_set(alternating)
+	tf_fa   = n_elements(field_aligned) eq 0 ? 1B : keyword_set(field_aligned)
+	tf_perp = n_elements(perpendicular) eq 0 ? 1B : keyword_set(perpendicular)
+	if ~tf_fa && ~tf_perp && ~tf_alt then begin
+		tf_fa   = 1B
+		tf_perp = 1B
+		tf_alt  = 1B
+	endif
 
 	;Constants for data to be processed
 	instr   = 'edi'
@@ -250,7 +270,31 @@ LOG_PATH_ROOT=log_path
 	;Process data
 	edi_data = mms_edi_amb_create(edi_files, STATUS=status)
 	if status ne 0 then message, 'Unable to create amb ' + outlevel + ' data.'
-
+	
+	;Do not create field-aligned data product
+	tags = tag_names(edi_data)
+	if ~tf_fa then begin
+		fa_modes = ['amb', 'amb-pm2']
+		tf_member = MrIsMember(tags, fa_modes, imember, COUNT=nMember, /FOLD_CASE)
+		if nMember gt 0 then edi_data = MrStruct_RemoveTags(edi_data, fa_modes[iMember]) $
+	endif
+	
+	;Do not create perpendicular data product
+	tags = tag_names(edi_data)
+	if ~tf_fa then begin
+		perp_modes = ['amb-perp-c', 'amb-perp-ob', 'amb-perp-om']
+		tf_member = MrIsMember(tags, perp_modes, imember, COUNT=nMember, /FOLD_CASE)
+		if nMember gt 0 then edi_data = MrStruct_RemoveTags(edi_data, perp_modes[iMember]) $
+	endif
+	
+	;Do not create perpendicular data product
+	tags = tag_names(edi_data)
+	if ~tf_fa then begin
+		alt_modes = ['amb-alt-cc', 'amb-alt-oc', 'amb-alt-oob', 'amb-alt-oom']
+		tf_member = MrIsMember(tags, alt_modes, imember, COUNT=nMember, /FOLD_CASE)
+		if nMember gt 0 then edi_data = MrStruct_RemoveTags(edi_data, alt_modes[iMember]) $
+	endif
+	
 ;-----------------------------------------------------
 ; Write Data to File \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------

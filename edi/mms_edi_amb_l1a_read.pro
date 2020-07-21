@@ -75,6 +75,13 @@
 ;                           point in amb-alt-oob. Fixes other problems associated with
 ;                           flipping look directions. - MRA
 ;       2019/05/09  -   Removed the QUALITY keyword; a remnant from e-field mode. - MRA
+;       2019/12/13  -   In alternating mode, the third flip flag following a flip from
+;                           field-aligned to perpendicular mode is set only in burst
+;                           mode. Flip flag had same time tags as counts while pitchmode
+;                           had packet time tags. Expand pitchmode variable. - MRA
+;       2020/01/30  -   Incorporate mmsedi_ambburst_determineflips.pro to calculate
+;                           flip flags in burst mode. - MRA
+;       2020/03/24  -   Take flip flags from survey files for L1A >= v1.5.0. - MRA
 ;-
 function mms_edi_amb_l1a_read, files, tstart, tend, $
 EXPAND_ANGLES=expand_angles, $
@@ -221,7 +228,7 @@ STATUS=status
 	for i = 0, nFiles - 1 do cdfIDs[i] = cdf_open(files[i])
 
 	;Read the data for GD12
-	counts1_gdu1 = MrCDF_nRead(files, counts1_gdu1_name, $
+	counts1_gdu1 = MrCDF_nRead(cdfIDs, counts1_gdu1_name, $
 	                           DEPEND_0 = epoch_gdu1, $
 	                           NRECS    = nRecs_gdu1, $
 	                           STATUS   = status_gdu1, $
@@ -235,7 +242,7 @@ STATUS=status
 	                           STATUS   = status_gdu2, $
 	                           TSTART   = tstart, $
 	                           TEND     = tend)
-
+	
 	;No records in file
 	;   - It is possible for only one of the detectors to be operating.
 	if nRecs_gdu1 + nRecs_gdu2 eq 0 then begin
@@ -293,18 +300,27 @@ STATUS=status
 	endelse
 	
 	;Flip flag
-	;   - v1.2.0 introduced this variable
+	;   - v1.2.0 introduced flip flags to burst files
 	;   - If the variables cannot be read, make their default = 0
-	iRead = where( (vx gt 1) or (vx eq 1 and vy ge 2), nRead, COMPLEMENT=iMake, NCOMPLEMENT=nMake)
-	if nMake eq 0 then begin
-		flip_flag = MrCDF_nRead(cdfIDs, flip_flag_name, TSTART=tstart, TEND=tend)
-	endif else if nRead eq 0 then begin
-		flip_flag = bytarr(n_elements(epoch_gdu1))
+	;   - mmsedi_ambburst_determineflips overrides the flip flags in L1A burst files
+	;   - v1.5.0 of L1A introduced flip flags to survey files
+	iFlip = where( (vx gt 1) or ((vx eq 1) and (vy ge 2)), nFlip, COMPLEMENT=iNoFlip, NCOMPLEMENT=nNoFlip )
+	iSrvyFlip = where( (vx gt 1) or ((vx eq 1) and (vy ge 5)), nSrvyFlip, NCOMPLEMENT=nSrvyNoFlip )
+	if mode eq 'brst' then begin
+		flip_flag = mmsedi_ambburst_determineflips(pitch_gdu1)
+		flip_flag = byte(flip_flag.combined_flip)
 	endif else begin
-		status = 104B
-		message, 'Unfortunate mix of version numbers. Cannot continue.'
+		if (nSrvyFlip gt 0) && (nSrvyNoFlip gt 0) then begin
+			status = 104B
+			message, 'Unfortunate mix of version numbers. Cannot continue.'
+		endif
+		
+		if nSrvyFlip gt 0 then begin
+			flip_flag = MrCDF_nRead(cdfIDs, flip_flag_name, TSTART=tstart, TEND=tend)
+		endif else begin
+			flip_flag = bytarr(n_elements(epoch_gdu1))
+		endelse
 	endelse
-	
 	
 	;Close the files
 	for i = 0, nFiles - 1 do begin
@@ -355,8 +371,8 @@ STATUS=status
 		;Print a warning
 		MrPrintF, 'LogText', '---------------------------------------------------------------'
 		MrPrintF, 'LogWarn', 'EPOCH_ANGLE and EPOCH_GDU1 do not have same number of elements.'
-		MrPrintF, 'LogWarn', n_elements(epoch_angle), FORMAT='(%"   EPOCH_ANGLE:  %i")'
-		MrPrintF, 'LogWarn', n_elements(epoch_gdu1),  FORMAT='(%"   EPOCH_GDU1:   %i")'
+		MrPrintF, 'LogWarn', nangle, FORMAT='(%"   EPOCH_ANGLE:  %i")'
+		MrPrintF, 'LogWarn', nepoch, FORMAT='(%"   EPOCH_GDU1:   %i")'
 		MrPrintF, 'LogWarn', '   ---> Expanding EPOCH_ANGLE.'
 		MrPrintF, 'LogText', '---------------------------------------------------------------'
 		MrPrintF, 'LogText', ''
@@ -385,6 +401,16 @@ STATUS=status
 ; Update Flip Flag \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;
+	; Expand the pitchmode variable so that it has the same
+	; number of elements as the flip flag. Then, adjust the
+	; flip flags.
+	;
+	; NOTE:
+	;   Expanding pitchmode adversely affects other programs
+	;   in the processing chain, such as mms_edi_amb_ops_bitmask,
+	;   which expects pitchmode to be on packet time stamps.
+	;   Therefore, the expansion is not propagated out.
+	;
 	; There are two flip flags in sequence each time the GDU
 	; changes look directions. If we take every other flipped
 	; flag (the second of the pair for each pair), then add
@@ -396,12 +422,29 @@ STATUS=status
 	;     IDL> print, a[ [1,99999] ]
 	;            9
 	;
-	iAlt = where(pitch_mode eq 1 or pitch_mode eq 3, nAlt)
-	if nAlt gt 0 then begin
-		iFlip = where(flip_flag[iAlt], nFlip)
-		if nFlip gt 0 then begin
-			iFlip = iFlip[1:*:2]
-			flip_flag[iAlt[iFlip+1]] = 1
+	if mode eq 'brst' then begin
+		nflip = n_elements(flip_flag)
+		npitch = n_elements(pitch_mode)
+		if nflip ne npitch then begin
+			;Print a warning
+			MrPrintF, 'LogText', '---------------------------------------------------------------'
+			MrPrintF, 'LogWarn', 'FLIP and PITCHMODE do not have same number of elements.'
+			MrPrintF, 'LogWarn', nflip,  FORMAT='(%"   FLIP:       %i")'
+			MrPrintF, 'LogWarn', npitch, FORMAT='(%"   PITCHMODE:  %i")'
+			MrPrintF, 'LogWarn', '   ---> Expanding PITCHMODE Variable.'
+			MrPrintF, 'LogText', '---------------------------------------------------------------'
+			MrPrintF, 'LogText', ''
+	
+			;How many points are extrapolating
+			iextrap = where(epoch_gdu1 lt epoch_timetag[0], nextrap)
+			if nextrap gt 0 $
+				then MrPrintF, 'LogWarn', nextrap, FORMAT='(%"%i counts before first epoch_timetag time.")'
+		
+			;Locate EPOCH_GDU1 within EPOCH_TIMETAG
+			iloc = value_locate(epoch_timetag, epoch_gdu1) > 0
+		
+			;Expand flip flags
+			temp_pitch_mode = pitch_mode[iloc]
 		endif
 	endif
 	

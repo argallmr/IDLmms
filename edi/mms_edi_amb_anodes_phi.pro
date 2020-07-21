@@ -49,13 +49,16 @@
 ; :History:
 ;    Modification History::
 ;       2016/09/14  -   Written by Matthew Argall
+;       2020/05/04  -   Modes with mixed one-sided and centered operations
+;                           (e.g. amb-alt-oc) are treated separately. Fix
+;                           typo when searching for one-sided modes. - MRA
 ;-
-function mms_edi_amb_anodes_phi, phi, bitmask, pitch_gdu1, pitch_gdu2, $
+FUNCTION mms_edi_amb_anodes_phi, phi, bitmask, pitch_gdu1, pitch_gdu2, $
 BRST=brst
-	compile_opt idl2
-	on_error, 2
+	Compile_Opt idl2
+	On_Error, 2
 	
-	tf_brst = keyword_set(brst)
+	tf_brst = Keyword_Set(brst)
 	
 	;--------------------------------------------------------------------------
 	; Telemetry  Placement  GDU1                     GDU2
@@ -72,6 +75,64 @@ BRST=brst
 	width = 11.25
 	
 	;BRST
+	IF tf_brst THEN BEGIN
+		anode = mms_edi_amb_anodes(phi, bitmask, pitch_gdu1, pitch_gdu2, /BRST)
+		phi_gdu1 = (anode.n_gdu1 + 0.5) * width
+		phi_gdu2 = (anode.n_gdu2 + 0.5) * width
+	
+	;SRVY
+	ENDIF ELSE BEGIN
+		nphi     = N_Elements(phi)
+		N        = Fix(round( phi / width), TYPE=1)
+		phi_gdu1 = FltArr(nphi)
+		phi_gdu2 = FltArr(nphi)
+		
+		uniqbits = bitmask[Uniq(bitmask, Sort(bitmask))]
+		nuniqbits = N_Elements(uniqbits)
+		FOR i = 0, nuniqbits - 1 DO BEGIN
+			thebit = uniqbits[i]
+			idx = Where(bitmask EQ thebit)
+			
+			;AMB-ALT-OC
+			;   - This mode has mixed one-sided and centered 
+			IF mms_edi_amb_ops_bitmask2mode(thebit) EQ 'amb-alt-oc' THEN BEGIN
+				;GDU1
+				iFA = Where((pitch_gdu1[idx] EQ 0) OR (pitch_gdu1[idx] EQ 180), nFA, $
+				            COMPLEMENT=iPerp, NCOMPLEMENT=nPerp)
+				IF nFA GT 0 THEN phi_gdu1[idx[iFA]] = N[idx[iFA]] * width
+				IF nPerp GT 0 THEN phi_gdu1[idx[iPerp]] = (16 - n[idx[iPerp]]) * width
+				
+				;GDU2
+				iFA = Where((pitch_gdu2[idx] EQ 0) OR (pitch_gdu2[idx] EQ 180), nFA, $
+				            COMPLEMENT=iPerp, NCOMPLEMENT=nPerp)
+				IF nFA GT 0 THEN phi_gdu2[idx[iFA]] = N[idx[iFA]] * width
+				IF nPerp GT 0 THEN phi_gdu2[idx[iPerp]] = (16 - n[idx[iPerp]]) * width
+			
+			;One-Sided
+			ENDIF ELSE IF MrBitGet(thebit, 5) OR MrBitGet(thebit, 6) THEN BEGIN
+				phi_gdu1[idx] = (N[idx] + 0.5) * width
+				phi_gdu2[idx] = (15.5 - N[idx]) * width
+				
+			;Centered
+			ENDIF ELSE BEGIN
+				phi_gdu1[idx] = N[idx] * width
+				phi_gdu2[idx] = (16 - N[idx]) * width
+			ENDELSE
+		ENDFOR
+	ENDELSE
+	
+	;Force into range [0, 360)
+	phi_gdu1 = (phi_gdu1 + (phi_gdu1 LT 0)*360.0) mod 360.0
+	phi_gdu2 = (phi_gdu2 + (phi_gdu2 LT 0)*360.0) mod 360.0
+	
+	;Return
+	RETURN, {phi_gdu1: Temporary(phi_gdu1), phi_gdu2: Temporary(phi_gdu2)}
+	
+;*****************************************************
+; OLD VERSION BELOW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+;*****************************************************
+	
+	;BRST
 	if tf_brst then begin
 		anode = mms_edi_amb_anodes(phi, bitmask, pitch_gdu1, pitch_gdu2, /BRST)
 		phi_gdu1 = (anode.n_gdu1 + 0.5) * width
@@ -83,7 +144,9 @@ BRST=brst
 		N        = fix(round( phi / width), TYPE=1)
 		
 		;Separate anode placement types
-		iOneSided = where(MrBitGet(bitmask, 5) OR ~MrBitGet(bitmask, 6), nOneSided, $
+		;   - Bit 5 is one-sided for field-aligned mode
+		;   - Bit 6 is one-sided for perpendicular mode
+		iOneSided = where(MrBitGet(bitmask, 5) OR MrBitGet(bitmask, 6), nOneSided, $
 		                  COMPLEMENT=iCenter, NCOMPLEMENT=nCenter)
 		
 		phi_gdu1 = fltarr(nphi)

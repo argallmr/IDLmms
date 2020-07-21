@@ -241,7 +241,7 @@ BRST=brst
 	;-----------------------------------------------------
 	; PERP-OB \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 	;-----------------------------------------------------
-		;AMB-PM2
+		;PERP-OB
 		;   - pitch    = perpendicular   = bit 3
 		;   - 90       = one-sided       = bit 6
 		;   - 90       = bi-directional  = bit 7
@@ -307,10 +307,6 @@ BRST=brst
 ;-----------------------------------------------------
 
 	;Force into range [0,31]
-;	iGood1 = where(gdu1 ne fillval, nGood1)
-;	iGood2 = where(gdu2 ne fillval, nGood2)
-;	if nGood2 gt 0 then gdu1[iGood1] = (gdu1[iGood1] + (gdu1[iGood1] lt 0)*32) mod 32
-;	if nGood2 gt 0 then gdu2[iGood2] = (gdu2[iGood2] + (gdu2[iGood2] lt 0)*32) mod 32
 	gdu1 = (gdu1 + (gdu1 lt 0)*32) mod 32
 	gdu2 = (gdu2 + (gdu2 lt 0)*32) mod 32
 	

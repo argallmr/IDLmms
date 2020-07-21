@@ -95,6 +95,7 @@ function mms_edi_amb_l2_write_perp, amb_file, amb_data
 	if ~isa(amb_data.optics,            'BYTE')   then message, 'amb_data.optics must be BYTE.'
 	if ~isa(amb_data.energy_gdu1,       'UINT')   then message, 'amb_data.energy_gdu1 must be UINT.'
 	if ~isa(amb_data.energy_gdu2,       'UINT')   then message, 'amb_data.energy_gdu2 must be UINT.'
+;	if ~isa(amb_data.flip_90,           'BYTE')   then message, 'amb_data.flip_90 must be BYTE.'
 	if ~isa(amb_data.counts_90_gdu1,    datatype) then message, 'amb_data.counts_90_gdu1 must be ' + datatype + '.'
 	if ~isa(amb_data.counts_90_gdu2,    datatype) then message, 'amb_data.counts_90_gdu2 must be ' + datatype + '.'
 	if ~isa(amb_data.delta_90_gdu2,     datatype) then message, 'amb_data.delta_90_gdu2 must be '  + datatype + '.'
@@ -121,6 +122,7 @@ function mms_edi_amb_l2_write_perp, amb_file, amb_data
 	optics_vname              = prefix + 'optics_state'       + suffix
 	e_gdu1_vname              = prefix + 'energy_gdu1'        + suffix
 	e_gdu2_vname              = prefix + 'energy_gdu2'        + suffix
+;	flip_90_vname             = prefix + 'flip_90'            + suffix
 	flux1_90_gdu1_vname       = prefix + 'flux1_90_gdu1'      + suffix
 	flux2_90_gdu1_vname       = prefix + 'flux2_90_gdu1'      + suffix
 	flux3_90_gdu1_vname       = prefix + 'flux3_90_gdu1'      + suffix
@@ -165,6 +167,7 @@ function mms_edi_amb_l2_write_perp, amb_file, amb_data
 	oamb -> WriteVar, optics_vname,  amb_data.optics
 	oamb -> WriteVar, e_gdu1_vname,  amb_data.energy_gdu1
 	oamb -> WriteVar, e_gdu2_vname,  amb_data.energy_gdu2
+;	oamb -> WriteVar, flip_90_vname, amb_data.flip_90
 
 ;------------------------------------------------------
 ; Write Flux Data                                     |

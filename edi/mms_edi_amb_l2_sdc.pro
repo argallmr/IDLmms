@@ -25,6 +25,8 @@
 ;                               be processed.
 ;
 ; :Keywords:
+;       ALTERNATING:        in, optional, type=boolean, default=1
+;                           If set, alternating mode data files will be produce.
 ;       CAL_PATH_ROOT:      in, optional, type=string, default=!mms_init.cal_path_root
 ;                           Root of the SDC-like directory structure where calibration
 ;                               files are stored. If not present, the default is taken
@@ -34,6 +36,8 @@
 ;                               find their final resting place.
 ;       DROPBOX_ROOT:       in, optional, type=string, default=!mms_init.dropbox
 ;                           Directory into which data files are initially saved.
+;       FIELD_ALIGNED:      in, optional, type=boolean, default=1
+;                           If set, field_aligned mode data files will be produce.
 ;       FILE_OUT:           out, optional, type=string
 ;                           Named variable to receive the name of the output file.
 ;       HK_ROOT:            in, optional, type=string, default=!mms_init.hk_root
@@ -45,6 +49,8 @@
 ;       NO_LOG:             in, optional, type=boolean, default=0
 ;                           If set, no log file is created and all output is directed to
 ;                               the terminal window.
+;       PERPENDICULAR:      in, optional, type=boolean, default=1
+;                           If set, perpendicular mode data files will be produce.
 ;       PRELIMINARY:        in, optional, type=boolean, default=0
 ;                           If set, a preliminary data set with no absolute cals is
 ;                              is made. This is different from QL data in that QL data
@@ -77,15 +83,19 @@
 ;                           and house-keeping files. - MRA
 ;       2016/03/30  -   Added PRELIMINARY keyword. - MRA
 ;       2018/01/12  -   Fixed indexing error when multiple modes were present in same file. - MRA
+;       2019/08/21  -   Added the ALTERNATIONG, FIELD_ALIGNED, and PERPENDICULAR keywords. - MRA
 ;-
 function mms_edi_amb_l2_sdc, sc, mode, tstart, $
+ALTERNATING=alternating, $
 CAL_PATH_ROOT=cal_path_root, $
 DATA_PATH_ROOT=data_path_root, $
 DROPBOX_ROOT=dropbox_root, $
+FIELD_ALIGNED=field_aligned, $
 FILE_OUT=files, $
 HK_ROOT=hk_root, $
 LOG_PATH_ROOT=log_path_root, $
 NO_LOG=no_log, $
+PERPENDICULAR=perpendicular, $
 PRELIMINARY=preliminary
 	compile_opt idl2
 	
@@ -153,6 +163,16 @@ PRELIMINARY=preliminary
 		then message, 'DROPBOX_ROOT directory must exist and be read- and writeable.'
 	if ~file_test(hk_path, /DIRECTORY, /READ) $
 		then message, 'HK_ROOT directory must exist and be readable.'
+	
+	;Which data products to create
+	tf_alt  = n_elements(alternating)   eq 0 ? 1B : keyword_set(alternating)
+	tf_fa   = n_elements(field_aligned) eq 0 ? 1B : keyword_set(field_aligned)
+	tf_perp = n_elements(perpendicular) eq 0 ? 1B : keyword_set(perpendicular)
+	if ~tf_fa && ~tf_perp && ~tf_alt then begin
+		tf_fa   = 1B
+		tf_perp = 1B
+		tf_alt  = 1B
+	endif
 
 	;Constants for source files
 	instr   = 'edi'
@@ -332,7 +352,13 @@ PRELIMINARY=preliminary
 	;-----------------------------------------------------
 		;ALTERNATING
 		;   - Must come before field-aligned mode ("amb" matches "amb-alt" and "amb-perp")
+		stemp = 0
 		if stregex(outdesc, 'amb-alt', /BOOLEAN) then begin
+			if ~tf_alt then begin
+				MrPrintF, 'LogWarn', 'Not creating alternating mode data.'
+				continue
+			endif
+			
 			;Create the file
 			files[i] = mms_edi_amb_l2_mkfile_alt(sc, mode, outdesc, tstart, $
 			                                     BRST           = (mode eq 'brst'), $
@@ -344,6 +370,11 @@ PRELIMINARY=preliminary
 		
 		;PERPENDICULAR
 		endif else if stregex(outdesc, 'amb-perp', /BOOLEAN) then begin
+			if ~tf_perp then begin
+				MrPrintF, 'LogWarn', 'Not creating perpendicular mode data.'
+				continue
+			endif
+			
 			;create the file
 			files[i] = mms_edi_amb_l2_mkfile_perp(sc, mode, outdesc, tstart, $
 			                                      BRST           = (mode eq 'brst'), $
@@ -355,6 +386,11 @@ PRELIMINARY=preliminary
 		
 		;FIELD-ALIGNED
 		endif else if stregex(outdesc, '^amb', /BOOLEAN) then begin
+			if ~tf_fa then begin
+				MrPrintF, 'LogWarn', 'Not creating field-aligned mode data.'
+				continue
+			endif
+			
 			;Create the file
 			files[i] = mms_edi_amb_l2_mkfile_fa(sc, mode, outdesc, tstart, $
 			                                    BRST           = (mode eq 'brst'), $
@@ -404,10 +440,7 @@ PRELIMINARY=preliminary
 
 		;Check status
 		status >= stemp
-		if stemp ge 100 then begin
-			MrPrintF, 'LogErr', 'Error writing to L2 file.'
-			continue
-		endif
+		if stemp ge 100 then MrPrintF, 'LogErr', 'Error writing to L2 file.'
 	endfor
 
 ;-----------------------------------------------------

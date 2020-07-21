@@ -67,6 +67,8 @@
 ;    Modification History::
 ;       2016/09/12  -   Written by Matthew Argall
 ;       2016/09/14  -   Use MrBitSet to set bits. - MRA
+;       2020/05/26  -   Flux and packet timestamps have offset and drift. Properly
+;                           expand packet times to flux times.
 ;-
 function mms_edi_amb_ops_bitmask, edi
 	compile_opt idl2
@@ -85,23 +87,46 @@ function mms_edi_amb_ops_bitmask, edi
 	modeBit = MrBitSet( modeBit, 5, (edi.pack_mode    eq 2) )
 	modeBit = MrBitSet( modeBit, 6, (edi.perp_oneside eq 1) )
 	modeBit = MrBitSet( modeBit, 7, (edi.perp_bidir   eq 1) )
-	
+
 	;Unset packing mode if in perpendicular mode
 	iperp = where(edi.pitch_mode eq 2, nperp)
 	if nperp gt 0 then begin
 		modeBit[iperp] = MrBitSet(modeBit[iperp], 4, 0)
 		modeBit[iperp] = MrBitSet(modeBit[iperp], 5, 0)
 	endif
-
-	;Look for counts outside of the packet time range
-	iLT = where( edi.epoch_gdu1 lt edi.epoch_timetag[0],  nLT )
-	iGT = where( edi.epoch_gdu1 gt edi.epoch_timetag[-1], nGT )
-	if nLT gt 0 then MrPrintF, 'LogWarn', nLT, FORMAT='(%"%i points before first packet time.")'
-	if nGT gt 0 then MrPrintF, 'LogWarn', nGT, FORMAT='(%"%i points after last packet time.")'
 	
-	;Expand the bits
-	iBits = value_locate(edi.epoch_timetag, edi.epoch_gdu1)
+	;Hans Vaith: 2020/05/26 1:40 PM
+	;------------------------------
+	;Here are the time tag formulas for counts/flux time tags with respect to
+	;the packet time tag ('epoch_timetag' in L1A speak). Not taken into
+	;account in these formulas are small adjustments that come from a fixed
+	;correction term determined during I&T and from the FIELDS clock
+	;frequency error correction:
+
+	;Time tags relative to packet time in micro-seconds:
+
+	;For survey:  (index - 1) * 31250 + 1e6 * 7/512
+	;For burst:   (index - 1.5) * 1e6 / 1024
+
+	;'index' runs from 0 to 127 for survey (128 samples per packet) and from
+	;0 to 1024 for burst (1024 samples per packet)
+
+	;With these formulas the first time tag for survey (index=0) and the
+	;first two time tags for burst (index=0,1) come out negative with respect
+	;to the packet time.
+	npackets = n_elements(modeBit)
+	nperpacket = median(edi.epoch_gdu1[1:*] - edi.epoch_gdu1)/1e3 < 128 ? 128 : 1024
+	iPacket2Count = reform(rebin(lindgen(1, npackets), nperpacket, npackets), nperpacket*npackets)
+	
+	;Sanity Check: Convert count to packet indices
+;	a = mms_edi_amb_ops_bitmask2mode(modeBit)
+;	a_iuniq = uniq(a, sort(a))
+;	b = mms_edi_amb_ops_bitmask2mode(modeBit[iPacket2Count])
+;	b = reform(b, nperpacket, npackets)
+;	b_iuniq = uniq(b[0,*], sort(b[0,*]))
+;	print, a_iuniq, a[a_iuniq]
+;	print, b_iuniq, b[0,b_iuniq]
 
 	;Return
-	return, modeBit[iBits]
+	return, modeBit[iPacket2Count]
 end

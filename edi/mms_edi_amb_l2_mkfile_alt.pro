@@ -59,6 +59,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/09/18  -   Written by Matthew Argall
+;       2019/07/17  -   Each trajectory variable has its own labl_ptr_1 var attr value. - MRA
 ;-
 function mms_edi_amb_l2_mkfile_alt, sc, mode, optdesc, tstart, amb_data, $
 BRST=brst, $
@@ -101,7 +102,10 @@ STATUS=status
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		
 		;SRVY
 		endif else begin
@@ -109,7 +113,10 @@ STATUS=status
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endelse
 	
 	;ALT-OC
@@ -120,13 +127,19 @@ STATUS=status
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endelse
 	
 	;ALT-OOM
@@ -137,13 +150,18 @@ STATUS=status
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endelse
 	
 	;ALT-OOB
@@ -154,13 +172,19 @@ STATUS=status
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endif else begin
 			mods = [ 'v1.0.0 - Original version.', $
 			         'v2.0.0 - Added the flip flag.', $
 			         'v3.0.0 - Flip flag expanded by 1 point and applied to alternating mode. ' + $
 			                  'Anodes number and azimuthal angle calculated according to alt mode. ' + $
-			                  'GDU flags match data.' ]
+			                  'GDU flags match data.', $
+			         'v4.0.0 - Each trajectory has its own LABL_PTR_1 variable. Flip flag is split ' + $
+			                  'into field-aligned and perpendicular modes and has correct time tags. ' + $
+			                  'Remove unused Epoch variable.' ]
 		endelse
 	
 	;UNKNOWN
@@ -332,7 +356,6 @@ STATUS=status
 	prefix  = strjoin([sc, instr], '_') + '_'
 	suffix  = '_' + strjoin([mode, level], '_')
 	
-	t_vname                   = 'Epoch'
 	t_fa_vname                = 'Epoch_0_180'
 	t_perp_vname              = 'Epoch_90'
 	t_tt_vname                = 'epoch_timetag'
@@ -342,7 +365,8 @@ STATUS=status
 	gdu_0_vname               = prefix + 'gdu_0'              + suffix
 	gdu_180_vname             = prefix + 'gdu_180'            + suffix
 	dwell_vname               = prefix + 'dwell'              + suffix
-	flip_vname                = prefix + 'flip'               + suffix
+	flip_0_180_vname          = prefix + 'flip_0_180'         + suffix
+	flip_90_vname             = prefix + 'flip_90'            + suffix
 	flux1_0_vname             = prefix + 'flux1_0'            + suffix
 	flux2_0_vname             = prefix + 'flux2_0'            + suffix
 	flux3_0_vname             = prefix + 'flux3_0'            + suffix
@@ -416,23 +440,57 @@ STATUS=status
 	delta2_180_vname     = prefix + 'flux2_180_delta'     + suffix
 	delta3_180_vname     = prefix + 'flux3_180_delta'     + suffix
 	delta4_180_vname     = prefix + 'flux4_180_delta'     + suffix
+	
+	traj1_dbcs_0_labl_vname       = prefix + 'traj1_dbcs_0_labl' + suffix
+	traj2_dbcs_0_labl_vname       = prefix + 'traj2_dbcs_0_labl' + suffix
+	traj3_dbcs_0_labl_vname       = prefix + 'traj3_dbcs_0_labl' + suffix
+	traj4_dbcs_0_labl_vname       = prefix + 'traj4_dbcs_0_labl' + suffix
+	traj1_dbcs_90_gdu1_labl_vname = prefix + 'traj1_dbcs_90_gdu1_labl' + suffix
+	traj2_dbcs_90_gdu1_labl_vname = prefix + 'traj2_dbcs_90_gdu1_labl' + suffix
+	traj3_dbcs_90_gdu1_labl_vname = prefix + 'traj3_dbcs_90_gdu1_labl' + suffix
+	traj4_dbcs_90_gdu1_labl_vname = prefix + 'traj4_dbcs_90_gdu1_labl' + suffix
+	traj1_dbcs_90_gdu2_labl_vname = prefix + 'traj1_dbcs_90_gdu2_labl' + suffix
+	traj2_dbcs_90_gdu2_labl_vname = prefix + 'traj2_dbcs_90_gdu2_labl' + suffix
+	traj3_dbcs_90_gdu2_labl_vname = prefix + 'traj3_dbcs_90_gdu2_labl' + suffix
+	traj4_dbcs_90_gdu2_labl_vname = prefix + 'traj4_dbcs_90_gdu2_labl' + suffix
+	traj1_dbcs_180_labl_vname     = prefix + 'traj1_dbcs_180_labl' + suffix
+	traj2_dbcs_180_labl_vname     = prefix + 'traj2_dbcs_180_labl' + suffix
+	traj3_dbcs_180_labl_vname     = prefix + 'traj3_dbcs_180_labl' + suffix
+	traj4_dbcs_180_labl_vname     = prefix + 'traj4_dbcs_180_labl' + suffix
+	
+	traj1_gse_0_labl_vname       = prefix + 'traj1_gse_0_labl' + suffix
+	traj2_gse_0_labl_vname       = prefix + 'traj2_gse_0_labl' + suffix
+	traj3_gse_0_labl_vname       = prefix + 'traj3_gse_0_labl' + suffix
+	traj4_gse_0_labl_vname       = prefix + 'traj4_gse_0_labl' + suffix
+	traj1_gse_90_gdu1_labl_vname = prefix + 'traj1_gse_90_gdu1_labl' + suffix
+	traj2_gse_90_gdu1_labl_vname = prefix + 'traj2_gse_90_gdu1_labl' + suffix
+	traj3_gse_90_gdu1_labl_vname = prefix + 'traj3_gse_90_gdu1_labl' + suffix
+	traj4_gse_90_gdu1_labl_vname = prefix + 'traj4_gse_90_gdu1_labl' + suffix
+	traj1_gse_90_gdu2_labl_vname = prefix + 'traj1_gse_90_gdu2_labl' + suffix
+	traj2_gse_90_gdu2_labl_vname = prefix + 'traj2_gse_90_gdu2_labl' + suffix
+	traj3_gse_90_gdu2_labl_vname = prefix + 'traj3_gse_90_gdu2_labl' + suffix
+	traj4_gse_90_gdu2_labl_vname = prefix + 'traj4_gse_90_gdu2_labl' + suffix
+	traj1_gse_180_labl_vname     = prefix + 'traj1_gse_180_labl' + suffix
+	traj2_gse_180_labl_vname     = prefix + 'traj2_gse_180_labl' + suffix
+	traj3_gse_180_labl_vname     = prefix + 'traj3_gse_180_labl' + suffix
+	traj4_gse_180_labl_vname     = prefix + 'traj4_gse_180_labl' + suffix
 
 ;------------------------------------------------------
 ; Create Variables                                    |
 ;------------------------------------------------------
 
 	;Write variable data to file
-	oamb -> CreateVar, t_vname,       'CDF_TIME_TT2000'
-	oamb -> CreateVar, t_fa_vname,    'CDF_TIME_TT2000'
-	oamb -> CreateVar, t_perp_vname,  'CDF_TIME_TT2000'
-	oamb -> CreateVar, t_tt_vname,    'CDF_TIME_TT2000'
-	oamb -> CreateVar, optics_vname,  'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, dwell_vname,   'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, flip_vname,    'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, e_gdu1_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, e_gdu2_vname,  'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, gdu_0_vname,   'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
-	oamb -> CreateVar, gdu_180_vname, 'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, t_fa_vname,         'CDF_TIME_TT2000'
+	oamb -> CreateVar, t_perp_vname,       'CDF_TIME_TT2000'
+	oamb -> CreateVar, t_tt_vname,         'CDF_TIME_TT2000'
+	oamb -> CreateVar, optics_vname,       'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, dwell_vname,        'CDF_FLOAT', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, flip_0_180_vname,   'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, flip_90_vname,      'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, e_gdu1_vname,       'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, e_gdu2_vname,       'CDF_UINT2', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, gdu_0_vname,        'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
+	oamb -> CreateVar, gdu_180_vname,      'CDF_UINT1', COMPRESSION='GZIP', GZIP_LEVEL=6
 	
 	;Group counts by pitch angle
 	if mode eq 'brst' then begin
@@ -569,9 +627,52 @@ STATUS=status
 ;		oamb -> CreateVar, traj1_gsm_180_vname, 'CDF_FLOAT', 1, DIMENSIONS=2, COMPRESSION='GZIP', GZIP_LEVEL=6
 	endelse
 	
-	;Metadata
-	traj_labl_vname = prefix + 'traj_labl'
-	oamb -> WriteVar, /CREATE, traj_labl_vname, [ 'Phi',  'Theta'], /REC_NOVARY
+	;Metadata (Keep the channels in order 1-4
+	if mode eq 'brst' then begin
+		oamb -> WriteVar, /CREATE, traj1_dbcs_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_dbcs_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch2 DBCS PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_dbcs_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch2 DBCS PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_dbcs_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch3 DBCS PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_dbcs_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch2 DBCS PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_dbcs_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch3 DBCS PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_dbcs_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch4 DBCS PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_dbcs_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch2 DBCS PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_dbcs_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch3 DBCS PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_dbcs_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch4 DBCS PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_dbcs_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch2 DBCS PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_dbcs_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch3 DBCS PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_dbcs_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch4 DBCS PA180)',     /REC_NOVARY
+	
+		oamb -> WriteVar, /CREATE, traj1_gse_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch1 GSE PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_gse_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch2 GSE PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_gse_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch3 GSE PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_gse_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch4 GSE PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 GSE PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_gse_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch2 GSE PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_gse_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch3 GSE PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_gse_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch4 GSE PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 GSE PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_gse_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch2 GSE PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_gse_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch3 GSE PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_gse_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch4 GSE PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch1 GSE PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj2_gse_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch2 GSE PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj3_gse_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch3 GSE PA180)',     /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj4_gse_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch4 GSE PA180)',     /REC_NOVARY
+	endif else begin
+		oamb -> WriteVar, /CREATE, traj1_dbcs_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_dbcs_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch1 DBCS PA180)',     /REC_NOVARY
+	
+		oamb -> WriteVar, /CREATE, traj1_gse_0_labl_vname,       [ 'Phi',  'Theta'] + ' (Ch1 GSE PA0)',       /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_90_gdu1_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 GSE PA90 GDU1)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_90_gdu2_labl_vname, [ 'Phi',  'Theta'] + ' (Ch1 GSE PA90 GDU2)', /REC_NOVARY
+		oamb -> WriteVar, /CREATE, traj1_gse_180_labl_vname,     [ 'Phi',  'Theta'] + ' (Ch1 GSE PA180)',     /REC_NOVARY
+	endelse
 
 ;------------------------------------------------------
 ; Create an "Empty" File?                             |
@@ -584,7 +685,8 @@ STATUS=status
 	if tf_empty then begin
 		mms_parse_time, tstart, year, month, day
 		epoch_val = MrCDF_Epoch_Compute(year, month, day, /TT2000)
-		oamb -> WriteVar, t_vname, epoch_val
+		oamb -> WriteVar, t_fa_vname, epoch_val
+		oamb -> WriteVar, t_perp_vname, epoch_val
 	endif
 	
 ;------------------------------------------------------
@@ -616,23 +718,8 @@ STATUS=status
 ; Support Data                                        |
 ;------------------------------------------------------
 	
-	;TT2000
-	oamb -> WriteVarAttr, t_vname, 'CATDESC',       'Place holder - not used.'
-	oamb -> WriteVarAttr, t_vname, 'DELTA_MINUS',    t_delta
-	oamb -> WriteVarAttr, t_vname, 'DELTA_PLUS',     t_delta
-	oamb -> WriteVarAttr, t_vname, 'FIELDNAM',      'Time'
-	oamb -> WriteVarAttr, t_vname, 'FILLVAL',        MrCDF_Epoch_Compute(9999, 12, 31, 23, 59, 59, 999, 999, 999), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_vname, 'FORMAT',        'I16'
-	oamb -> WriteVarAttr, t_vname, 'LABLAXIS',      'UT'
-	oamb -> WriteVarAttr, t_vname, 'SI_CONVERSION', '1e-9>s'
-	oamb -> WriteVarAttr, t_vname, 'TIME_BASE',     'J2000'
-	oamb -> WriteVarAttr, t_vname, 'UNITS',         'ns'
-	oamb -> WriteVarAttr, t_vname, 'VALIDMIN',      MrCDF_Epoch_Compute(2015,  3,  1), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_vname, 'VALIDMAX',      MrCDF_Epoch_Compute(2065, 12, 31), /CDF_EPOCH
-	oamb -> WriteVarAttr, t_vname, 'VAR_TYPE',      'support_data'
-	
 	;EPOCH_0_180
-	oamb -> WriteVarAttr, t_fa_vname, 'CATDESC',       'TT2000 time tags for field-aligned electron counts.'
+	oamb -> WriteVarAttr, t_fa_vname, 'CATDESC',       'TT2000 time tags for field-aligned electron fluxes and trajectories.'
 	oamb -> WriteVarAttr, t_fa_vname, 'DELTA_MINUS',    t_delta
 	oamb -> WriteVarAttr, t_fa_vname, 'DELTA_PLUS',     t_delta
 	oamb -> WriteVarAttr, t_fa_vname, 'FIELDNAM',      'Time'
@@ -647,7 +734,7 @@ STATUS=status
 	oamb -> WriteVarAttr, t_fa_vname, 'VAR_TYPE',      'support_data'
 	
 	;EPOCH_90
-	oamb -> WriteVarAttr, t_perp_vname, 'CATDESC',       'TT2000 time tags for perpendicular electron counts.'
+	oamb -> WriteVarAttr, t_perp_vname, 'CATDESC',       'TT2000 time tags for perpendicular electron fluxes and trajectories.'
 	oamb -> WriteVarAttr, t_perp_vname, 'DELTA_MINUS',    t_delta
 	oamb -> WriteVarAttr, t_perp_vname, 'DELTA_PLUS',     t_delta
 	oamb -> WriteVarAttr, t_perp_vname, 'FIELDNAM',      'Time'
@@ -685,15 +772,33 @@ STATUS=status
 	oamb -> WriteVarAttr, optics_vname, 'VALIDMAX',      254B
 	oamb -> WriteVarAttr, optics_vname, 'VAR_TYPE',      'support_data'
 
-	;FLIP
-	oamb -> WriteVarAttr, flip_vname, 'CATDESC',       'Flip-bit flag indicates that the look direction is 1=changing, 0=not changing.'
-	oamb -> WriteVarAttr, flip_vname, 'DEPEND_0',      t_vname
-	oamb -> WriteVarAttr, flip_vname, 'FIELDNAM',      'Flip flag'
-	oamb -> WriteVarAttr, flip_vname, 'FILLVAL',        255B
-	oamb -> WriteVarAttr, flip_vname, 'FORMAT',        'I1'
-	oamb -> WriteVarAttr, flip_vname, 'VALIDMIN',      0B
-	oamb -> WriteVarAttr, flip_vname, 'VALIDMAX',      1B
-	oamb -> WriteVarAttr, flip_vname, 'VAR_TYPE',      'support_data'
+	;FLIP_0_180
+	oamb -> WriteVarAttr, flip_0_180_vname, 'CATDESC',   'Indicator for rapid detector look direction changes'
+	oamb -> WriteVarAttr, flip_0_180_vname, 'DEPEND_0',  t_fa_vname
+	oamb -> WriteVarAttr, flip_0_180_vname, 'FIELDNAM',  'Flip flag PA0,180'
+	oamb -> WriteVarAttr, flip_0_180_vname, 'FILLVAL',    255B
+	oamb -> WriteVarAttr, flip_0_180_vname, 'FORMAT',    'I1'
+	oamb -> WriteVarAttr, flip_0_180_vname, 'UNITS',     ' '
+	oamb -> WriteVarAttr, flip_0_180_vname, 'VALIDMIN',  0B
+	oamb -> WriteVarAttr, flip_0_180_vname, 'VALIDMAX',  254B
+	oamb -> WriteVarAttr, flip_0_180_vname, 'VAR_TYPE',  'support_data'
+	oamb -> WriteVarAttr, flip_0_180_vname, 'VAR_NOTES', 'Bits (i.e. 2^N) and definitions: GDU 1 & 2 roles ' + $
+	                                                     '0 = flip between 0 and 180; ' + $
+	                                                     '1 = flip between field-aligned and perpendicular.'
+
+	;FLIP_90
+	oamb -> WriteVarAttr, flip_90_vname, 'CATDESC',      'Indicator for rapid detector look direction changes'
+	oamb -> WriteVarAttr, flip_90_vname, 'DEPEND_0',     t_perp_vname
+	oamb -> WriteVarAttr, flip_90_vname, 'FIELDNAM',     'Flip flag PA90'
+	oamb -> WriteVarAttr, flip_90_vname, 'FILLVAL',      255B
+	oamb -> WriteVarAttr, flip_90_vname, 'FORMAT',       'I1'
+	oamb -> WriteVarAttr, flip_90_vname, 'UNITS',        ' '
+	oamb -> WriteVarAttr, flip_90_vname, 'VALIDMIN',     0B
+	oamb -> WriteVarAttr, flip_90_vname, 'VALIDMAX',     254B
+	oamb -> WriteVarAttr, flip_90_vname, 'VAR_TYPE',     'support_data'
+	oamb -> WriteVarAttr, flip_90_vname, 'VAR_NOTES',    'Bits (i.e. 2^N) and definitions: GDU 1 & 2 roles ' + $
+	                                                     '0 = flip between 0 and 180; ' + $
+	                                                     '1 = flip between field-aligned and perpendicular.'
 
 	;ENERGY_GDU1
 	oamb -> WriteVarAttr, e_gdu1_vname, 'CATDESC',       'GDU1 energy'
@@ -727,6 +832,7 @@ STATUS=status
 	oamb -> WriteVarAttr, gdu_0_vname, 'FIELDNAM',      'GDU Identifier'
 	oamb -> WriteVarAttr, gdu_0_vname, 'FILLVAL',        255B
 	oamb -> WriteVarAttr, gdu_0_vname, 'FORMAT',        'I1'
+	oamb -> WriteVarAttr, gdu_0_vname, 'UNITS',         ' '
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_0_vname, 'VALIDMAX',      2B
 	oamb -> WriteVarAttr, gdu_0_vname, 'VAR_TYPE',      'support_data'
@@ -737,6 +843,7 @@ STATUS=status
 	oamb -> WriteVarAttr, gdu_180_vname, 'FIELDNAM',      'GDU Identifier'
 	oamb -> WriteVarAttr, gdu_180_vname, 'FILLVAL',       255B
 	oamb -> WriteVarAttr, gdu_180_vname, 'FORMAT',        'I1'
+	oamb -> WriteVarAttr, gdu_180_vname, 'UNITS',         ' '
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMIN',      1B
 	oamb -> WriteVarAttr, gdu_180_vname, 'VALIDMAX',      2B
 	oamb -> WriteVarAttr, gdu_180_vname, 'VAR_TYPE',      'support_data'
@@ -779,7 +886,7 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_0_vname, 'FIELDNAM',        'Field-aligned electron flux'
 	oamb -> WriteVarAttr, flux1_0_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, flux1_0_vname, 'FORMAT',          'E12.5'
-	oamb -> WriteVarAttr, flux1_0_vname, 'LABLAXIS',        'Flux'
+	oamb -> WriteVarAttr, flux1_0_vname, 'LABLAXIS',        'Flux (Ch' + ch[0] + ' PA0)'
 	oamb -> WriteVarAttr, flux1_0_vname, 'SCALETYP',        'log'
 	oamb -> WriteVarAttr, flux1_0_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_0_vname, 'UNITS',           'cm^-2 s^-1'
@@ -796,7 +903,7 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'FIELDNAM',        'Perpendicular electron flux GDU1'
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'FORMAT',          'E12.5'
-	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'LABLAXIS',        'Flux'
+	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'LABLAXIS',        'Flux (Ch' + ch[0] + ' PA90 GDU1)'
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'SCALETYP',        'log'
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_90_gdu1_vname, 'UNITS',           'cm^-2 s^-1'
@@ -813,7 +920,7 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'FIELDNAM',        'Perpendicular electron flux GDU2'
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'FORMAT',          'E12.5'
-	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'LABLAXIS',        'Flux'
+	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'LABLAXIS',        'Flux (Ch' + ch[0] + ' PA90 GDU2)'
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'SCALETYP',        'log'
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_90_gdu2_vname, 'UNITS',           'cm^-2 s^-1'
@@ -830,7 +937,7 @@ STATUS=status
 	oamb -> WriteVarAttr, flux1_180_vname, 'FIELDNAM',        'Anti-field-aligned electron flux'
 	oamb -> WriteVarAttr, flux1_180_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, flux1_180_vname, 'FORMAT',          'E12.5'
-	oamb -> WriteVarAttr, flux1_180_vname, 'LABLAXIS',        'Flux'
+	oamb -> WriteVarAttr, flux1_180_vname, 'LABLAXIS',        'Flux (Ch' + ch[0] + ' PA180)'
 	oamb -> WriteVarAttr, flux1_180_vname, 'SCALETYP',        'log'
 	oamb -> WriteVarAttr, flux1_180_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, flux1_180_vname, 'UNITS',           'cm^-2 s^-1'
@@ -851,7 +958,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'FIELDNAM',        'Trajectories for field-aligned electrons'
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'LABL_PTR_1',      traj1_dbcs_0_labl_vname
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_dbcs_0_vname, 'UNITS',           'degrees'
@@ -873,7 +980,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'FIELDNAM',        'Trajectories for perpendicular electrons GDU1'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj1_dbcs_90_gdu1_labl_vname
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_vname, 'UNITS',           'degrees'
@@ -895,7 +1002,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'FIELDNAM',        'Trajectories for perpendicular electrons GDU2'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj1_dbcs_90_gdu2_labl_vname
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_vname, 'UNITS',           'degrees'
@@ -917,7 +1024,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'FIELDNAM',        'Trajectories for anti-field-aligned electrons.'
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'LABL_PTR_1',      traj1_dbcs_180_labl_vname
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_dbcs_180_vname, 'UNITS',           'degrees'
@@ -939,7 +1046,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FIELDNAM',        'Trajectories for field-aligned electrons.'
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_0_vname, 'LABL_PTR_1',      traj1_gse_0_labl_vname
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_gse_0_vname, 'UNITS',           'degrees'
@@ -961,7 +1068,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'FIELDNAM',        'Trajectories for perpendicular electrons GDU1'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'LABL_PTR_1',      traj1_gse_90_gdu1_labl_vname
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu1_vname, 'UNITS',           'degrees'
@@ -983,7 +1090,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'FIELDNAM',        'Trajectories for perpendicular electrons GDU2'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'LABL_PTR_1',      traj1_gse_90_gdu2_labl_vname
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_gse_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1006,7 +1113,7 @@ STATUS=status
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FIELDNAM',        'Trajectories for anti-field-aligned electrons.'
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FILLVAL',         -1e31
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'FORMAT',          'F9.4'
-	oamb -> WriteVarAttr, traj1_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+	oamb -> WriteVarAttr, traj1_gse_180_vname, 'LABL_PTR_1',      traj1_gse_180_labl_vname
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'SCALETYP',        'linear'
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 	oamb -> WriteVarAttr, traj1_gse_180_vname, 'UNITS',           'degrees'
@@ -1029,7 +1136,7 @@ STATUS=status
 	oamb -> WriteVarAttr, delta1_0_vname, 'FIELDNAM',      'Error in field-aligned electron flux'
 	oamb -> WriteVarAttr, delta1_0_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, delta1_0_vname, 'FORMAT',        'E12.5'
-	oamb -> WriteVarAttr, delta1_0_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, delta1_0_vname, 'LABLAXIS',      'dFlux (Ch' + ch[0] + ' PA0)'
 	oamb -> WriteVarAttr, delta1_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_0_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_0_vname, 'VALIDMIN',      0.0
@@ -1042,7 +1149,7 @@ STATUS=status
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'FIELDNAM',      'Error in perpendicular electron flux GDU1'
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'FORMAT',        'E12.5'
-	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'LABLAXIS',      'dFlux (Ch' + ch[0] + ' PA90 GDU1)'
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_90_gdu1_vname, 'VALIDMIN',      0.0
@@ -1055,7 +1162,7 @@ STATUS=status
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'FIELDNAM',      'Error in perpendicular electron flux GDU2'
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'FORMAT',        'E12.5'
-	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'LABLAXIS',      'dFlux (Ch' + ch[0] + ' PA90 GDU2)'
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_90_gdu2_vname, 'VALIDMIN',      0.0
@@ -1068,7 +1175,7 @@ STATUS=status
 	oamb -> WriteVarAttr, delta1_180_vname, 'FIELDNAM',      'Error in anti-field-aligned electron flux'
 	oamb -> WriteVarAttr, delta1_180_vname, 'FILLVAL',       -1e31
 	oamb -> WriteVarAttr, delta1_180_vname, 'FORMAT',        'E12.5'
-	oamb -> WriteVarAttr, delta1_180_vname, 'LABLAXIS',      'dFlux'
+	oamb -> WriteVarAttr, delta1_180_vname, 'LABLAXIS',      'dFlux (Ch' + ch[0] + ' PA180)'
 	oamb -> WriteVarAttr, delta1_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_180_vname, 'UNITS',         'cm^-2 s^-1'
 	oamb -> WriteVarAttr, delta1_180_vname, 'VALIDMIN',      0.0
@@ -1093,7 +1200,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_0_vname, 'FIELDNAM',        'Field-aligned electron flux'
 		oamb -> WriteVarAttr, flux2_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux2_0_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux2_0_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux2_0_vname, 'LABLAXIS',        'Flux (Ch' + ch[1] + ' PA0)'
 		oamb -> WriteVarAttr, flux2_0_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux2_0_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_0_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1110,7 +1217,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_0_vname, 'FIELDNAM',        'Field-aligned electron flux'
 		oamb -> WriteVarAttr, flux3_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux3_0_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux3_0_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux3_0_vname, 'LABLAXIS',        'Flux (Ch' + ch[2] + ' PA0)'
 		oamb -> WriteVarAttr, flux3_0_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux3_0_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_0_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1127,7 +1234,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_0_vname, 'FIELDNAM',        'Field-aligned electron flux'
 		oamb -> WriteVarAttr, flux4_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux4_0_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux4_0_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux4_0_vname, 'LABLAXIS',        'Flux (Ch' + ch[3] + ' PA0)'
 		oamb -> WriteVarAttr, flux4_0_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux4_0_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_0_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1144,7 +1251,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'FIELDNAM',        'Perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'LABLAXIS',        'Flux (Ch' + ch[1] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_90_gdu1_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1161,7 +1268,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'FIELDNAM',        'Perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'LABLAXIS',        'Flux (Ch' + ch[2] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_90_gdu1_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1178,7 +1285,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'FIELDNAM',        'Perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'LABLAXIS',        'Flux (Ch' + ch[3] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_90_gdu1_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1195,7 +1302,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'FIELDNAM',        'Perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'LABLAXIS',        'Flux (Ch' + ch[1] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_90_gdu2_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1212,7 +1319,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'FIELDNAM',        'Perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'LABLAXIS',        'Flux (Ch' + ch[2] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_90_gdu2_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1229,7 +1336,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'FIELDNAM',        'Perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'LABLAXIS',        'Flux (Ch' + ch[3] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_90_gdu2_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1246,7 +1353,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux2_180_vname, 'FIELDNAM',        'Anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, flux2_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux2_180_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux2_180_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux2_180_vname, 'LABLAXIS',        'Flux (Ch' + ch[1] + ' PA180)'
 		oamb -> WriteVarAttr, flux2_180_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux2_180_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux2_180_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1263,7 +1370,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux3_180_vname, 'FIELDNAM',        'Anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, flux3_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux3_180_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux3_180_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux3_180_vname, 'LABLAXIS',        'Flux (Ch' + ch[2] + ' PA180)'
 		oamb -> WriteVarAttr, flux3_180_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux3_180_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux3_180_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1280,7 +1387,7 @@ STATUS=status
 		oamb -> WriteVarAttr, flux4_180_vname, 'FIELDNAM',        'Anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, flux4_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, flux4_180_vname, 'FORMAT',          'E12.5'
-		oamb -> WriteVarAttr, flux4_180_vname, 'LABLAXIS',        'Flux'
+		oamb -> WriteVarAttr, flux4_180_vname, 'LABLAXIS',        'Flux (Ch' + ch[3] + ' PA180)'
 		oamb -> WriteVarAttr, flux4_180_vname, 'SCALETYP',        'log'
 		oamb -> WriteVarAttr, flux4_180_vname, 'SI_CONVERSION',   '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, flux4_180_vname, 'UNITS',           'cm^-2 s^-1'
@@ -1298,7 +1405,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta2_0_vname, 'FIELDNAM',      'Error for field-aligned electron flux'
 		oamb -> WriteVarAttr, delta2_0_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta2_0_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta2_0_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta2_0_vname, 'LABLAXIS',      'dFlux (Ch' + ch[1] + ' PA0)'
 		oamb -> WriteVarAttr, delta2_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_0_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_0_vname, 'VALIDMIN',      0.0
@@ -1311,7 +1418,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta3_0_vname, 'FIELDNAM',      'Error for field-aligned electron flux'
 		oamb -> WriteVarAttr, delta3_0_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta3_0_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta3_0_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta3_0_vname, 'LABLAXIS',      'dFlux (Ch' + ch[2] + ' PA0)'
 		oamb -> WriteVarAttr, delta3_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_0_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_0_vname, 'VALIDMIN',      0.0
@@ -1324,7 +1431,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta4_0_vname, 'FIELDNAM',      'Error for field-aligned electron flux'
 		oamb -> WriteVarAttr, delta4_0_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta4_0_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta4_0_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta4_0_vname, 'LABLAXIS',      'dFlux (Ch' + ch[3] + ' PA0)'
 		oamb -> WriteVarAttr, delta4_0_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_0_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_0_vname, 'VALIDMIN',      0.0
@@ -1337,7 +1444,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'LABLAXIS',      'dFlux (Ch' + ch[1] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_90_gdu1_vname, 'VALIDMIN',      0.0
@@ -1350,7 +1457,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'LABLAXIS',      'dFlux (Ch' + ch[2] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_90_gdu1_vname, 'VALIDMIN',      0.0
@@ -1363,7 +1470,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU1'
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'LABLAXIS',      'dFlux (Ch' + ch[3] + ' PA90 GDU1)'
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_90_gdu1_vname, 'VALIDMIN',      0.0
@@ -1376,7 +1483,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'LABLAXIS',      'dFlux (Ch' + ch[1] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_90_gdu2_vname, 'VALIDMIN',      0.0
@@ -1389,7 +1496,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'LABLAXIS',      'dFlux (Ch' + ch[2] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_90_gdu2_vname, 'VALIDMIN',      0.0
@@ -1402,7 +1509,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'FIELDNAM',      'Error for perpendicular electron flux GDU2'
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'LABLAXIS',      'dFlux (Ch' + ch[3] + ' PA90 GDU2)'
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_90_gdu2_vname, 'VALIDMIN',      0.0
@@ -1415,7 +1522,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta2_180_vname, 'FIELDNAM',      'Error for anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, delta2_180_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta2_180_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta2_180_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta2_180_vname, 'LABLAXIS',      'dFlux (Ch' + ch[1] + ' PA180)'
 		oamb -> WriteVarAttr, delta2_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_180_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta2_180_vname, 'VALIDMIN',      0.0
@@ -1428,7 +1535,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta3_180_vname, 'FIELDNAM',      'Error for anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, delta3_180_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta3_180_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta3_180_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta3_180_vname, 'LABLAXIS',      'dFlux (Ch' + ch[2] + ' PA180)'
 		oamb -> WriteVarAttr, delta3_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_180_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta3_180_vname, 'VALIDMIN',      0.0
@@ -1441,7 +1548,7 @@ STATUS=status
 		oamb -> WriteVarAttr, delta4_180_vname, 'FIELDNAM',      'Error for anti-field-aligned electron flux'
 		oamb -> WriteVarAttr, delta4_180_vname, 'FILLVAL',       -1e31
 		oamb -> WriteVarAttr, delta4_180_vname, 'FORMAT',        'E12.5'
-		oamb -> WriteVarAttr, delta4_180_vname, 'LABLAXIS',      'dFlux'
+		oamb -> WriteVarAttr, delta4_180_vname, 'LABLAXIS',      'dFlux (Ch' + ch[3] + ' PA180)'
 		oamb -> WriteVarAttr, delta4_180_vname, 'SI_CONVERSION', '1e4>m^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_180_vname, 'UNITS',         'cm^-2 s^-1'
 		oamb -> WriteVarAttr, delta4_180_vname, 'VALIDMIN',      0.0
@@ -1461,7 +1568,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'LABL_PTR_1',      traj2_dbcs_0_labl_vname
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_dbcs_0_vname, 'UNITS',           'degrees'
@@ -1483,7 +1590,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'LABL_PTR_1',      traj3_dbcs_0_labl_vname
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_dbcs_0_vname, 'UNITS',           'degrees'
@@ -1505,7 +1612,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'LABL_PTR_1',      traj4_dbcs_0_labl_vname
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_dbcs_0_vname, 'UNITS',           'degrees'
@@ -1527,7 +1634,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj2_dbcs_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1549,7 +1656,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj3_dbcs_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1571,7 +1678,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'LABL_PTR_1',      traj4_dbcs_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1593,7 +1700,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj2_dbcs_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1615,7 +1722,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj3_dbcs_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1637,7 +1744,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'LABL_PTR_1',      traj4_dbcs_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1659,7 +1766,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'LABL_PTR_1',      traj2_dbcs_180_labl_vname
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_dbcs_180_vname, 'UNITS',           'degrees'
@@ -1681,7 +1788,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'LABL_PTR_1',      traj3_dbcs_180_labl_vname
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_dbcs_180_vname, 'UNITS',           'degrees'
@@ -1703,7 +1810,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'LABL_PTR_1',      traj4_dbcs_180_labl_vname
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_dbcs_180_vname, 'UNITS',           'degrees'
@@ -1729,7 +1836,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_0_vname, 'LABL_PTR_1',      traj2_gse_0_labl_vname
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_gse_0_vname, 'UNITS',           'degrees'
@@ -1751,7 +1858,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_0_vname, 'LABL_PTR_1',      traj3_gse_0_labl_vname
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_gse_0_vname, 'UNITS',           'degrees'
@@ -1773,7 +1880,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FIELDNAM',        'Trajectory of field-aligned electrons'
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_gse_0_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_0_vname, 'LABL_PTR_1',      traj4_gse_0_labl_vname
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_gse_0_vname, 'UNITS',           'degrees'
@@ -1795,7 +1902,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'LABL_PTR_1',      traj2_gse_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1817,7 +1924,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'LABL_PTR_1',      traj3_gse_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1839,7 +1946,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU1'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'LABL_PTR_1',      traj4_gse_90_gdu1_labl_vname
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu1_vname, 'UNITS',           'degrees'
@@ -1861,7 +1968,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'LABL_PTR_1',      traj2_gse_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_gse_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1883,7 +1990,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'LABL_PTR_1',      traj3_gse_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_gse_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1905,7 +2012,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'FIELDNAM',        'Trajectory of perpendicular electrons GDU2'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'LABL_PTR_1',      traj4_gse_90_gdu2_labl_vname
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_gse_90_gdu2_vname, 'UNITS',           'degrees'
@@ -1927,7 +2034,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj2_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj2_gse_180_vname, 'LABL_PTR_1',      traj2_gse_180_labl_vname
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj2_gse_180_vname, 'UNITS',           'degrees'
@@ -1949,7 +2056,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj3_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj3_gse_180_vname, 'LABL_PTR_1',      traj3_gse_180_labl_vname
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj3_gse_180_vname, 'UNITS',           'degrees'
@@ -1971,7 +2078,7 @@ STATUS=status
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FIELDNAM',        'Trajectory of anti-field-aligned electrons'
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FILLVAL',         -1e31
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'FORMAT',          'F9.4'
-		oamb -> WriteVarAttr, traj4_gse_180_vname, 'LABL_PTR_1',      traj_labl_vname
+		oamb -> WriteVarAttr, traj4_gse_180_vname, 'LABL_PTR_1',      traj4_gse_180_labl_vname
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'SCALETYP',        'linear'
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'SI_CONVERSION',   '0.01745>rad'
 		oamb -> WriteVarAttr, traj4_gse_180_vname, 'UNITS',           'degrees'
@@ -1989,11 +2096,201 @@ STATUS=status
 ; Metadata                                            |
 ;------------------------------------------------------
 
-	;TRAJ_LABL
-	oamb -> WriteVarAttr, traj_labl_vname, 'CATDESC',  'Trajectory labels'
-	oamb -> WriteVarAttr, traj_labl_vname, 'FIELDNAM', 'Trajectory labels'
-	oamb -> WriteVarAttr, traj_labl_vname, 'FORMAT',   'A5'
-	oamb -> WriteVarAttr, traj_labl_vname, 'VAR_TYPE', 'metadata'
+	;TRAJ1_DBCS_0_LABL
+	oamb -> WriteVarAttr, traj1_dbcs_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 1 at pitch angle 0 in DBCS coordinates.'
+	oamb -> WriteVarAttr, traj1_dbcs_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch1 PA0 DBCS)'
+	oamb -> WriteVarAttr, traj1_dbcs_0_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_dbcs_0_labl_vname, 'VAR_TYPE', 'metadata'
+
+	;TRAJ1_DBCS_90_GDU1_LABL
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 1 at pitch angle 90 in DBCS coordinates.'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch1 PA90 DBCS)'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+
+	;TRAJ1_DBCS_90_GDU2_LABL
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 1 at pitch angle 90 in DBCS coordinates.'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch1 PA90 DBCS)'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_dbcs_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+	
+	;TRAJ1_DBCS_180_LABL
+	oamb -> WriteVarAttr, traj1_dbcs_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 1 at pitch angle 180 in DBCS coordinates.'
+	oamb -> WriteVarAttr, traj1_dbcs_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch1 PA180 DBCS)'
+	oamb -> WriteVarAttr, traj1_dbcs_180_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_dbcs_180_labl_vname, 'VAR_TYPE', 'metadata'
+
+	
+	;TRAJ1_GSE_0_LABL
+	oamb -> WriteVarAttr, traj1_gse_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 1 at pitch angle 0 in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch1 PA0 GSE)'
+	oamb -> WriteVarAttr, traj1_gse_0_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_gse_0_labl_vname, 'VAR_TYPE', 'metadata'
+
+	;TRAJ1_GSE_90_GDU1_LABL
+	oamb -> WriteVarAttr, traj1_gse_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 1 at pitch angle 90 in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch1 PA90 GSE)'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu1_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+
+	;TRAJ1_GSE_90_GDU2_LABL
+	oamb -> WriteVarAttr, traj1_gse_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 1 at pitch angle 90 in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch1 PA90 GSE)'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu2_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_gse_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+	
+	;TRAJ1_GSE_180_LABL
+	oamb -> WriteVarAttr, traj1_gse_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 1 at pitch angle 180 in GSE coordinates.'
+	oamb -> WriteVarAttr, traj1_gse_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch1 PA180 GSE)'
+	oamb -> WriteVarAttr, traj1_gse_180_labl_vname, 'FORMAT',   'A5'
+	oamb -> WriteVarAttr, traj1_gse_180_labl_vname, 'VAR_TYPE', 'metadata'
+
+	if mode eq 'brst' then begin
+		;TRAJ2_DBCS_0_LABL
+		oamb -> WriteVarAttr, traj2_dbcs_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 2 at pitch angle 0 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj2_dbcs_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch2 PA0 DBCS)'
+		oamb -> WriteVarAttr, traj2_dbcs_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_dbcs_0_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ3_DBCS_0_LABL
+		oamb -> WriteVarAttr, traj3_dbcs_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 3 at pitch angle 0 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj3_dbcs_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch3 PA0 DBCS)'
+		oamb -> WriteVarAttr, traj3_dbcs_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_dbcs_0_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ4_DBCS_0_LABL
+		oamb -> WriteVarAttr, traj4_dbcs_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 4 at pitch angle 0 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj4_dbcs_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch4 PA0 DBCS)'
+		oamb -> WriteVarAttr, traj4_dbcs_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_dbcs_0_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ2_DBCS_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 2 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch2 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ3_DBCS_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 3 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch3 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ4_DBCS_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 4 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch4 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ2_DBCS_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 2 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch2 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_dbcs_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ3_DBCS_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 3 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch3 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_dbcs_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ4_DBCS_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 4 at pitch angle 90 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch4 PA90 DBCS)'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_dbcs_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ2_DBCS_180_LABL
+		oamb -> WriteVarAttr, traj2_dbcs_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 2 at pitch angle 180 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj2_dbcs_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch2 PA180 DBCS)'
+		oamb -> WriteVarAttr, traj2_dbcs_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_dbcs_180_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ3_DBCS_180_LABL
+		oamb -> WriteVarAttr, traj3_dbcs_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 3 at pitch angle 180 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj3_dbcs_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch3 PA180 DBCS)'
+		oamb -> WriteVarAttr, traj3_dbcs_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_dbcs_180_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ4_DBCS_180_LABL
+		oamb -> WriteVarAttr, traj4_dbcs_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 4 at pitch angle 180 in DBCS coordinates.'
+		oamb -> WriteVarAttr, traj4_dbcs_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch4 PA180 DBCS)'
+		oamb -> WriteVarAttr, traj4_dbcs_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_dbcs_180_labl_vname, 'VAR_TYPE', 'metadata'
+		
+	
+		;TRAJ2_GSE_0_LABL
+		oamb -> WriteVarAttr, traj2_gse_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 2 at pitch angle 0 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch2 PA0 GSE)'
+		oamb -> WriteVarAttr, traj2_gse_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_gse_0_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ3_GSE_0_LABL
+		oamb -> WriteVarAttr, traj3_gse_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 3 at pitch angle 0 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch3 PA0 GSE)'
+		oamb -> WriteVarAttr, traj3_gse_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_gse_0_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ4_GSE_0_LABL
+		oamb -> WriteVarAttr, traj4_gse_0_labl_vname, 'CATDESC',  'Labels for trajectories from channel 4 at pitch angle 0 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_0_labl_vname, 'FIELDNAM', 'Traj labl (Ch4 PA0 GSE)'
+		oamb -> WriteVarAttr, traj4_gse_0_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_gse_0_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ2_GSE_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj2_gse_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 2 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch2 PA90 GSE)'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ3_GSE_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj3_gse_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 3 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch3 PA90 GSE)'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ4_GSE_90_GDU1_LABL
+		oamb -> WriteVarAttr, traj4_gse_90_gdu1_labl_vname, 'CATDESC',  'Labels for trajectories from GDU1, channel 4 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu1_labl_vname, 'FIELDNAM', 'Traj labl (GDU1 Ch4 PA90 GSE)'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu1_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu1_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ2_GSE_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj2_gse_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 2 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch2 PA90 GSE)'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_gse_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ3_GSE_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj3_gse_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 3 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch3 PA90 GSE)'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_gse_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+		
+		;TRAJ4_GSE_90_GDU2_LABL
+		oamb -> WriteVarAttr, traj4_gse_90_gdu2_labl_vname, 'CATDESC',  'Labels for trajectories from GDU2, channel 4 at pitch angle 90 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu2_labl_vname, 'FIELDNAM', 'Traj labl (GDU2 Ch4 PA90 GSE)'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu2_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_gse_90_gdu2_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ2_GSE_180_LABL
+		oamb -> WriteVarAttr, traj2_gse_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 2 at pitch angle 180 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj2_gse_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch2 PA180 GSE)'
+		oamb -> WriteVarAttr, traj2_gse_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj2_gse_180_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ3_GSE_180_LABL
+		oamb -> WriteVarAttr, traj3_gse_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 3 at pitch angle 180 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj3_gse_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch3 PA180 GSE)'
+		oamb -> WriteVarAttr, traj3_gse_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj3_gse_180_labl_vname, 'VAR_TYPE', 'metadata'
+	
+		;TRAJ4_GSE_180_LABL
+		oamb -> WriteVarAttr, traj4_gse_180_labl_vname, 'CATDESC',  'Labels for trajectories from channel 4 at pitch angle 180 in GSE coordinates.'
+		oamb -> WriteVarAttr, traj4_gse_180_labl_vname, 'FIELDNAM', 'Traj labl (Ch4 PA180 GSE)'
+		oamb -> WriteVarAttr, traj4_gse_180_labl_vname, 'FORMAT',   'A5'
+		oamb -> WriteVarAttr, traj4_gse_180_labl_vname, 'VAR_TYPE', 'metadata'
+	endif
 
 ;------------------------------------------------------
 ; Close the File                                      |

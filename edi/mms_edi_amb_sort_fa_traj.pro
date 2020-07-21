@@ -52,6 +52,7 @@
 ; :History:
 ;    Modification History::
 ;       2016/09/18  -   Written by Matthew Argall
+;       2020/03/25  -   Fixed typo bug when only GDU1 or GDU2 data is available. - MRA
 ;-
 function mms_edi_amb_sort_fa_traj, edi, idx, pa
 	compile_opt idl2
@@ -88,15 +89,15 @@ function mms_edi_amb_sort_fa_traj, edi, idx, pa
 
 	;Only GDU1 data
 	endif else if nGDU1 gt 0 then begin
-		traj_dbcs = edi.traj_dbcs[*,iGDU1,*]
-		traj_gse  = edi.traj_gse[*,iGDU1,*]
-		traj_gsm  = edi.traj_gsm[*,iGDU1,*]
+		traj_dbcs = edi.traj_dbcs_gdu1[*,iGDU1,*]
+		traj_gse  = edi.traj_gse_gdu1[*,iGDU1,*]
+		traj_gsm  = edi.traj_gsm_gdu1[*,iGDU1,*]
 
 	;Only GDU2 data
 	endif else if nGDU2 gt 0 then begin
-		traj_dbcs = edi.traj_dbcs[*,iGDU2,*]
-		traj_gse  = edi.traj_gse[*,iGDU2,*]
-		traj_gsm  = edi.traj_gsm[*,iGDU2,*]
+		traj_dbcs = edi.traj_dbcs_gdu2[*,iGDU2,*]
+		traj_gse  = edi.traj_gse_gdu2[*,iGDU2,*]
+		traj_gsm  = edi.traj_gsm_gdu2[*,iGDU2,*]
 
 	;No EDI data
 	endif else begin
